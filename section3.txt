@@ -1,0 +1,355 @@
+===Programs are Functions plus Variable Definitions=== 
+	A program consists of many definitions. A program is composed of several
+functions. There is a main function, and auxiliary, or helper functions.  The
+use of auxiliary functions keeps the design process manageable and the programs
+readable. We desgin the program by breaking it down into smaller, more easily
+solveable problems, like so:
+	(define (area-of-ring outer inner)
+		( - (area-of-disk outer)
+		    (area-of-disk inner)))
+
+	(define (area-of-disk radius) (* 3.14 (* radius radius)))
+This way, we have broken down the problem, rather than writing a big, long and
+complicated definition:
+	(define (area-of-ring outer inner)
+		( - (* 3.14 (* outer outer))
+		    (* 3.14 (inner inner))))
+This computes the same thing and is in fact the same number of lines of code.
+But when we read it we have to reconstruct in our minds the concept that you
+have to subtract from the area of the outer circle the area of the inner circle,
+whereas the first example lays that out for us. It reminds us of our reasoning,
+making it easier to read it and possibly extend it. Breaking up a problem into
+several function definitions increases confidence in final correctness, it also
+facilitates testing of individual components. 
+
+When you have a word problem, first tease out the variables and their
+relationships to one another. Then, formulate the functions, without fleshing
+them out, as in:
+
+;; profit : number -> number
+;; to compute the profit as the difference between revenue and costs
+;; at some given ticket-price
+(define (profit ticket-price) ...)
+
+In our word problem, profit is the variable we want to find the optimum value
+of. We know that profit depends on revenue and cost. Since profit is what we're
+ultimately interested in, we pass it the basic variables. Formulate auxiliary
+function definitions for every dependency between quantities mentioned in the
+problem statement. 
+
+Mathematical equations in one variable are claims about an unknown number. A
+number for which the claim holds is a solution to the equation.
+
+Recipe for designing a conditional function:Recognize first that the problem
+statement contains a list of cases. Identify these different cases. This first
+step is 'Data Analysis'.
+
+Data Analysis: after determining that a problem statement deals with distinct
+situations, identify all these situations. Next, do a 'Data Definition'. For a
+simple numeric function, a good strategy is to draw a number line and identify
+the intervals that correspond to a specific situation. So for interest rate we
+have something like:
+
+[------](----------------------](------------------------>
+0      1,000                   5,000                 10,000
+So there are three distinct situations. One is for between zero and one
+thousand, inclusive. Next is between above a thousand and at five thousand
+inclusive, and finally above five thousand (strictly greater).
+
+Next, you have to choose examples to test distinct situations. You need to
+develop a minimum of one function 'example' for each situation. These should
+include borderline cases - in this case, 0, 1000, and 5000. Next, there are
+interior cases - 500, 1500, 7000, for example. 
+
+For the function body, you have a cond expression with as many clauses as there
+are distinct situations. So at first, given our number line, we have a function
+body like this:
+
+(define (interest-rate amount)
+	(cond
+		(... ...)
+		(... ...)
+		(... ...)))
+
+Next you formulate the conditions that characterize each situation. The
+conditions are all claims about the function's parameters, expressed with
+relational operators or boolean functions - the point is we're testing a claim
+each time. At first glance, we have these conditions:
+
+(and (<= 0 amount) (<= amount 1000))
+(and (> 1000 amount) (<= amount 5000))
+(< 5000 amount)
+
+So we add these in and we get:
+
+(define (interest-rate amount)
+  (cond
+    (and (<= 0 amount) (<= amount 1000) ...)
+    (and (> 1000 amount) (<= amount 5000) ...)
+    (< 5000 amount) ...))
+
+Note that in this function definition order of the clauses doesn't matter. At
+this point you should check that the chosen conditions distinguish inputs in the
+appropriate manner. So if an input belongs to a certain clause you make sure
+that that input would not cause any preceeding clause to become true, or that
+clause will get evaluated and not the one you meant to get evaluated.
+
+The final step is producing the actual output. We've discovered our descreet
+conditions, now what do we do when we get to them? Consider 'each line in the
+cond-expression separately, assuming that the condition holds' - consider each
+condition, and when it is true, what do you want to do? In a simple example,
+like the interest rates above, the results are directly specified in the problem
+statement. If the answers are complex, assume that this is true (one by one) and
+develop an answer at a time. So test, assuming that a certain condition is true.
+
+When the definition is complete, you might want to try to simplify the
+conditions. In the example in 85-89, we can. We know that amount is always
+greater or equal to zero, so the first condition goes from
+	(and (<= 0 amount) (<= amount 1000))
+	to
+	(<= amount 1000)
+and in the second condition, we know that the first condition failed in order
+for this bit to be evaluated. So we drop the first piece of the and -
+	(and (> 1000 amount) (<= amount 5000))
+	becomes
+	(<= amount 5000)
+So, in summary, we have a table:
+===
+Phase: Data analysis
+Goal: To determine the distinct situations a function deals with
+Activity: Inspect the problem statement for distinct situations & enumerate all
+possible situations
+===
+Phase: Examples
+Goal: To provide an example per situation
+Activity: CHoose at least one example per situation & for intervals or
+enumerations, the examples _must_ include borderline cases
+===
+Phase: Body(1) -- Conditionals
+Goal: To formulate a conditional expression.
+Activity: Write down the skeleton of a cond expression, with one clause per
+situation. Formulate one condition per situation, using the parameters. Ensure
+that the conditions distinguish the examples appropriately.
+===
+Phase: Body(2) -- Answers
+Goal: To formulate the answers for the cond-clauses
+Activity: Deal with each cond-line separately. Assume the condition holds and
+develop a Scheme expression that compues the appropriate answer for this case. 
+
+Exercise 4.4.1
+Statement: Develop the function interest. Like interest-rate, it consumes a
+deposit amount. Instead of the rate, it produces the actual amount of interest
+that the money earns in a year. The bank pays a flat 4% for deposits of up to
+$1,000, a flat 4.5% per year for deposits up to $5,000, and a flat 5% for
+deposits of more than $5,000.
+
+Step one: Data Analysis
+interest : number -> number
+Takes deposit amount and returns the interest it accumulates in one year.
+
+From the statement, we have different possible interest rates for different
+initial amounts. We want to then accumulate that interest. There are as many
+different cases as there are interest amounts. There are 3 different rates.
+
+    4.0%                        4.5%                                  5.0%
+[-----------][---------------------------------------------------][--------->
+0           1000                                                 5000
+
+So there are these examples in each situation:
+
+(interst 500) should be 500*(0.04)
+(interest 1000) should be 1000*(0.04)
+(interest 1001) should be 1001*(0.045)
+(interest 1500) should be 1500*(0.045)
+(interest 4999) should be (* 4999 0.045)
+(interest 5000) should be (* 5000 0.045)
+(interest 7000) should be (* 7000 0.050)
+
+Our conditionals:
+
+(cond
+	((and (>= deposit 0) (<= deposit 1000)) ...)
+	((and (> deposit 1000) (<= deposit 5000)) ...)
+	((> deposit 5000) ...))
+
+Final step is body:
+We want to return the amount of interest the deposit accrues in a year. This is
+just the rate multiplied by the amount. So we can use the above number line to
+fill in the conditions:
+(cond 
+	((and (>= deposit 0) (<= deposit 1000)) (* deposit 0.04))
+	((and (> deposit 1000) (<= deposit 5000)) (* deposit 0.045))
+	((> deposit 5000) (*deposit 0.05)))
+
+The after-final step is to simplify. Again, since we know that the deposit
+amount is greater than zero,a dn we know that things are evaluated sequentially,
+we can re-write it this way:
+	( (<= deposit 1000) (* deposit 0.04))
+	( (<= deposit 5000) (* deposit 0.045))
+	( (> deposit 5000) (* deposit 0.05))
+
+
+Chapter 5 - Symbols
+A symbol is an atomic piece of data with no a priori meaning - in other words,
+it has only what meaning you give it. It's up to the user of a function to
+relate symbolic adata to real-world information. Symbols were introduced to
+computing by people who researched artificial intelligence and wanted computers
+to have conversations with people. In guile, you use eq? to compare symbols. Two
+different variables that have the same symbol are equal objects whereas two
+strings with the same characters are not.
+
+problem 5.1.2 
+Data Analysis
+There is a guess, and a target to check against. THe guess could either be
+smaller than the target, greater, or exactly equal to.
+Conditions:
+(< guess target0
+(> guess target)
+(= guess target)
+
+Values:
+(cond
+1	((< guess target) 'TooSmall)
+	((> guess target) 'TooLarge)
+	((= guess target) 'Perfect))
+
+Simplification - again, if it's either less than nor greater than, it has to be
+equal.
+(cond
+  ((< guess target) 'TooSmall)
+  ((> guess target) 'TooLarge)
+  (else 'Perfect))
+
+Expercise 4.4.4 - 
+An equation is a claim about numbers; a quadratic equation is a special kind of
+equation. All quadratic equations (in one variable) have the following general
+shape:
+	a*x^2 + b*x + c = 0.
+In a specific equation, a b and c are replaced by numbers. 
+The variable x represents teh unknown. Depending on the value of x, the two
+sides of teh equation may evaluate to the same value. If they do, then the claim
+is true. Otherwise, it is false. A number that makes the claim true is a
+solution. 
+
+The number of solutions for a quadratic equation depends on the values of a b
+and c. If the coefficient a is 0, we say the equation is degenerate and do not
+consider how many solutions it has. Assuming a is not 0, the equation has
+
+1. Two solutions if b**2 > 4*a*c;
+2. One solution if b**2 == 4*a*c;
+3. No solutions if b**2 < 4*a*c;
+
+To distinguise the cases where b**2 >= 4*a*c from the degenerate one, we
+sometimes use the phrase proper quadratic equation. Deveiop the function
+how-many, which consumes coefficients a, b and c and determines how many
+solutions it has.
+
+Data analysis: Assuming it isn't degenerate, there are three possible values, as
+listed above, this step is mostly done.
+
+Form the conditions:
+
+if b**2 > 4*a*c:
+(> (square b) (* 4 a c))
+if b**2 == 4*a*c:
+(= (square b) (* 4 a c))
+if b**2 < 4*a*c:
+(< (square b) (* 4 a c))
+
+The values to return:
+if b**2 > 4*a*c, two solutions.
+((> (square b) (* 4 a c)) 2)
+if b**2 == 4*a*c, one solution.
+((= (square b) (* 4 a c)) 1)
+if b**2 < 4*a*c, zero solutions.
+((< (square b) (* 4 a c)) 0)
+
+Optimization: We can use the trick of b**2 is either greater than or less than.
+
+(cond
+  ((> (square b) (* 4 a c)) 2)
+  ((< (square b) (* 4 a c)) 1)
+  (else 0))
+However, this is not floating point safe. In the solution, they package the 4 a
+c b squared shit into a function called descriminant, where the compare
+b**2 - 4*a*c == 0. This is a better idea.
+
+We then have to re-write it as a comparison to zero. If b**2 - 4ac > 0, b**2 is
+greater than 4ac, and so on.
+
+
+Exercise 5.1.4 - what-kind. Develop a function what-kind. The function consumes
+coefficients a b and c of a quadratic equation. It then determines whether the
+equation is degenerate and if not, how many solutions it has. 
+
+We can refer back to how-many, so we can write something simpler. We have four
+cases:
+
+Degenerate: a is zero.
+two: how-many returns two
+one: how-many returns one
+none: how-many returns zero.
+
+
+Exercies 5.1.5 Develop the function check-color. It implements a key portion of
+a color guessing game. One play picks two colors for two squares; we call those
+targets. THe other one tries to guess which color is assigned to which square;
+they are guesses. The first player's response two a guess is to check the colors
+and to produce one of the following answers:
+  1. 'Perfect, if the first target is equal to the first guess and the second
+  target is equal to the second guess.
+  2. 'OneColorAtCorrectPosition, if the first guess is equal to the first target
+  or the second guess is equal to th esecond target.
+  3. 'OneColorOccurs if either guess is one of the two targets; and
+  4. 'NothingCorrect, otherwise.
+
+These four answers are the only answers the first player gives. The second
+player is to guess the two chosen target colors with as few guesses as possible.
+The function check-color simulates the first player's checking action. It
+consumes four colors; for simplicity we assume that a color is a symbol; say,
+'red. The first two arguments to check-color are "targets", the latter two are
+"guesses". The function produces one of the four answers. 
+
+Data analysis: 
+Variables: two target colors, and two guesses. Each guess could be:
+1. Right on - the guess is the correct position and color -
+'OneColorAtCorrectPosition
+2. Right color, wrong spot - the guess is at the wrong spot, but has a correct 
+color. - 'OneColorOccurs
+3. Nothing right - 'NotthingCorrect
+
+Finally, if both colors are a color at the correct position, we can return
+'Perfect.
+
+guess1 is the same as target one and guess2 is the same as target2 -> 'Perfect
+guess1 is the same as target1 and guess2 is not the same as target2 ->
+'OneColorAtCorrectPosition
+guess1 is not the same as target1 and guess2 is the same as target2 ->
+'OneColorAtCorrectPosition
+guess1 is the same as target2 or guess2 is the same as target1 ->
+'OneColorOccurs
+guess1 is not the same as target2 or target1 and guess2 is not the same as
+target1 or target2 -> 'NothingCorrect
+
+(cond
+  ((and (symbol=? guess1 target1) (symbol=? guess2 target2)) 'Perfect)
+  ((and (symbol=? guess1 target1) (not (symbol=? guess2 target2)))
+  'OneColorAtCorrectPosition)
+  ((and (symbol=? guess2 target2) (not (symbol=? guess1 target1)))
+  'OneColorAtCorrectPosition)
+  ((or (symbol=? guess2 target1) (symbol=? guess1 target2)) 'OneColorOccurs)
+  ((and (not (symbol=? guess2 target1)) (not (symbol=? guess1 target2)))
+  'NothingCorrect))
+
+Simplification:
+The conditions are evaluated in order. So, if the first failed, we know both
+conditions are not true. So we don't need the not clause in the and, and we
+don't need the and, for the second two conditions. The third condition is good,
+the fourth can be an else. 
+(cond
+  ((and (symbol=? guess1 target1) (symbol=? guess2 target2)) 'Perfect)
+  ((or (symbol=? guess2 target2) (symbol=? guess1 target1)) 'OneColorAtCorrectPosition)
+  ((or (symbol=? guess2 target1) (symbol=? guess1 target2)) 'OneColorOccurs)
+  (else 'NothingCorrect))
+
+

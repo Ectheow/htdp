@@ -1,0 +1,395 @@
+8.4 Errors
+==========
+
+Parenthesized sentences may or may not belong to scheme, depending on whether or
+not they are legal according to the defined grammar. If DrScheme verifies that a
+sentence does not belong to the language Beginning Student it signals a SYNTAX
+ERROR. Remaining expressions are syntactically legal but may pose problems for
+evaluation rules. Legal expressions like this contain logical errors or run-time
+errors. The simplest example is (/ 1 0). We know from math that 1/0 is an
+undefined value. Schemes calculations must be consistent with mathematics so it
+can't equate (/ 1 0) with a value.
+
+If an expression is not a value and the evaluation rules allow for no further
+simplification we say that an error occurred or that the function 'raises' an
+error signal. This means that evaluation immediately stops with an appropriate
+error message such as "/: divide by zero" for division by zero.
+
+Example:
+
+    (+ (* 20 2) (/ 1 (- 10 10)))
+=   (+ 40 (/1 0))
+=   /: divide by zero
+
+The error eliminates the context (+ 40 ...) around (/ 1 0). Consider this
+function:
+
+(define (my-divide n)
+  (cond
+    [(= n 0) 'inf]
+    [else (/ 1 n)]))
+
+Now what happens if we apply it to 0?
+
+(my-divide 0)
+= (cond
+    [(= 0 0) 'inf]
+    [else (/ 1 0)])
+It would be wrong to say that the function signals the error "/: divide by zero"
+now even though an evaluation of the underlined expression would demand doing
+so. This is because (= 0 0) is true and so the application of this function has
+a propper result:
+
+(my-divide 0)
+
+= (cond
+    [(= 0 0) 'inf]
+    [else (/ 1 0)])
+
+= (cond
+    [true 'inf]
+    [else (/ 1 0)])
+
+= 'inf
+
+The laws of evaluation for Scheme take care of these situations automatically.
+We just need to keep in mind when they apply. For example, in:
+
+(+ (* 20 2) (/ 20 2))
+
+The addition can't take place until both the multiplication and dividion.
+Similarly, the divide-by-zero division in
+
+(cond
+  [(= 0 0) 'inf]
+  [else (/ 1 0)])
+Can't be evaluated until the corresponding line is the first condition in the
+cond-expression. Keep the following in mind: Simplify the outermost and
+left-most subexpression that is ready for evaluation when hand-evaluating. 
+
+If you keep this in mind it always explains Scheme's results.
+
+You may want to define functions that raise errors, like the area-of-disk
+function from section 6:
+
+(define (checked-area-of-disk v)
+  (cond
+    [(number? v) (area-of-disk v)]
+    [else (error 'checked-area-of-disk "number expected!")]))
+
+So if for example we apply checked-area-of-disk to a symbol (and also a number)
+we get:
+
+(- (checked-area-of-disk 'a)
+   (checked-area-of-disk 10))
+= (- (cond 
+       [(number? 'a) (area-of-disk 'a)]
+       [else (error 'checked-area-of-disk "number expected")])
+     (checked-area-of-disk 10))
+= (- (cond 
+       [false (area-of-disk 'a)]
+       [else (error 'checked-area-of-disk "number expected")]))
+
+= (- (cond
+       [else (error 'checked-area-of-disk "number expected")])
+     (checked-area-of-disk 10))
+
+= (- (error 'checked-area-of-disk "number expected") (checked-area-of-disk 10))
+
+= checked-area-of-disk : number expected
+
+IN other words when we evaluate the error expression we proceed as if we had
+encoutered a division by zero.
+
+
+8.5 Boolean expressions
+=======================
+
+Our definition of Beginning Student Scheme language omits two forms of
+expressions, and and or expressions. First we need to study the syntax, then the
+semantics, and finally their pragmatics.
+
+    <exp> = (and <exp> <exp>)
+          | (or <exp> <exp>)
+This revised grammar says that and and or are keywords, each followed by two
+expressions. At first glance these two look like primitive or function
+applications. To understand why they aren't we must look at the pragmatics of
+these expressions.
+
+For example, if we need to forumate a condition that determines whether the n-th
+fraction of 1 is im:
+
+(and (not (= n 0))
+     (= (/ 1 n) m))
+
+Assume that n becomes 0 eventually:
+
+(and (not (= 0 0))
+     (= (/ 1 0) m))
+
+If and were an ordinary operation we would have to evaluate both subexpressions
+no matter what. This would trigger an error in the second one. Additionally, we
+could evaluate them in whichever order we wanted. For this reason and is not a
+primitive operation but actually a special expression. In short we use and and
+or expressions to combine boolean computations that may have to short-cut an
+evaluation. 
+
+Once we understand how and and or expressions should be evaluated it is easy to
+formulate matching rules. Better still we can formulate expressions in our first
+language that are equivalent to these expressions:
+
+(and <exp-1> <exp-2)
+= 
+(cond
+  [<exp-1> <exp-2>]
+  [else false])
+
+(or <exp-1> <exp-2>)
+= 
+(cond
+  [<exp-1> true]
+  [else <exp-1>])
+
+These equivalences simplify what really takes place, but are appropriate for
+now.
+
+8.6 Variable Definitions
+========================
+
+Programs consist not only of function definitions, but also variable
+definitions. But these weren't included in our first grammar, which only used
+teh define keyword for function definitions.
+
+Here is the grammar rule for variable definitions: 
+
+<def> = (define <var> <exp>)
+
+The shape of a variable definition is similar to that of a function definition.
+It starts with a ``('', followed by the keyword define, followed by a variable,
+followed by an expression, and closed by a right parenthesis ``)'' that matches
+the very first one. The keyword define itself distinguishes variable definitions
+from expressions, but not from function definitions. For that a reader will have
+to look at the second component of the definition (e.g. a definition either has
+just a legal <var> name or a (<var> <var>...).
+
+
+When DrScheme encounters a definition with an expression on the right-hand side
+it evaluates that expression immediately. For example the right hand side of
+
+(define DIAMETER (* 2 RADIUS))
+
+is the expression (* 2 RADIUS). Its value is 10, since RADIUS stands for 5. We
+may as well have written (define DIAMETER 10). When DrSCheme encounters a
+variable definition it determines teh value of teh right hand side. During this
+step it uses all definitions _preceding_ the current definition but not those
+that follow. Once DrScheme has a value for the right-hand side it remembers that
+the name on the left-hand side stands for this value. 
+
+Excercise 8.6.1 Make up five examples of variable definitions. use constants and
+expressions on the right-hand side.
+
+(define MY-VAR 10)
+(define YOUR-VAR (* MY-VAR 20 30))
+(define OTHER-VAR (+ (* 1 2 3) 2))
+
+Exercise 8.6.3 Evaluate the following sequence of definitions
+
+(define PRICE 5) ==> PRICE stands for 5.
+(define SALES-TAX (* .08 PRICE)) ==> SALES-TAX stands for .40
+(define TOTAL (+ PRICE SALES-TAX)) ==> TOTAL stands for 5.4
+
+8.7 Structure Definitions
+=========================
+
+We still have to understand the syntax and semantics of the structure definition
+though. WHen defining a structure we actually define several primitive
+operations: a constructor (make-<something>), selector functions, and a
+predicate. Hence define-struct is the most complex Scheme construct used thus
+far. A structure definition is a third form of definition. The keyword
+define-struct distinguishes this form of definition from function and variable
+definitions, which it would be otherwise indistinguishable from. The keyword is
+followed by a name, and a sequence of names to be in the struct enclosed in
+parenthesis:
+
+<def> = (define-struct <var0> (<var-1>... <var-n>))
+
+The names in a define-struct definition must be chosen as if they were function
+names, although none of them is actualyl used this way.
+
+Simple example:
+
+(define-struct point (x y z))
+
+Since point, x, y and z are variables and the parenthesis are placed according
+to the grammatical pattern it is a proper definition structure. In contrast
+
+(define-struct (point x y z))
+and
+(define-struct point x y z)
+
+are both improper definitions because define-struct isn't followed by a single
+variable name, and a sequence of variables in parenthesis.
+
+A define-struct definition introduces new primitive operations. The names of
+these operations are formed from those that occur in the definition. Given this
+structure definition:
+
+(define-struct c (s1 ... s-n))
+
+Scheme would introduce several primitive operations:
+
+1. make-c: a CONSTRUCTOR
+2. c-s-1 ... c-s-n: a series of SELECTORS
+3. c?: a PREDICATE
+
+These primitives have the same status as +, -, or *. Before we can understand
+the rules that govern these new primitives we must return to the definition of
+values. 
+
+Now our definition of values no longer consists just of constants, but also
+structures which compound several values into one.  For our grammar rules then,
+we must add one clause per define-struct:
+    <val> = (make-c <val>...<val>)
+
+Let us return to the points structures. Since the list of fields contains three
+names (make-point u v w) is a value if u, v, and w are values. Now we are in a
+position to understand the evaluation rules of new primitives. If c-s-1 is
+applied to a c structure it returns the first component of the value. Similarly
+ithe second selector extracts the second component, and so on. 
+
+(c-s-1 (make-c V-1 ... V-N)) = V-1
+            .
+            .
+            . 
+(c-s-n (make-c V-1 ... V-N)) = V-N
+
+where V-1 ... V-N is a sequence of values as long as s-1...s-n.
+
+For our running example with the point, we get these equations:
+
+(point-x (make-point V U W)) = V
+(point-y (make-point V U W)) = U
+(point-z (make-point V U W)) = W
+
+In particular (point-y (make-point 3 4 5)) is equal to 4, and (point-x
+(make-point (make-point 1 2 3) 4 5)) evaluates to (make-point 1 2 3) because the
+latter is also a value ((make-point 1 2 3) that is, is a value, so can be part
+of a compound value definition). 
+
+The predicate c? can be applied to any value. It returns true if the value is of
+kind c and false otherwise. We can translate both parts into equations. The
+first one
+
+(c? (make-c V-1 ... V-n)) = true 
+
+relates c? and values contstructed with make-c; the second one,
+
+(c? V) = false; if V is a value not constructed with make-c
+
+relates c? to all other values.
+
+Again, the equations are best understood in terms of our example. Here are the
+general equations:
+
+(point? (make-point V U W)) = true
+(point? U) = false; if U is a value, but not a point structure
+
+(point? (make-point 3 4 5)) is true, and (point? 3) is false.
+
+Exercise 8.7.1 Distinguish legal from illegal sentences
+
+1. (define-struct personnel-record (name salary dob ssn)) : legal
+    it follows the grammar to a tee. if
+<def> = (define-struct <var0>(<var1>...<var-n>)), then <var0> =
+personnel-record,
+and <var1>, <var2>, <var3>, <var4> = name, salary, dob, ssn.
+HTDP:
+is legal, because it begins with an open paren, the word define-struct, has an
+identifier, another open paren, a sequence of names and two close parenthesis.
+
+2. (define-struct oops ()) : illegal
+    This doesn't follow the grammar, which specifies at least one variable
+inside the parenthesis.
+HTDP:
+is legal, because it begins with an open paren, the word define-struct, has an
+identifier, another open paren, a sequence of names (in this case, zero) and two
+close parens.
+
+3. (define-struct child (dob date (- date dob))) : illegal
+    This doesn't follow the grammar because parenthesis and - aren't valid
+variable names.
+HTDP:
+is illegal because (- date dob) is not legal as a field name.
+
+
+4. (define-struct (child person) (dob date)) : illegal
+    This doesn't follow the grammar because it doesn't have a leading,
+unenclosed variable name, and has multiple pairs of parenthesis following
+define-struct anyway.
+HTDP:
+is not legal because (child person) is not a legal name for the structure.
+
+5. (define-struct child (parents dob date)) : legal
+    Follows the grammar, with a single lone variable name after define-struct,
+and three variable names after, inside parenthesis.
+
+HTDP:
+is legal because it begins with an open paren, the word define-struct, has an
+identifier, another open paren, a sequence of names and then two close parens.
+
+
+
+
+Exercise 8.7.2 Which of the following are values?
+================================================
+
+1. (make-point 1 2 3) is a value
+HTDP: is a value because 1, 2 and 3 are values.
+
+2. (make-point (make-point 1 2 3) 4 5) is a value
+HTDP: is a value, because (make-point 1 2 3) (from part 1) is a value, and 4 and 5 are also
+values.
+
+3. (make-point (+ 1 2) 3 4) is not a value because (+ 1 2) is not a value, and
+values must be made of values.
+HTDP: is not a value because (+ 1 2) is not a value. It _has_ a value however:
+(make-point 3 3 4)
+
+HTDP:
+A value is a program that cannot be simplified by hand-evaluation. That is, if
+there are hand-evaluation steps possible it is not a value. If there are no more
+hand-evaluation steps and no errors, it is a value.
+
+
+Exercise 8.7.3 Suppose the Definitions window contains
+
+(define-struct ball (x y speed-x speed-y))
+
+Determine the results of the following expressions:
+
+1. (number? (make-ball 1 2 3 4)) ==> False
+2. (ball-speed-y (make-ball (+ 1 2) (+ 3 3) 2 3))
+   (ball-speed-y (make-ball (+ 1 2) (+ 3 3) 2 3)) ==>
+     (ball-speed-y (make-ball (+ 1 2) 6 2 3)) ==> 
+       (ball-speed-y (make-ball 3 6 2 3)) ==>
+         3
+3. (ball-y (make-ball (+ 1 2) (+ 3 3) 2 3)) ==>
+     (ball-y (make-ball (+ 1 2) 6 2 3)) ==>
+       (ball-y (make-ball 3 6 2 3)) ==>
+         6
+Also check how DrScheme deals with the following expressions:
+
+1. (number? (make-ball 1 3 4)) ==>
+   Ball: arity mismatch; 
+    the expected number of arguments does not match the given number
+        expected: 4
+        given: 3
+    It threw an error rather than returning false, because it first tried to in
+some way evaluate make-ball.
+
+2. (ball-x (make-posn 1 2)) ==> 
+    ball-x: expects a ball, given (make-posn 1 2)
+
+3. (ball-speed-y 5)
+    ball-speed-y: expects a ball, given 5
+

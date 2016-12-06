@@ -1,0 +1,1836 @@
+Section 9
+=========
+
+Compound Data, Part 2: Lists
+----------------------------
+
+Structures are one way to represent compound information. However, sometimes we
+don't know the exact number of pieces of information we want to deal with. In
+this case, we form a list. A list can be of any length - it is finite but
+contains an arbitrary number of pieces of data.
+
+9.1 Lists
+---------
+
+When forming a list, you start with an empty list. In scheme
+
+empty
+
+represents the empty list. From this we can construct a longer list with the
+operation cons, like so:
+
+(cons 'Mercury empty)
+
+Here we construct (con struct) a list from the empty list and the symbol
+'Mercury. 
+
+                          +-------------+------------+
+(cons 'Mercury empty) ==> |'Mercury     | empty      |
+                          +-------------+------------+
+
+Once we have a list with a single litem, we can construct lists with two items
+by simply using cons again:
+                                        
+                                        +--------+------------------------+
+                                        |        |+------------+--------+ |
+(cons 'Venus (cons 'Mercury empty) ==>  |'Venus  || 'Mercury   | empty  | |
+                                        |        |+------------+--------+ |
+                                        +--------+------------------------+
+Here, we have another box of two fields. But this box's rest component contains
+the earlier list we created, which has it's own rest component. So we have a
+rest field that contains an entire other box.
+                                                       
+
+                                                        +----------+------------------------------------+
+                                                        |          |+--------+------------------------+ |
+                                                        |          ||        |+------------+--------+ | |
+(cons 'Earth (cons 'Venus (cons 'Mercury empty))) ==>   | 'Earth   ||'Venus  || 'Mercury   | empty  | | |
+                                                        |          ||        |+------------+--------+ | |
+                                                        |          |+--------+------------------------+ |
+                                                        +----------+------------------------------------+
+
+
+We just do the same thing, put boxes inside of boxes, etc. Nested boxes without any physical limits.
+
+Exercise 9.1.1  Create a shceme list that represents
+
+1. List of all planets in the solar system
+(cons 'Pluto
+  (cons 'Neptune
+    (cons 'Uranus
+      (cons 'Saturn
+        (cons 'Jupiter
+          (cons 'Mars
+            (cons 'Earth
+              (cons 'Venus
+                (cons 'Mercury empty)))))))))
+
+2. the following meal: steak, pommes-frites, beans, bread, water, juice, brie-cheese, and ice-cream; and
+(cons 'steak
+  (cons 'pommes-frites
+    (cons 'beans
+      (cons 'bread
+         (cons 'water
+           (cons 'juice
+             (cons 'brie-cheese
+               (cons 'ice-cream empty))))))))
+
+3. the list of basic colors. 
+ no.
+
+A list does not have to contain values of one kind but may contain arbitrary values:
+
+(cons 'RobbyRound
+  (cons 3
+    (cons true
+      empty)))
+
+Suppose we are given a list of numbers. We may want to add the numbers in the
+list. To make it concrete, lets assume we are interested in lists of three
+numbers:
+
+A list-of-3-numbers is
+    (cons x (cons y (cons z empty)))
+
+where x, y, and z are numbers. 
+
+Write down the contract, purpose, header and examples as before:
+
+;; add-up-3: list-of-3-numbers -> number
+;; to add up the three numbers in a-list-of-3-numbers
+;; examples and tests:
+;;   (= (add-up-3 (cons 2 (cons 1 (cons 3 empty)))) 6)
+;;   (= (add-up-3 (cons 0 (cons 1 (cons 0 empty)))) 1)
+(define (add-up-3 a-list-of-3-numbers) ...)
+
+To define the body presents a problem. A consstructed list is like a structure -
+according to our work on structure templates we should lay out a template with
+selector expressions next. Unfortunately, we don't know how to select items from
+a list. 
+
+In analogy to structure selectors, Scheme implements operations for extracting
+the fields from a constructed list: first and rest. The first operation extracts
+the item that we used to construct a list, the rest operation extracts the list
+field.
+
+To describe how first, rest, and cons are related, we can use equations that are
+similar to the equations that govern addition and subtraction and structure
+creation and field extraction:
+
+(first (cons 10 empty))
+= 10
+
+(rest (cons 10 empty))
+= empty
+
+  (first (rest (cons 10 (cons 22 empty))))
+= (first (cons 22 empty))
+= 22
+
+The last one demonstrates how to evaluate a nested expression. The key is to
+think of (cons a-value a-list) as a single value. And, as always, start
+evaluation with the innermost parethesized expressions that can be reduced,
+exactly as in arithmetic.
+
+Using first and rest we can now write down a template for add-up-3:
+
+;; add-up-3: list-of-3-numbers -> number
+;; to add up the three numbers in a-list-of-3-numbers
+(define (add-up-3 a-list-of-3-numbers)
+... (first a-list-of-3-numbers) ...
+... (first (rest a-list-of-3-numbers)) ... 
+... (first (rest (rest a-list-of-3-numbers))) ...
+
+The three expressions remind us that the input, called a-list-of-3-numbers,
+contains three components and how to extract them.
+
+Exercise 9.1.2 Let l be the list
+(cons 10 (cons 20 (cons 5 empty)))
+
+What are the values of the following expressions?
+
+(rest l) ==> (cons 20 (cons 5 empty))
+
+(first (rest l))
+    (first (rest (cons 10 (cons 20 (cons 5 empty)))))
+        (first (cons 20 (cons 5 empty)))
+            20
+
+(rest (rest l)) 
+    (rest (rest (cons 10 (cons 20 (cons 5 empty)))))
+        (rest (cons 20 (cons 5 empty)))
+            (cons 5 empty)
+            
+(first (rest (rest l)))
+    (first (rest (rest (cons 10 (cons 20 (cons 5 empty))))))
+        (first (rest (cons 20 (cons 5 empty))))
+            (first (cons 5 empty))
+                5
+
+
+(rest (rest (rest l)))
+    (rest (rest (rest (cons 10 (cons 20 (cons 5 empty))))))
+        (rest (rest (cons 20 (cons 5 empty))))
+            (rest (cons 5 empty))
+                empty
+Exercise 9.1.3 Finish the development of add-up-3, that is, define the body, and
+test the complete function on some examples.
+
+;; add-up-3: list-of-3-numbers -> number
+(define (add-up-3 a-list-of-3-numbers)
+    (+ 
+        (first a-list-of-3-numbers)
+        (first (rest a-list-of-3-numbers))
+        (first (rest (rest a-list-of-3-numbers)))))
+
+
+A list of three numbers is one possible representation for 3-dimensional points.
+The distance of a 3-dimensional point to the origin of the coordinate grid is
+computed in the same manner as that of a 2-dimensional point: by squaring the
+numbers, adding them up, and taking the square root. Use the template for
+add-up-3 to develop distance-to-o-for-3, which computes the distance of a
+3-dimensional point to the origin.
+
+;; distance-to-0-for-3 : list-of-3-numbers -> number
+(define distance-to-0-for-3 list-of-3-numbers
+    (sqrt
+        (+ 
+            (sqr (first list-of-3-numbers))
+            (sqr (first (rest list-of-3-numbers)))
+            (sqr (first (rest (rest list-of-3-numbers)))))))
+
+
+
+...
+
+9.4 Designing Functions for Self-Referential Data Definitions
+=============================================================
+
+##Data Analysis and Design:
+    If a problem statement discusses compound information of arbitrary size we
+    need a recursive or self-referential data definition. At this point we've
+    seen one such class, list-of-symbols, but it is easy to imagine other, yet
+    similar classes of lists. 
+
+    For a recursive data definition to be valid it must satisfy two conditions.
+    First it must contain at least two clauses. Second, at least one of the
+    clauses must _not_ refer back to the definition - it is good practice to
+    identify self-refernces explicitly with arrows from teh references in the
+    data definition, back to its beginning.
+
+A list-of-symbols is either <-------------------------+
+   1. the empty list, empty or                        |
+   2. (cons s lof) where s is a symbol, and lof is a |list of symbols |
+                                                     ^^^^^^^^^^^^^^^^^^
+   This is for our running example for this section, functions that consume
+    lists of symbols.
+
+##Template:
+    A self-referential data definition specifies a mixed class of data, and one
+    of the clauses should specify a subclass of compound data. Hence, the design
+    of the template can proceed according to the recipes in section 6.5 and 7.2
+    - specifically we cormulate a cond-expression with as many cond-clauses as
+    there are clauses in the data definition, match each recognizing condition
+    to the corresponding clause in the data definition, and write down
+    appropriate selector expressions in all cond-lines that process compound
+    values. It is compound data like a sort of enumeration of symbols might be,
+    for example, we might day that a animal is either a 'dog or a 'cat, and so
+    functions consuming animals would test for it being one or the other of the
+    compound data definition. 
+
+    In addition we inspect each selector expression. For each that extracts a
+    value of the same class of data as the input, we draw an arrow back to the
+    function parameter. At the end, we must have as many arrows as we have in
+    the data definition.
+
+    Lets return to the running example. The template for a list-processing
+    function contains a cond-expression with two clauses, and one arrow:
+                        v-------------------------------+
+    (define (fun-for-los a-list-of-symbols)             |
+      (cond                                             |
+        [(empty? a-list-of-symbols) ...]   +------------+-----------+
+        [else (first a-list-of-symbols)... |(rest a-list-of-symbols)|... ]))
+                                           +------------------------+
+
+    In text we can represent this by putting in the template a self-application
+    of the function to the selector expression(s):
+
+        (define (fun-for-los a-list-of-symbols)
+          (cond
+            [(empty? a-list-of-symbols) ...]
+            [else ...(first a-list-of-symbols)...
+             ... (fun-for-los (rest a-list-of-symbols)) ...]))
+    We refer to these self-applications as Natural Recursions.
+
+##Body:
+    For the design of the body we start with cond-lines that do not contain
+    natural recursions. These are called BASE CASES. The corresponding answers
+    are typically easy to formulate or are already given by the examples. 
+
+    Then we deal with the self-referential cases. We start by reminding
+    ourselves what each of the expressions in the template line computes. For
+    the recursive application we assume that the function already works as
+    specified in our purpose statement. The rest is a matter of combining the
+    various values. 
+
+    Suppose we define the function how-many, which determines how many symbols
+    are present on a list of symbols. Assuming we have followed the design
+    recipe, we have the following:
+
+    ;; how-many : list-of-symbols -> number
+    ;; to determine how many symbols are on a-list-of-symbols
+    (define (how-many a-list-of-symbols)
+      (cond
+        [(empty? a-list-of-symbols) ...]
+        [else ... (first a-list-of-symbols) ...
+              ... (how-many (rest a-list-of-symbols))...]))
+
+    The answer for the base case is 0, because an empty list has 0 symbols. The
+    two expressions in the second clause compute the first item, and the number
+    of symbols in (rest a-list-of-symbols). To compute how many symbols there
+    are on all of a-list-of-symbols, we just need to add 1 to the value of the
+    latter expression:
+
+    (define (how-many a-list-of-symbols)
+      (cond
+        [(empty? a-list-of-symbols) 0]
+        [else (+ (how-many (rest a-list-of-symbols)) 1)]))
+
+##Combining Values:
+    In many cases, the combination step can be expressed with Scheme's
+    primitives, for example, +, and, or cons. If the problem statement suggests
+    that we ask questions about the first item, we may need a nested
+    cond-statement. Finally, in some cases, we may have to define auxiliary
+    functions. 
+
+Figure 26 summarizes this discussion in the usual format; those design steps
+that we didn't discuss are performed as before. The following xection discusses
+several examples in detail.
+
+
+Phase       Goal                      Activity
+Data        To formulate              Develop a data definition for mixed data.
+Analysis    a data defnition          It will have two alternatives:
+and Design                            * One must NOT refer to the definition
+                                      * Explicitly identify all self-references
+                                        in the data definiition.
+
+Contract   To name the function,      Nname the function, the classes of input
+Purpose    specify its classes of     data, the class of output data, and 
+and        output data, describe      specify its purpose:
+Header     its purpose, formulate     ;; name : in1 in2... --> out
+           a header.                  ;; to compute... from x1...
+                                      ;; (define (name x1 x2...) ...)
+
+Examples  to characterize the input   create examples of the input-output
+          output relationship via     relationship
+          examples.                   make sure there is at least one example
+                                      per subclass
+
+Template  to formulate an outline     develop a cond-expression with one clause
+                                      per alternative
+                                      add selector expressions to each clause
+                                      annotate the body with natural recursions
+                                      TEST the self-references in this template
+                                      and data defnition match!
+
+Body      to define the function      formulate a scheme expression for each
+                                      simple  cond-line 
+                                      explain for all other cond-clauses what
+                                      each natural recursion computes according
+                                      to the purpose statement.
+
+Test      to discover mistakes        apply the function to the inputs of the
+          ("typos" and logic)         examples 
+                                      check that the outputs are as predicted.
+
+
+9.5 More on Processing Simple Lists
+===================================
+
+Let us now look at another aspect of inventory management: the cost of an
+inventory. In addition to a list of the available toys, the store owner would
+also maintain a list of the cost of each item. The cost list permits the owner
+to determine how much the current inventory is worth or, given the inventory at
+the beginning of the year and that of the end of the year, how much profit the
+store makes.
+
+A list of costs is most easily represented as a list. For example:
+
+empty
+(cons 1.22 empty)
+(cons 2.59 empty)
+(cons 1.22 (cons 2.59 empty))
+(cons 17.05 (cons 1.22 (cons 2.59 empty)))
+
+For a real store, we cannot place an arbitrary limit on the size of such a list
+and functions that process such cost lists must be prepared to consume lists of
+arbitrary size.
+
+Suppose the toy store needs a function that computes the value of an inventory
+from the cost of individual toys. We call this function sum. Before we can
+define sum, we must figure out how to describe all possible lists of numbers
+that the function may consume. In short we need a data definition that precisely
+defines what an arbitrarily large list of numbers is. Given our data definition
+for list-of-symbols, we can easily do this by simply replacing "symbol" with
+"number" in the earlier definition:
+
+A list-of-numbers is either:
+    1. the empty list empty, or
+    2. (cons n lon) where n is a number and lon is a list of numbers.
+
+Given that this data definition is self-referential again we must confirm that
+it actually defines some lists, and that it defines all those inventories that
+we wish to represent. All of the examples above are lists of numbers. The first
+one, empty, is included explicitly. The second and third are constructed by
+adding teh numbers 1.22, and 2.49, respectively, to the empty list. The others
+are lists of numbers for similar reasons. e.g.
+
+(cons 1.22 empty) is a lon because it fits the pattern 2:
+
+(cons 1.22 empty) is (cons n lon), 1.22 is a number, and empty fits the pattern
+1., it is empty.
+
+As always, we start teh development of a function with a contract, header and
+purpose statement:
+
+;; sum : list-of-numbers -> number
+;; to compue the sum of the numbers on a-list-of-nums
+(define (sum a-list-of-nums) ...)
+
+Then we continue, with function examples
+
+(= (sum empty) 0)
+
+(= (sum (cons 1.00 empty))
+   1.0)
+
+(= (sum (cons 17.05 (cons 1.22 (cons 2.59 empty))))
+  20.89)
+
+If sum is applied to empty the store has no inventory and the result should be
+0. If the input is (cons 1.00 empty) the inventory contains only one toy and the
+cost of the toy, is the cost of the inventory. Hence the result is 1.00. Finally
+for (cons 17.05 (cons 1.22 (cons 2.59 empty))), sum should yield
+
+    17.05 + 1.22 + 2.59 = 20.86
+
+For the design of sum's template we follow the design recipe, step by step.
+First we add the cond-expression:
+
+(define (sum a-list-of-nums)
+  (cond
+    [(empty? a-list-of-nums) ...]
+    [(cons? a-list-of-nums) ...]))
+
+THe second clause indicates with a comment that it deals with constructed lists.
+Second we add the appropriate selector expressions for each clause:
+
+(define (sum a-list-of-nums)
+  (cond
+    [(empty? a-list-of-nums) ...]
+    [(cons? a-list-of-nums)
+     .... (first a-list-of-nums) ... (sum (rest a-list-of-nums)) ...]))
+
+The final template reflects almost every aspect of the data definition. There
+are two clauses of the data definition, and two clauses of the cond, one for
+empty, and the other for a cons-list, where we specifically select teh first
+element, and recurse into the second element, or are 'self-referential' with the
+second element, as you may say. 
+
+Now that we have a template we define the answers for the cond-expression on a
+clause-by-clause basis. In the first clause the input is empty which means that
+the store has no inventory. We already agreed that in this case, the inventory
+is worth nothing, meaning the answer to the cond is 0. IN the second clause of
+the template there are two expressions:
+    1. (first a-list-of-nums) which extracts the cost of the first toy; and
+    2. (sum (rest a-list-of-nums)) which according to the purpose statement of
+    sum, computes the sum of (rest a-list-of-nums).
+From these two reminders of what teh expressions already compute from us, we see
+that the expression
+    (+ (first a-list-of-nums) (sum (rest a-list-of-nums)))
+computes the answer in the second cond-clause.
+
+
+Here is the complete definition of sum:
+
+(define (sum a-list-of-nums)
+  (cond
+    [(empty? a-list-of-nums) 0]
+    [else (+ (first a-list-of-nums) (sum (rest a-list-of-nums)))]))
+
+A comparison of this definition with the template and the data definition shows
+that the step from the data definition to the template is a major step in the
+function development process. Once we have derived the template from a solid
+understanding of the set of possible inputs we can focus on the creative part:
+combining values. For simple examples this step is easy. For others, it requires
+rigorous thinking. 
+
+We will see in the future sections that this relationship between the shape of
+the data definition and the function itself is not a coincidence. Defining the
+class of data that a function consumes always determines to a large extent the
+shape of the function.
+
+Exercise 9.5.1 Use DrScheme to test the definition of sum on the following
+sample lists of numbers:
+
+empty
+(cons 1.00 empty)
+(cons 17.05 (cons 1.22 (cons 2.59 empty)))
+
+Compare the results with our specifications. Then apply sum to the following
+examples:
+
+empty ==> should be 0 
+(cons 2.59 empty) ==> should be 2.59
+(cons 1.22 (cons 2.59 empty)) ==> should be 3.81
+
+First determine what the result should be then use DrScheme to evaluate the
+expressions.
+
+Exercise 9.5.2 Develop the function how-many-symbols which consumes a list of
+symbols and produces the number of items in the list.
+==>
+data definition:
+a list-of-symbols is either:
+1. empty
+2. (cons s los) where s is a symbol and los is a list-of-symbols
+
+contract/header/purpose-statement:
+;; how-many-symbols: list-of-symbols -> number
+;; returns the number of symbols in list-of-symbols
+;;
+;; Examples:
+;; (how-many-symbols empty) 
+;; ==>
+;; 0
+;;
+;; (how-many-symbols (cons 'one empty))
+;; ==>
+;; 1
+;;
+;; (how-many-symbols (cons 'one (cons 'two (cons 'three empty))))
+;; ==>
+;; 3
+(define (how-many-symbols list-of-symbols) ...)
+
+Template:
+(define (how-many-symbols list-of-symbols)
+  (cond
+    [(empty? list-of-symbols) ...]
+    [else ...
+      (first list-of-symbols)...
+      (how-many-symbols (rest list-of-symbols)) ...]))
+
+Body:
+We fill in the ellipses in the else clause and empty? clause. We know from our
+examples already that an empty list produces 0. Assuming that how-many-symbols
+called on (rest list-of-symbols) returns the correct result, then we add one
+more to that result, since the list is not empty, and we have at least one
+symbol, which is the first symbol.
+
+(define (how-many-symbols list-of-symbols)
+  (cond
+    [(empty? list-of-symbols) 0]
+    [else 
+      (+ 1 (how-many-symbols (rest list-of-symbols)))]))
+
+
+<==
+
+Develop the function how-many-numbers which counts how many numbers are in a
+list of numbers. HOw do how-many-symbols and how-many-numbers differ?
+==>
+data definition:
+a list-of-numbers is either:
+1. empty
+2. (cons n lon) where n is a number and los is a list-of-numbers
+
+contract/header/purpose-statement:
+;; how-many-symbols: list-of-symbols -> number
+;; returns the number of symbols in list-of-symbols
+;;
+;; Examples:
+;; (how-many-numbers empty) 
+;; ==>
+;; 0
+;;
+;; (how-many-numbers (cons 1 empty))
+;; ==>
+;; 1
+;;
+;; (how-many-numbers (cons 1 (cons 2 (cons 3 empty))))
+;; ==>
+;; 3
+(define (how-many-numbers list-of-numbers) ...)
+
+Template:
+(define (how-many-numbers list-of-numbers)
+  (cond
+    [(empty? list-of-numbers) ...]
+    [else ...
+      (first list-of-numbers)...
+      (how-many-numbers (rest list-of-numbers)) ...]))
+
+Body:
+We fill in the ellipses in the else clause and empty? clause. We know from our
+examples already that an empty list produces 0. Assuming that how-many-numbers
+called on (rest list-of-symbols) returns the correct result, then we add one
+more to that result, since the list is not empty, and we have at least one
+number in the list, which is the first number.
+
+(define (how-many-numbers list-of-numbers)
+  (cond
+    [(empty? list-of-numbers) 0]
+    [else 
+      (+ 1 (how-many-numbers (rest list-of-numbers)))]))
+
+The functions are exactly the same except for the data definitions and as a
+result the data they process.
+<==
+
+Exercise 9.5.3 Develop the function dollar-store? which consumes a list of
+proces (numbers) and checks whether all of the prices are below 1.
+
+For example, the following expressions should evaluate to true:
+
+(dollar-store? empty)
+(not (dollar-store? (cons .75 (cons 1.95 (cons .25 empty)))))
+(dollar-store? (cons .15 (cons .05 (cons .25 empty))))
+
+Generalize the function so that it consumes a list of prices (numbers) and a
+threshold price (number) and checks that all prices in the list are below the
+threshold.
+
+Data definition:
+
+A dollar-store is either:
+    1. an empty list: empty
+    2. (cons x ds) where x is a number <= 1 and ds is a dollar-store.
+
+Contract:
+
+;; dollar-store? list-of-numbers -> boolean
+;; Determines whether the list-of-numbers is a dollar-store
+;;
+;; (dollar-store? empty) 
+;; ==> 
+;; True
+;; (dollar-store? (cons .75 (cons 1.95 (cons .25 empty))))
+;; ==>
+;; False
+;; (dollar-store (cons .15 (cons .05 (cons .25 empty))))
+;; ==>
+;; True
+(define (dollar-store? list-of-numbers) ...)
+
+
+Template:
+(define (dollar-store? list-of-numbers)
+  (cond
+    [(empty? list-of-numbers) ...]  ;; first element of data definition for list-of-numbers.
+    [else
+        (first list-of-numbers)...
+        (dollar-store? (rest list-of-numbers))]))
+
+We can easily come up with the body when we realize that an iten fits into a
+dollar store if it is < 1 dollar, and that the whole list will be dollar store
+items if the first one is a dollar store item, and the rest of the list is too.
+Body:
+(define (dollar-store? list-of-numbers)
+  (cond
+    [(empty? list-of-numbers)]
+    [else
+      (and (>= 1.0 (first list-of-numbers))
+           (dollar-store? (rest list-of-numbers)))]))
+            
+
+Generalization:
+
+Contract:
+
+;; below-threshold-price? list-of-numbers, number -> boolean
+;; Checks that all the prices in a-list-of-numbers are below a-number.
+;;
+;; (below-threshold-price? (cons .14 (cons 1.2 (cons 1.5 empty))) 2.0)
+;; ==>
+;; #true
+;; (below-threshold-price? (cons .14 (cons .01 (cons .24 empty))) 0)
+;; ==>
+;; #false
+(define (below-threshold-price? a-list-of-numbers a-number) ...)
+
+Template:
+The template is exactly the same with different names
+
+(define (below-threshold-price? a-list-of-numbers a-number)
+  (cond
+    [(empty? a-list-of-numbers) ...]
+    [else
+      ... (first a-list-of-numbers) ...
+      ...  (below-threshold-price? (rest a-list-of-numbers)) ...]))
+
+An empty list-of-numbers is not a list of 0, it is nothing, so it's less than
+the threshold. The body is also exactly the same with the changing of the name
+of the function, and also using a-number instead of the constant 1.0.
+
+Body:
+(define (below-threshold-price? a-list-of-numbers a-number)
+  (cond
+    [(empty? a-list-of-numbers) #true]
+    [else
+      (and (>= a-number (first a-list-of-numbers)) 
+           (below-threshold-price? (rest a-list-of-numbers) a-number)))]))
+
+
+Exercise 9.5.4 Develop the function check-range1?, which consumes a list of
+temperature measurements (represented as numbers) and checks whether all
+measurements are between 5degC and 95degC. 
+
+Contract:
+;;
+;; check-range1? a-list-of-numbers 
+;; Checks that all numbers in a-list-of-numbers are >= 5 and <=
+;; 95
+;;
+;; Examples:
+;; (check-range1? (cons 1.0 (cons 2.0 (cons -1.0 (cons -2.0 empty)))))
+;; =>
+;; #false
+;; (check-range1? (cons 95 (cons 94 (cons 5 (cons 6 empty)))))
+;; =>
+;; #true
+;; (check-range1? (cons 94 (cons 5 (cons 6 (cons 7 empty)))))
+;; =>
+;; #true
+;; 
+(define (check-range1? a-list-of-numbers) ...)
+
+Template:
+(define (check-range1? a-list-of-numbers)
+    (cond
+      [(empty? a-list-of-numbers) ...]
+      [else
+        (first a-list-of-numbers) ...
+        (check-range1? (rest a-list-of-numbers))...  ]))
+
+
+Body:
+Next, we know that a list of numbers is within a range if the first number is
+with in the range, *and* all the rest are within the range. To check the range
+of a single number we check if it is >= low-number *and* <= high-number:
+(and
+  (>= number low-number)
+  (<= number high-number))
+Expanding:
+(and 
+  (and
+    (>= number 5)
+    (<= number 95))
+  (check-range1? (rest a-list-of-numbers)))
+
+Finally:
+(define (check-range1? a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) #true]
+    [else
+      (and
+        (and
+          (>= number 5)
+          (<= numbe 95))
+        (check-range1? (rest a-list-of-numbers)))))
+
+
+Tests:
+> (check-range1? (cons 95 (cons 94 (cons 5 (cons 6 empty)))))
+#true
+> (check-range1? (cons 1 (cons 2 (cons 3 empty))))
+#false
+> (check-range1? (cons 96 (cons 95 (cons 6 empty))))
+#false
+> (check-range1? empty)
+#true
+> 
+
+
+Now, Generalize the function to check-range? which consumes a list of
+temperature measurements (represented as numbers) and checks whether all
+measurements are within the legal interval.
+
+Contract:
+;; check-range? a-list-of-numbers low-number high-number -> boolean
+;; Checks that all numbers in a-list-of-numbers are >= low-number and  <=
+;; high-number, returns #true if so, #false otherwise.
+;;
+;; Examples:
+;; (check-range? (cons 1.0 (cons 2.0 empty)) 1.0 2.0)
+;; =>
+;; #true
+;;
+;; (check-range? (cons 1.0 (cons 2.0 (cons 3.0 empty))) 1.0 2.0)
+;; =>
+;; #false
+;;
+;; (check-range? (cons 2.5 (cons 1.0 (cons 3.0 empty))) 0.0 3.0)
+;; => 
+;; #true
+(define (check-range? a-list-of-numbers low-number high-number) ...)
+
+
+Template:
+(define (check-range? a-list-of-numbers low-number high-number)
+  (cond
+    [(empty? a-list-of-numbers) #true]
+    [else
+      ...(first a-list-of-numbers)...
+      ...(check-range? (rest a-list-of-numbers) low-number high-number) ...]))
+
+Body:
+(define (check-range? a-list-of-numbers low-number high-number)
+  (cond
+    [(empty? a-list-of-numbers) #true]
+    [else
+      (and
+        (and
+          (>= (first a-list-of-numbers) low-number)
+          (<= (first a-list-of-numbers) high-number))
+        (check-range? (rest a-list-of-numbers) low-number high-number))]))
+Tests:
+> (check-range? (cons 1.0 (cons 2.0 (cons 3.0 empty))) 1 3)
+#true
+> (check-range? (cons 1 (cons 2 (cons 3.5 empty))) 1 3)
+#false
+> (check-range? (cons 2 (cons 3 (cons 4 empty))) 0 4)
+#true
+> (check-range? (cons 2.5 (cons 1.0 (cons 3.0 empty))) 0.0 3.0)
+#true
+> (check-range? (cons 1.0 (cons 2.0 empty)))
+check-range?: expects 3 arguments, but found only 1
+> (check-range? (cons 1.0 (cons 2.0 empty)) 1.0 2.0)
+#true
+> (check-range? (cons 1.0 (cons 2.0 (cons 3.0 empty))) 1.0 2.0)
+#false
+> 
+
+Exercise 9.5.5 Develop the function convert. It consumes a list of digits and
+produces a the corresponding number. The first digit is the least significant,
+and so on.
+
+Contract:
+;; convert : a-list-of-numbers -> number
+;; Converts a list of digits into the corresponding number.
+;;
+;; Examples:
+;; (convert (cons 1.0 (cons 2.0 empty)))
+;; =>
+;; 21
+;; (convert (cons 2.0 (cons 4.0 (cons 3.0 empty)))
+;; =>
+;; 342
+;; (convert (cons 0.0 (cons 2 (cons 6 (cons 2 empty)))))
+;; =>
+;; 2620
+(define (convert a-list-of-numbers) ...)
+
+Template:
+(define (convert a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) ...]
+    [else
+      ...(first a-list-of-numbers) ...
+      ...(convert (rest a-list-of-numbers))...]))
+
+If we assume that our function is correct, (cons 4.0 (cons 2.0 empty)) for
+example, would return 24. So if we asssume then, that we have the list (cons 1
+(cons 4 (cons 2 empty))) for example, and that (convert (rest (cons 1 (cons 4
+(cons 2 empty))))) would return 24, then all we need to do is multiply this
+result by ten and add the first element. an empty list must be defined to be 0,
+or else we could have a cond where we test if rest is empty, and return first,
+and error if the length is zero/ the list is empty.  That may be a little more
+elegant. 
+
+Body:
+(define (convert a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) 0]
+    [else
+      (+ (first a-list-of-numbers)
+         (* 10 (convert (rest a-list-of-numbers))))]))
+
+Tests:
+> (convert (cons 1 (cons 2 empty))
+           )
+21
+> (convert (cons 2 (cons 4 (cons 3 empty))))
+342
+> (convert (cons 0 (cons 2 (cons 6 (cons 2 empty)))))
+2620
+> 
+
+Also develop the function check-guess-for-list. It implements a general version
+of the number-guessing game of exercise 5.1.3. The function consumes a list of
+digits, which represents the player's guess, and a number, which represents the
+randomly chosen and hidden number. Depending on how the converted digits relate
+to target, check-guess-for-list produces one of the following three answers:
+'TooSmall, 'Perfect, or 'TooLarge.
+
+Contract:
+;; check-guess-for-list : list-of-digits number -> symbol
+;; Consumes a list of digits list-of-digits and a number, and returns a symbol,
+;; one of 'TooSmall, 'Perfect, or 'TooLarge, depending on whether the
+;; list-of-digits is respectively smaller than, equal to, or larger than the
+;; number.
+;; Examples:
+;; (check-guess-for-list (cons 1 (cons 2 empty)) 21)
+;; =>
+;; 'Perfect
+;; (check-guess-for-list (cons 1 (cons 3 empty)) 11)
+;; =>
+;; 'TooLarge
+;; (check-guess-for-list (cons 2 (cons 4 (cons 5 empty))) 1000)
+;; =>
+;; 'TooSmall
+(define (check-guess-for-list list-of-digits number) ...)
+
+Template:
+(define (check-guess-for-list list-of-digits number)
+  (cond
+    [(= (convert list-of-digits) number) ...]
+    [(< (convert list-of-digits) number) ...]
+    [(> (convert list-of-digits) number) ...]))
+
+Body:
+(define (check-guess-for-list list-of-digits number)
+  (cond
+    [(= (convert list-of-digits) number) 'Perfect]
+    [(> (convert list-of-digits) number) 'TooLarge]
+    [else 'TooSmall]))
+
+
+Tests:
+> (check-guess-for-list (cons 1 (cons 2 empty)) 21)
+'Perfect
+> (check-guess-for-list (cons 1 (cons 3 empty)) 11)
+'TooLarge
+> (check-guess-for-list (cons 2 (cons 4 (cons 5 empty))) 1000)
+'TooSmall
+> 
+
+The rest of the game is implemented by guess.ss To play the game, use the
+teachpack guess.ss and evaluate the expression
+
+(guess-with-gui-ilst 5 (check-guess-for-list)
+
+after teh functions have been thoroughly developed.
+
+
+Exercise 9.5.6 Develop the function delta, which consumes two price lists, that
+is, lists of numbers. The first represents the inventory at the beginning of a
+time period, the second one the inventory at the end. The function outputs the
+difference in value. If the value of the inventory has increased, the result is
+positive. If it has decreased, it is negative.
+
+Contract:
+;; delta : a-list-of-numbers a-list-of-numbers -> number
+;; The difference between the total value of the first, and second list of
+;; numbers. If the value of the inventory has increased, the value is positive,
+;; if it has decreased, it is negative. So, essentially it's the sum of the
+;; second minus the sum of the first.
+;; Tests:
+;; (delta (cons 1 (cons 2 empty)) (cons 1 (cons 2 empty)))
+;; => 0
+;; (delta (cons 1 (cons 2 (cons 3 empty))) (cons 1 (cons 2 empty)))
+;; => -3
+;; (delta (cons 1 (cons 2 (cons 3 empty))) (cons 1 (cons 2 (cons 3 (cons 4
+empty)))))
+;; => +4
+(define (delta a-list-of-numbers-start a-list-of-numbers-end) ...)
+
+Template - we need no template, but we do need the function sum.
+
+Contract:
+;; sum : a-list-of-numbers -> number
+;; The sum of all numbers in a-list-of-numbers.
+;; Tests:
+;; (sum (cons 1.0 (cons 2.0 empty)))
+;; => 3.0
+;; (sum (cons 2 (cons 2 empty)))
+;; => 4
+;; (sum (cons 1 (cons 1 empty)))
+;; => 2
+(define (sum a-list-of-numbers) ...)
+
+Template:
+(define (sum a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) 0]
+    [else 
+      ... (first a-list-of-numbers)
+      ... (sum (rest a-list-of-numbers))]))
+We need to combine the sum of the rest of the list of numbers, assuming it's
+correct, with the first one. We can see this is an addition.
+
+Definition:
+(define (sum a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) 0]
+    [else
+      (+ 
+         (first a-list-of-numbers)
+         (sum (rest a-list-of-numbers)))]))
+
+Definition:
+(define (delta a-list-of-numbers-start a-list-of-numbers-end)
+  (- (sum a-list-of-numbers-end) (sum a-list-of-numbers-start)))
+
+
+Exercise 9.5.7 Define the function average-price. It consumes a list of toy
+prices and computes the average price of a toy. The average is the total of all
+prices divided by the number of toys.
+
+    Iterave Refinement: First develop a function that works on non-empty lists.
+Then produce a checked function that signals an error when the function is
+applied to an empty list.
+
+Contract:
+;; average-price: a-list-of-numbers -> number
+;; Computes average price of a list of toy prices.
+;; 
+(define (average-price a-list-of-numbers) ...)
+
+Template:
+(define (average-price a-list-of-numbers)
+    (/ (sum a-list-of-numbers) (length a-list-of-numbers)))
+
+Contract:
+;; sum: a-list-of-numbers -> number
+;; Computes the snum of a list of numbers
+;; 
+;; Examples:
+;; (sum (cons 1 (cons 2 empty)))
+;; => 
+;; 3
+;; (sum (cons 2 (cons 22 (cons 44 (cons 1 (cons 0 empty))))))
+;; =>
+;; 67
+(define (sum a-list-of-numbers) ...)
+
+Template:
+(define (sum a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) ...]
+    [else 
+      ... (sum (rest a-list-of-numbers))
+      ... (first a-list-of-numbers)]))
+
+Body:
+(define (sum a-list-of-numbers)
+  (cond
+    [(empty? a-list-of-numbers) 0]
+    [else 
+      (+ (sum (rest a-list-of-numbers)) (first a-list-of-numbers))]))
+
+Tests:
+
+
+Contract: 
+;; length a-list -> number
+;; computes the length of a list, the number of elements
+;; Examples:
+;; 
+;; (length (cons 1 empty))
+;; =>
+;; 1
+;; (length (cons 1 (cons 2 empty)))
+;; =>
+;; 2
+;; (length (cons 1 (cons 2 (cons 3 empty)))
+;; =>
+;; 3
+;; (length empty)
+;; =>
+;; 0
+(define (length a-list) ...)
+
+Template:
+(define (length a-list)
+  (cond
+    [(empty? a-list) ...]
+    [else
+      ... (length (rest a-list))
+      ... (first a-list)]))
+
+Body:
+(define (length a-list)
+  (cond
+    [(empty? a-list) 0]
+    [else
+      (+ 1 (length (rest a-list)))]))
+Iterative refinment: Produce a checked function that signals an error when a
+function is applied to an empty list
+
+(define (average-price a-list-of-numbers)
+  (cond 
+    [(empty? a-list-of-numbers) (error 'average-price "Can't take an empty list of numbers")]
+    [else 
+      (/ (sum a-list-of-numbers) (length a-list-of-numbers))]))
+
+
+
+Exercise 9.5.8 Develop the function draw-circles, which consumes a posn p and a
+list of numbers. Each number of the list represents the radius of some circle.
+The function draws concentric red circles around p on a canvas, using the
+operation draw-circle. Its result is true, if it can draw otherwise an error has
+occurred and the function does not need to produce a value.
+
+Use the teachpack draw.ss; create a canvas with (start 300 300). Recall that
+draw.ss provides the structure definition for posn.
+
+Contract:
+;; draw-circle : p lon -> boolean
+;; Consumes a posn p and a list of numbers lon. Each number in the list
+;; represents the radius of a circle. Draws concentric red circles around p on a
+;; canvas using the operation draw-circle. Its result is true if it can draw,
+;; otherwise an error has occurred, and the function need not produce a value.
+;; Tests:
+;; None.
+(define (draw-circles p lon) ...)
+
+Template:
+(define (draw-circles p lon)
+  (cond
+    [(empty? lon) ...]
+    [else
+      ... (first lon)
+      ... (draw-circles (rest lon)) ...]))
+
+
+Body:
+(define (draw-circles p lon)
+  (cond 
+    [(empty? lon) #true]
+    [else
+      (and
+        (draw-circle p (first lon 'red))
+        (draw-circles p (rest lon)))]))
+
+
+
+Section 10
+==========
+
+More on Processing Lists
+------------------------
+
+This section is more about functions that consume and also produce lists. The
+previous section was about functions that consumed lists of atomic data. There
+are two further classes of functions in this section: Ones that consume lists of
+structures, and also functions that produce lists.
+
+10.1 Functions that produce lists
+---------------------------------
+
+Recall the function wage from section 2.3:
+
+;; wage : number -> number
+;; to compute the total wage (at $12 per hour)
+;; of someone who worked for h hours
+(define (wage h)
+  (* 12 h))
+
+The wage function consumes the number of hours some employee worked, and
+produces the weekly waage payment. For simplicity we assume that all employees
+earn the same hourly rate - $12. A company, howevver, isn't interested in a
+function like wage, which computes the wage of a single employee. Instead it
+wants a function that computes the wages for all of its employees, especially if
+there are a lot of them.
+
+Call this function hours->wages. It consumes a list that represents how many
+hours the employees of the company worked and must produce a list of the weekly
+wages they earned. We can represent both the input and output as Scheme lists of
+numbers. Since we already have a data definition for inputs and outputs we can
+immediately start our function development:
+
+;; hours->wages : list-of-numbers -> list-of-numbers
+;; to create a list of weeekly wages from a list of weekly hours (alon)
+(define (hours->wages alon) ...)
+
+Next we need some examples of inputs and the corresponding outputs:
+
+empty
+(cons 28 empty)
+(cons 40 (cons 28 empty))
+
+
+empty
+(cons 336 empty)
+(cons 480 (cons 336 empty))
+
+The outputs are obtained by calculating the wage for each item on the list on
+top.
+
+Given that hours->wages consumes the same class of data as, say, the function
+sum, and given that the shape of a function template depends only on the shape
+of the data definition, we can reuse the list-of-numbers template:
+
+(define (hours->wages alon)
+  (cond
+    [(empty? alon) ...]
+    [else ... (first alon) ... (hours->wages (rest alon)) ...]))
+
+Starting with this template we can turn to the most creative step of function
+development: the definition of the function body. Following our recipe we
+consider each cond-line in isolation starting with the simpler case. First
+assume (empty? alon) is true, which means that the input is empty. The answer in
+this case is empty:
+
+(define (hours->wages alon)
+  (cond
+    [(empty? alon) empty]
+    [else ... (first alon) ... (hours->wages (rest alon)) ...]))
+
+Second assume that alon was constructed from a number and a list of numbers. The
+expressions in the second line remind us of this assumption and the recipe tells
+us that we should state explicitly what they compute:
+
+    1. (first alon) yields the first number on alon which is the first number of
+        hours worked; and
+    2. (hours->wages (rest alon)) reminds us that (rest alon) is a list and can
+       be processed by the very function we are defining. According to the
+       purpose statement, the expression computes the list of wages for the rest
+       of the list of hours, and we may assume this relationship in our
+       construction -- even though the function is not yet completely defined.
+
+From here it is a short step to the complete function definition. Since we
+already have the list of wages for all but the first item of alon the function
+must do two things to produce  an output for the entire list of hours:
+
+    1. Compute the weekly wage for the first number of hours.
+    2. Construct a list that represents all weekly wages for alon, using the
+       first weekly wage and the list of weekly wages for (rest alon).
+
+For the first part we reuse the wage function. For the second we cons the two
+pieces of information together into one list:
+
+(cons (wage (first alon)) (hours->wages (rest alon)))
+
+And with that, we have a complete function. It is shown in figure 27. To finish
+the design of the function we must still test it.
+
+;; hours->wages : list-of-numbers -> list-of-numbers
+;; to create a list of weekly wages from a list of weekly hours (alon)
+(define (hours->wages alon)
+  (cond
+    [(empty? alon) empty]
+    [else (cons (wage (first alon)) (hours->wages (rest alon)))]))
+
+;; wage : number  -> number
+;; to compute the total wage (at $12 per hour)
+;; of someone who worked for h hours
+(define (wage h)
+  (* 12 h))
+
+Exercise 10.1.1. How do we have to change the function in figure 27 if we want
+to give everyone a raise to $14?
+    You have to change the constant 12 to 14 in the function wage:
+
+    ;; wage : number  ->  number
+    ;; to compute the total wage (at $14 per hour)
+    ;; of someone who worked for h hours
+    (define (wage h)
+      (* 12 h))
+      
+
+Exercise 10.1.2. No employee could possibly work more than 100 hours per week.
+To protect the company against fraud, the function should check that no item of
+the input list of hours->wages exceeds 100. If one of them does, the function
+should immediately signal the error "too many hours".
+
+How do we change the function in figure 27 if we want to perform this basic
+reality check?
+--
+It's easiest to change the wage function to check the hours using a
+cond-statement.
+
+;; wage : number -> number
+;; to compute the total wage (at $14 per hour)
+;; of someone wo worked for h hours.
+;; Signals an error if h > 100.
+(define (wage h)
+  (cond
+    [(< 100 h) (error 'wage "Too many hours")]
+    [else  (* 14 h)]))
+
+But if you want to change it in the top-level function definition, add an extra
+cond-statement:
+
+(define (hours->wages alon)
+  (cond
+    [(empty? alon) empty]
+    [else
+      (cond
+        [(< 100 (first alon)) (error 'hours->wages "Too many hours")]
+        [else
+            (cons (wage (first alon)) (hours->wages (rest alon)))])))
+
+Exercise 10.1.3.
+
+Develop convertFC. The function converts a list of Fahrenheit measurements to a
+list of Celsius measurements.
+
+;; convertFC : list-of-numbers -> list-of-numbers
+;; to compute the degrees in celsius of each
+;; element of the list, which is initially in fahrenheit.
+(define (convertFC fahrenheit-lon) ...)
+
+Formula: t(c) = (tf - 32)/(9/5)
+Examples:
+
+empty           empty
+(cons 32 empty) (cons 0 empty)
+(cons 95 empty) (cons 35 empty)
+(cons 95 (cons 35 (cons 32 (cons 20 empty))))  (cons 35 (cons 1.666 (cons 0
+(cons -6.66 empty))))
+
+
+Template:
+Reuse the template for any lon. The function template depends on the data
+definition, so we can reuse a generic data-definition template for lon
+functions.
+
+(define (convertFC fahrenheit-lon)
+    (cond
+      [(empty? fahrenheit-lon) ...]
+      [else
+        ... (first fahrenheit-lon) ...
+        (convertFC (rest fahrenheit-lon)) ...]))
+
+
+Implementation:
+    empty lists will produce empty results.
+    non-empty lists should produce other lists.
+    We make a list with cons. Assuming that convertFC returns the correct result
+    - a list of numbers that have been converted to Celsius temperatures - we
+      need to combine the first element of the fahrenheit list with a list of
+celsius temperatures to create a list of celsius temperatures.
+(define (convertFC fahrenheit-lon)
+  (cond
+    [(empty? fahrenheit-lon) empty]
+    [(cons ...(first fahrenheit-lon)...
+           (convertFC (rest fahrenheit-lon)))]))
+It's then obvious we need to convert the first to celsius.
+
+(define (convertFC fahrenheit-lon)
+  (cond
+    [(empty? fahrenheit-lon) empty]
+    [(cons (/ (- (first fahrenheit-lon) 32) (/ 9 5))
+           (convertFC (rest fahrenheit-lon)))]))
+
+
+10.1.4 Develop the function convert-euro, which converts a list of U.S. dollar
+amounts into a list of euro amounts. Assume the exchange rate is 1.22 euro for
+each dollar.
+
+;; convert-euro : list-of-numbers -> list-of-numbers
+;; Convert a list of U.S. dollar amounts into a list of euro amounts.
+(define (convert-euro list-of-dollars) ...)
+
+Examples
+
+empty       empty
+(cons 1 empty)  (cons 1.22 empty)
+(cons 1 (cons 2 empty))     (cons 1.22 (cons 2.44 empty))
+(cons 0 (cons 1 (cons 4 empty)))        (cons 0 (cons 1.22 (cons 4.88 empty0)))
+
+
+Again we can reuse the generic template for list-of-numbers. 
+(define (convert-euro list-of-dollars)
+  (cond
+    [(empty? list-of-dollars) ...]
+    [else
+      ... (first list-of-dollars) ...
+      ... (convert-euro (rest list-of-dollars))]))
+
+We can further refine this by remembering we want a list of dollars and that
+convert-euro returns a list of dollars, so naturally we're cons-ing the result
+of some function of the first element with the result of the rest:
+
+(define (convert-euro list-of-dollars)
+  (cond
+    [(empty? list-of-dollars) empty]
+    [else
+      (cons ... (first list-of-dollars) ... 
+        (convert-euro (rest list-of-dollars)))]))
+
+And finally, if the rate is 1.22 euro/dollar:
+
+(define (convert-euro list-of-dollars)
+  (cond
+    [(empty? list-of-dollars) empty] 
+    [else
+      (cons (* 1.22 (first list-of-dollars))
+            (convert-euro (rest list-of-dollars)))]))
+
+10.1.5 Develop the function eliminate-exp to eliminate expensive toys. The
+function consumes a number called ua, and a list of toy prices, called lotp, and
+produces a list of all those prices in lotp that are below or equal to ua. For
+example:
+
+(eliminate-exp 1.0 (cons 2.95 (cons .95 (cons 1.0 (cons 5 empty)))))
+;; expected value:
+(cons .95 (cons 1.0 empty))
+
+We can use the lon data definition
+
+;; Contract : eliminate-exp number, list-of-numbers -> list-of-numbers
+;; Eleminates numbers in the list-of-numbers larger than the ua number.
+(define (eliminate-exp ua lotp) ...)
+
+Examples:
+1 empty       empty
+1 (cons 1 empty)        (cons 1 empty)
+1 (cons 1 (cons 2 empty))       (cons 1 empty)
+1 (cons .95 (cons 1 (cons 2.5 (cons 3 empty))))     (cons .95 (cons 1 empty))
+
+Template:
+Again we can use the list of numbers template. We treat ua basically as if it
+were a constant, it feeds into the formula we're going to apply to the first
+element of the list. Generating lists always for these exercises is a cons of
+some formula applied to the first element with the rest.
+
+(define (eliminate-exp ua lotp)
+    (cond
+        [(empty? lotp)  ...]
+        [else
+            ... (first lotp)
+            ... (eliminate-exp ua (rest lotp)) ...]))
+
+However, further examination reveals that for a filter-type function, we may
+'drop' the element, and not do a cons at all, if the element is according to the
+function purpose statement to be left out. However, if it is not, we still want
+to filter the rest of the elements, so we cons the first element with the result
+of the filter on the rest.
+
+(define (eliminate-exp ua lotp)
+    (cond
+        [(empty? lotp) empty]
+        [else
+            (cond
+                [(< ua (first lotp))  (eliminate-exp ua (rest lotp))]
+                [else (cons (first lotp) (eliminate-exp ua (rest lotp))])])))
+
+
+Exercise 10.1.6 Develop the function name-robot which consumes a list of toy
+descriptions (names) and produces an equivalent list of more accurate
+descriptions. Specifically, it replaces all occurrences of 'robot with 'r2d2 and
+otherwise retains the toy descriptions in the same order.
+
+Generalize name-robot to the function substitute. The new function consumes two
+symbols, called new and old, and a list of symbols. It produces a new list of
+symbols by substituting all occurrences of old by new. For example:
+
+    (substitute 'Barbie 'doll (cons 'robot (cons 'doll (cons 'dress empty))))
+    ;; expected value:
+    (cons 'doll (cons 'dress empty))
+
+
+A list of symbols is:
+    1. empty
+    2. (cons s los) where s is a symbol, and los is a list of symbols.
+Template for list of symbols should reflect data definition. Namely, there are
+two cases for our function, which match the different cases of the data
+definition.
+(define (list-of-symbols-fun list-of-symbols)
+   (cond
+     [(empty? list-of-symbols) ...]
+     [else
+       ...]))
+Furthermore, we also know that
+
+Contract:
+;; name-robot : list-of-symbols -> list-of-symbols
+;; Replaces each symbol 'robot with 'r2d2 in the list-of-symbols.
+(define (name-robot los) ...)
+    
+Examples:
+empty       empty
+(cons 'robot empty)     (cons 'r2d2 empty)
+(cons 'robot (cons 'cats (cons 'doll empty)))       (cons 'r2d2 (cons 'cats (cons 'doll empty)))
+(cons 'one (cons 'two (cons 'three empty)))         (cons 'one (cons 'two (cons
+'three empty)))
+
+;;Template:
+;; Follow the template for the data definition.
+(define (name-robot a-los)
+  (cond 
+    [(empty? a-los) ...]
+    [else
+      ... (first a-los)
+      ... (name-robot (rest a-los))]))
+
+We know we're going to need a cons
+(define (name-robot a-los)
+    (cond 
+        [(empty? a-los) empty]
+        [else
+            (cons ... (first a-los)
+                  ... (name-robot (rest a-los)))))
+And that we neeed another conditional that will manipulate the symbol:
+
+(define (name-robot a-los)
+    (cond
+        [(empty? a-los) empty]
+        [else
+            (cons 
+                (cond ... (first a-los) ...)
+                (name-robot (rest a-los)))]))
+(define (name-robot a-los)
+    (cond
+        [(empty? a-los) empty]
+        [else
+            (cons
+                (cond [(symbol=? (first a-los) 'robot) 'r2d2] [else (first a-los)])
+                (name-robot (rest a-los)))]))
+
+To refine the function, we add two extra parameters:
+
+;; substitute : symbol symbol list-of-symbols -> list-of-symbols
+;; substitute symbol new for symbol old in the list of symbols. Returns a list
+;; of symbols.
+(define (substitute new old a-los) ...)
+
+
+Implementation:
+
+(define (substitute new old a-los) 
+    (cond
+        [(empty? a-los) empty]
+        [else
+            (cons
+                (cond [(symbol=? (first a-los) old) new] [else (first a-los)])
+                (substitute new (rest a-los)))]))
+
+Exercise 10.1.9. The cash registers at many grocery stores talk to customers.
+The register's computer receives the number of cents that the customer must pay
+and then builds a list with the following five items:
+    1. The dollar amount
+    2. The symbol 'dollar if the dollar amount is 1 and 'dollars otherwise;
+    3. the symbol 'and;
+    4. the cent amount; and
+    5. the symbol 'cent if the cent amount is 1 and 'cents otherwise.
+
+Develop the function controller, which consumes a number and produces a list
+according to the above description. For example, if the amount is $1.03 then the
+cash register evaluates (controller 103):
+
+(controller 103)
+;; expected value:
+(cons 1 (cons 'dollar (cons 'and (cons 3 (cons 'cents empty)))))
+
+Data Definition:
+
+a list-of-money is a:
+    list of:
+    (cons d (cons d-amnt (cons 'and (cons c (cons c-amnt empty)))))
+    where:
+        d is a dollar amount, a number;
+        d-amnt is a symbol, either 'dollar or 'dollars;
+        c is a cents amount: a number
+        c-amnt is a symbol, either 'cents or 'cent
+
+Scheme provides the arithmetic operations quotient and remainder, which produce
+the quotient and remainder of the expression n/m for integers m and m,
+respectively.
+
+Contract:
+;; controller : number cents -> list-of-money
+;; given a number in cents, return a list-of-money representing the amount. 
+;; If d is 1, d-amnt will be 'dollar, otherwise it will be 'dollars.
+;; if c is 1, c-amnt will be 'cent, otherwise it will be 'cents.
+(define (controller cents) ...)
+
+
+This function produces a list but is a normal function so far as inputs are
+concerned. There are exactly five expected values. A template might be:
+
+(define (controller number)
+  (cons ...
+    (cons ...
+       (cons ...
+          (cons ...
+            (cons ... empty))))))
+
+For case (2.) and case (5.), there is a condition, both are based on the dollar
+and cent amount. Since we reference dollar and cent amount a lot, we will
+probably want a function which returns a list of the dollars and cents in a
+number of cents.
+
+
+Data Definition:
+a dollars-and-cents is a list:
+    (cons d (cons c empty))
+    where:
+        d is a number, and
+        c is a number
+
+Contract:
+;; cents->dollars-and-cents : number cents -> dollars-and-cents
+;; given the number cents, return a dollars-and-cents list, 
+;; where d is the total dollars in the cents, and cents is the cents left over.
+(define (cents->dollars-and-cents cents) ...)
+
+Template:
+The template reflects the data definition:
+
+(define (cents->dollars-and-cents cents)
+  (cons ...
+    (cons ... empty)))
+
+(define (cents->dollars-and-cents cents)
+  (cons (quotient cents CENTS-IN-A-DOLLAR)
+    (cons (remainder cents CENTS-IN-A-DOLLAR) empty)))
+
+
+Given the fact that we have conditionals based on input for list ements (2.) and
+(5.), and that we need a dollar and cent amount in (4.) and (1.), we can refine
+the template in another step:
+
+(define (controller number)
+  (cons ... (cents->dollars-and-cents number) ...
+    (cons (cond ... (cents->dollars-and-cents number) ...)
+      (cons 'and
+        (cons ... (cents->dollars-and-cents number) ...
+          (cons (cond ... (cents->dollars-and-cents number) ...) empty))))))
+
+(define (controller cents)
+  (cons (first (cents->dollars-and-cents cents))
+    (cons (cond
+            [(= 1 (first (cents->dollars-and-cents cents))) 'dollar]
+            [else 'dollars])
+      (cons 'and
+        (cons (first (rest (cents->dollars-and-cents cents)))
+          (cons (cond 
+                  [(= 1 (first (rest (cents->dollars-and-cents cents)))) 'cent]
+                  [else 'cents]) empty))))))
+
+Simple challenge: The sound teachpack contains only the sounds for the numbers 0
+through 20 and 20, 30, 40 ... 90. Because of this restriction this challenge
+problem works only on amounts with cents and dollars between 0 to 20. Implement
+a controller that deals with arbitrary amounts between 0 and 99.99.
+
+In order to get the controller to sound out numbers greater than twenty, we need
+two symbols: n / 10 and n % 10. So, for each number, cents or dollars, we'd make
+this decision:
+
+    if the number is > 100 : (cons (* (quotient n 10) 10) (cons (remainder n 10) empty)) 
+    else: (cons n empty)
+This could be put into a function:
+
+;; Contract : number->speakable-list : number n -> list-of-numbers
+;; Given a number, return a speakable list of numbers, such that all numbers in
+;; the list are <= 20 or 30, 40 ... 90, and when sounded out, represent the
+;; number n.
+(define (number->speakable-list n) ...)
+;; Examples:
+
+(number->speakable-list 99) -> (cons 90 (cons 9 empty))
+(number->speakable-list 1) -> (cons 1 empty)
+(number->speakable-list 91) -> (cons 90 (cons 1 empty))
+(number->speakable-list 19) -> (cons 19 empty)
+
+;; Template 
+(define (number->speakable-list n)
+  (cond 
+    [(> n 20) ...]
+    [else ...]))
+
+;; Definition:
+(define (number->speakable-list n)
+  (cond
+    [(and (> n 20) (not (= 0 (remainder n 10)))) 
+      (cons (* 10 (quotient n 10)) (cons (remainder n 10) empty))]
+    [else (cons n empty)]))
+
+Then controller would simply use this number rather than the raw number from
+dollars-and-cents
+
+(define (controller cents)
+  (append (number->speakable-list (first (cents->dollars-and-cents cents)))
+    (cons (cond
+            [(= 1 (first (cents->dollars-and-cents cents))) 'dollar]
+            [else 'dollars])
+      (cons 'and
+        (cons (first (rest (cents->dollars-and-cents cents)))
+          (cons (cond 
+                  [(= 1 (first (rest (cents->dollars-and-cents cents)))) 'cent]
+                  [else 'cents]) empty))))))
+
+But first, we have a similar cond-structure in the controller function, namely:
+    (cond
+        [(= 1 <number>) <singluar-word>]
+        [else <plural-word>])
+This is a fairly lengthy clause, so we can make a function:
+;; Contract: signular-or-plural number singular-word plural-word
+;; If the number is 1 ,return singular-word. Otherwise, return plural-word.
+(define (singular-or-plural number singular plural) ...)
+
+(define (singular-or-plural number signular plural)
+  (cond
+    [(= 1 number) singular]
+    [else plural]))
+
+(define (controller cents)
+  (append 
+    (number->speakable-list (first (cents->dollars-and-cents cents)))
+    (cons
+      (singular-or-plural (first (cents->dollars-and-cents cents)) 'dollar 'dollars)
+      (append 
+        (number->speakable-list (first (rest (cents->dollars-and-cents cents))))
+        (cons
+          (singular-or-plural
+            (first (rest (cents->dollars-and-cents cents)))
+            'cent
+            'cents)
+            empty)))))
+
+10.2 Lists that Contain Structures
+
+The representation of an inventory as a list of symbols or a list of prices is
+naive. A sales clerk in a toy store needs to know not only the name of the toy
+but also its price and possibly other attributes like warehouse availability,
+delivery time, or even a picture of the item. Similarly, representing the
+personnel's work week as a list of hours is a bad choice. Even the printing of a
+paycheck requires more information about the employee than the hours worked per
+week. 
+
+Fortunately, the items of lists do not have to be atomic values. Lists may
+contain whatever values we want, especially structures. Let's try to make our
+toy store inventory functions more realistic. We start with the structure and
+the data definition of a class of inventory records:
+
+(define-struct ir (name price))
+
+An inventory-record (short: ir) is a structure:
+    (make-ir s n)
+where s is a symbol and n is a (positive) number.
+
+Most important, we can define a class of lists that represent inventories more
+realistically:
+
+An inventory is either:
+    1. empty or
+    2. (cons ir inv)
+        where ir is an inventory record and inv is an inventory.
+
+While the shape of the list definition is the same as before its components are
+defined in a separate data definition. Since this is our first data definition
+we should make up some examples before we proceed.
+
+The simplest example of the inventory is empty. To create a larger inventory we
+must create an inventory record and cons it onto another inventory:
+
+(cons (make-ir 'doll 17.95) empty)
+
+From here, we can create yet a larger inventory listing:
+
+(cons (make-ir 'robot 22.05 
+  (cons (make-ir 'doll 17.95) 
+    empty)))
+
+Now we can adapt our inventory-processing functions. First look at sum, the
+function that consumes an inventory and produces its total value. Here is a
+restatement of the basic information about the function:
+
+;; sum : inventory -> number
+;; to compute the sum of prices on an-inv
+(define (sum an-inv) ...)
+
+
+For our three sample inventories, the function should produce the following
+results: 0, 17.95 and 40.0. 
+
+Since the data definition of inventories is basically that of lists we can again
+start from the template for list-processing functions:
+
+(define (sum an-inv)
+  (cond
+    [(empty? an-inv) ...]
+    [else ... (first an-inv) ... (sum (rest an-inv)) ...]))
+
+Following our recipe, the template only reflects the data definition of the
+input, not that of its constituents. Therefore the template for sum here is
+indistinguishable from that in section 9.5. 
+
+For the definition of the function body we consider each cond-line in isolation.
+First, if (empty? an-inv) is true sum is supposed to produce 0. Hence the answer
+expression in the first cond-line is obviously 0.
+
+Second, if (empty? an-inv) is false - in other words, if sum is applied to a
+con-structed inventory, the recipe requires us to understand the purpose of two
+expressions:
+    1. (first an-inv) which extracts the first item of the list; and
+    2. (sum (rest an-inv)), which extracts the rest of an-inv and then computes
+    its const with sum.
+
+To compute the total const of an entire input an-inv in the second case we must
+determine the cost of the first item. The cost of the first item may be obtained
+via the selector ir-price which extracts the price from an inventory record. Now
+we just add the cost of the first item and the cost of the rest of the
+inventory:
+
+(+ (ir-price (first an-inv))
+   (sum (rest an-inv)))
+
+(define (sum an-inv)
+  (cond
+    [(empty? an-inv) 0]
+    [else (+ (ir-prince (first an-inv)) (sum (rest an-inv)))]))
+
+Exercise 10.2.1 Adapt the function contains-doll? so that it consumes
+inventories instead of lists of symbols.
+
+Contract:
+;; contains-doll? : inventory -> boolean
+;; to determine whether an-inv contains a record for 'doll
+(define (contains-doll? an-inv) ...)
+
+Examples:
+
+(contains-doll? (cons (make-ir 'doll 1.0) (cons (make-ir 'cat 10.0) (cons
+(make-ir 'mouse 11.0) empty)))) ->
+true
+
+(contains-doll? (cons (make-ir 'cat 10.0) (cons (make-ir 'soldier 10.0) empty)))
+->
+false
+
+(contains-doll? (cons (make-ir 'dog 10.0 (cons (make-ir 'cat 11.0) (cons
+(make-ir 'wat 11.0) empty)))))
+->
+false
+
+(contains-doll? empty) -> false
+Template:
+Since again, this is a list-processing function,  we can simply follow the
+generic list template:
+
+(define (contains-doll? an-inv)
+  (cond
+    [(empty? an-inv) ...]
+    [else
+      ... (first an-inv) ...
+      ... (contains-doll? (rest an-inv)) ...]))
+Combining the results will entail checking if the symbol that is first is a
+doll, or whether there is a doll in the rest of the list - so or. If the list is
+empty it by definition does not contain 'doll. All we have to worry about is the
+detail of accessing the symbol member of the inventory record, which is name.
+
+(define (contains-doll? an-inv)
+  (cond
+    [(empty? an-inv) false]
+    [else
+      (or
+        (symbol=? (ir-name (first an-inv)) 'doll)
+        (contains-doll? (rest an-inv)))]))
+
+
