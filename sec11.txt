@@ -313,9 +313,78 @@ Examples:
 
 We know that moving the shape 0 pixels should just result in nothing, and
 accordingly return the FACE list of shapes.
+
 (define (apply-n n)
   (cond
     [(zero? n) FACE]
     [else
       (move-shape-lr 
-        (apply-n (sub1 n)))]))
+        (apply-n (sub1 n)) 1)]))
+
+Exercise 11.2.4. Lists may contain lists that contain lists and so on. Here is a
+data definition that takes this idea to an extreme:
+    A deep-list is either
+        1. s where s is a symbol or
+        2. (cons dl empty) where dl is a deep list.
+
+    Examples:
+        (cons (cons (cons 'hello empty) empty) empty) and so on.
+
+Develop the function depth, which consumes a deep list and determines how many
+times cons was used to construct it. 
+
+Develop a self-referential function template for dl:
+(define (fun-for-dl dl)
+  (cond
+    [(symbol? dl) ...]
+    [else
+       ... (fun-for-dl (first dl)) ...]))
+
+This is simple if we just look at the data definition and develop a cond-clause
+for each possible thing a dl could be. A dl is either a symbol, or (cons dl
+empty). If we want to continue processing dl, we need the first element of the
+cons we've been given, since this is the self-referential part, we call
+fun-for-dl on the first of the cons.
+
+Contract:
+;; depth : dl -> N
+;; consumes a deep-list and returns the number of times cons was used to
+;; construct it.
+(define (depth dl) ...)
+
+Example:
+According to our contract, we want to know how many times cons was used.
+(depth (cons 'hello empty)) =>  1
+(depth (cons (cons (cons 'cats empty)))) => 3
+(depth 'cat) => 0
+
+The only hard part is filling out the second cond question. We know that
+(fun-for-dl (first dl)) returns the correct result - the number of conses used.
+So, we must add one to that result, since we took a first, and that means we
+firsted a cons.
+
+(define (depth dl)
+  [(symbol? dl) 0]
+  [else
+    (add1 (fun-for-dl (first dl)))])
+
+Develop the function make-deep, which consumes a symbol s and a natural number
+and produces a deep list containing s and constructed with n conses.
+
+Contract:
+;; make-deep : symbol, N -> deep-list
+;; makes a deep list, the list is n deep, with s as the symbol at the bottom.
+(define (make-deep s n) ...)
+
+
+Template:
+(define (make-deep s n)
+  [(zero? n) ...]
+  [else
+    ... (make-deep s (sub1 n)) ...])
+
+(define (make-deep s n)
+  [(zero? n) s]
+  [else
+    (cons (make-deep s (sub1 n)) empty)])
+
