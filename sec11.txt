@@ -1,0 +1,321 @@
+Section 11
+==========
+
+Natural Numbers
+===============
+
+The only self-referential data definitions we have seen thus far involved cons
+and lists of arbitrary length. We needed such data definitions because the
+classes of lists that we wanted to process were of arbitrary size. Natural
+numbers are another class of data whose elements are of arbitrary size; after
+all, there is no limit on how large a natural number can be, and, at least in
+principle, a function should be able to process them all.
+
+In this section we study how to describe natural numbers with self-referential
+data definitions and how to develop functions that process natural numbers in a
+systematic fashion. Since such functions come in many flavors we study several
+different flavors of definitions.
+
+11.1 Defining Natural Numbers
+-----------------------------
+
+People normally introduce natural numbers via enumeration: 0, 1, 2, etc. The
+abbreviation ``etc'' at the end says that the series continues in this manner.
+Mathematicians and mathematics teachers often use dots for the same purpose. For
+us, however, neither the ``etc.'' nor the dots is good enough, if we wish to
+design functions on natural numbers systematically. So the question is what it
+means to write down ``etc.,'' or put differently, what a complete,
+self-contained description of the natural numbers is. 
+
+The only way to remove the informal ``etc.'' from the enumeration is to describe
+the collection of numbers with a self-referential description. Here is the first
+attempt:
+
+    0 is a natural number.
+    If n is a natural number, than one more than n is also.
+
+While this description is still not quite rigorous it is a good starting point
+for a Scheme-style data description:
+
+A natural-number is either:
+    1. 0 or
+    2. (add1 n) if n is a natural number.
+
+The operation add1 adds 1 to a natural number. Of course, we could use (+ ... 1)
+but add1 stands out and signals ``natural number,'' as opposed to arbitrary
+number, to the reader of a data definition and a function. 
+
+Although we are familiar with natural numbers from school, it is instructive to
+construct examples from the data definition. Clearly,
+
+    0
+
+is the first natural number, so
+    (add1 0)
+
+is the next one. From here, it is easy to see the pattern:
+
+    (add1 (add1 0))
+    (add1 (add1 (add1 0)))
+    (add1 (add1 (add1 (add1 0))))
+
+The examples should remind us of the lists construction process. We built lists
+by starting with empty and by cons-tructing on more items:
+    empty is the empty list,
+
+    (cons x empty) is also a list,
+
+    (cons x (cons y empty)) is a list and so on.
+
+Now we build natural numbers by starting with 0 and by adding on 1. In addition,
+natural numbers come with century-old abbreviations. For example, (add1 0) is
+abbreviated as 1, (add1 (add1 0)) as 2, and so on.
+
+A function on natural numbers must extract the number that went into the
+construction of a positive natural number just like a function on lists must
+extract the list that went into a cons-tructed list. The operation that performs
+this ``extraction'' is called sub1. It satisfies the law
+
+(sub1 (add1 n)) = n
+
+just as the rest operation satisfies the law
+
+(rest (cons a-value a-list)) = a-list
+
+of course, (- n 1) would also work, but sub1 stands out and signals that the
+function processes natrual numbers.
+
+11.2 Processing Natural Numbers of Arbitrary Size
+-------------------------------------------------
+
+Let us develop the function hellos. It consumes a natural number n and produces
+a list of n copies of 'hello. We can write the contract for this function:
+
+;; hellos : N -> list-of-symbols
+;; to create a list of n copies of 'hello.
+(define (hellos n) ...)
+
+And we can make up examples:
+
+(hellos 0)
+;; expected value:
+empty
+
+(hellos 2)
+;; expected value:
+(cons 'hello (cons 'hello empty))
+
+The design of a template for hellos follows the design recipe for
+self-referential data definitions. We immediately see that hellos is a
+conditional function, that its cond-expression has two clauses, and that the
+first clause must distinguish 0 from other possible inputs:
+
+(define (hellos n)
+ (cond
+   [(zero? n) ...]
+   [else ...]))
+
+Furthermore, the data definition says that 0 is an atomic value, and every other
+natural number is a compound value that ``contains'' the predecessor to which 1
+was added. Hence, if n is not 0, we subtract 1 from n. The result is also a
+natural number, so according to the design recipe we wrap the expression with
+(hellos ...):
+
+(define (hellos n)
+  (cond
+    [(zero? n) ...]
+    [else ... (hellos (sub1 n)) ...]))
+
+Now we have exploited every hint in the data definition and are ready to proceed
+with the definition.
+
+Assume (zero? n) evaluates to true. Then the answer must be empty, as our
+examples illustrate. So assume the input is greater than 0. For concreteness,
+let us say that it is 2. According to the suggestion in the template hellos
+should use (hellos 1) to compute a part of the answer. The purpose statement
+specifies that (hellos 1) produces (cons 'hello empty), a list with one 'hello.
+In general (hellos (sub1 n)) produces a list that contains n-1 occurrences of
+'hello. Clearly, to produce a list with n occurrences, we must cons another
+'hello onto this list:
+
+(define (hellos n)
+  (cond
+    [(zero? n) empty]
+    [else (cons 'hello (hellos (sub1 n)))]))
+
+As usual, the final definition is just the template with a few extras.
+
+Let's test hellos with some hand-evaluations:
+
+    (hellos 0)
+    = (cond 
+        [(zero? 0) empty]
+        [else (cons 'hello (hellos (sub1 0)))]
+    = (cond
+        [true empty]
+        [else (cons 'hello (hellos (sub1 0)))]
+    = empty
+
+It confirms that hellos works properly for the first example.
+
+Here is a nother example:
+
+(hellos 1)
+
+= (cond 
+    [(zero? 1) empty]
+    [else (cons 'hello (hellos (sub1 1)))]
+
+= (cond
+    [false empty]
+    [else (cons 'hello (hellos (sub1 1)))]
+= (cons 'hello (hellos (sub1 1)))
+= (cons 'hello (hellos 0))  <we already computed (hellos 0)>
+= (cons 'hello empty)
+
+For the last step in the calculation we can exploit that we already know that
+(hellos 0) evaluates to empty and replace the (underlined) expression with its
+result.
+
+The last hand-evaluation shows that the function works for the seciond example:
+
+(hellos 2)
+
+= (cond
+    [(zero? 2) empty]
+    [else (cons 'hello (hellos (sub1 2)))])
+= (cond
+    [false empty]
+    [else (cons 'hello (hellos (sub1 2)))])
+= (cons 'hello (hellos (sub1 2)))
+= (cons 'hello (hellos 1))      <again, we computed (hellos 1) this time>
+= (cons 'hello (cons 'hello empty))
+
+We can again exploit what we know about (hellos 1), which greatly shortens the
+hand-evaluation.
+
+Exercise 11.2.1 Generalize hellos to repleat, which consumes a natural number n
+and a symbol and produces a list with n occurrences of the symbol.
+
+Contract:
+;; repeat : s, N -> los
+;; given a-symbol, repeat it n times and return the list.
+(define (repeat a-symbol n) ...)
+
+Template:
+(define (fun-for-natural n)
+  (cond
+    [(zero? n) ...]
+    [else ... (fun-for-natrual (sub1 n) ...]))
+
+Examples
+(repeat 'hi 0)
+empty
+
+(repeat 'hi 1)
+(cons 'hi empty)
+
+(repeat 'hi 3)
+(cons 'hi (cons 'hi (cons 'hi empty)))
+
+WE know that zero results in an empty:
+
+(define (repeat a-symbol n)
+  (cond
+    [(zero? n) empty]
+    [else
+      ... (fun-for-natural (sub1 n)) ]))
+
+(define (repeat a-symbol n)
+  (cond
+    [(zero? n) empty]
+    [else
+      (cons a-symbol (fun-for-natural (sub1 n)))]))
+
+Exercise 11.2.2. Develop the function tabulate-f, which tabulates the values of
+
+;; f : number -> number
+(define (f x)
+  (+ (* 3 (* x x))
+    (+ (* -6 x)
+        -1)))
+for some natural numbers. Specifically, it consumes a natural number n and
+produces a list of n posns. The first one combines n with (f n), the second one
+n-1 with (f n-1), etc.
+
+a LIST-OF-POSNS or lop is:
+    1. empty
+    2. (cons p lop) 
+        where p is a posn structure and lop is a LIST-OF-POSNS.
+Contract:
+;; tabluate-f : n -> lop
+;; returns a list of posns, where the first item is one of 0..n natural numbers,
+;; and the second is the result of (f n).
+(define (tabulate-f n) ...)
+
+Template:
+(define (fun-for-natural n)
+  (cond
+    [(zero? n) ...]
+    [else ... (fun-for-natrual (sub1 n) ...]))
+
+Example:
+(tabulate-f 1)
+(cons (make-posn 1 (f 1)) empty)
+= (cons -4 empty)
+
+(tabulate-f 0)
+empty
+
+(tabulate-f 2)
+(cons (make-posn 2 -1) (cons (make-posn 1 -4) empty))
+
+We can define given these examples. We know that 0 produces
+the empty list  and that we will be creating a posn structure and a list for
+each step. We know that (tabulate-f (sub1 n)) will produce a tabluated list
+of posn structures representing inputs/outputs for f, and that we need a posn
+with n and (f n) put at the head of that list using cons.
+
+(define (tabulate-f n)
+  (cond
+    [(zero? n) ...]
+    [else (cons
+        (make-posn
+            n
+            (f n))
+            (tabulate-f (sub1 n))])))
+
+Exercise 11.2.3 Develop apply-n. The function consumes a natural number, n. It
+applies the function move from exercise 10.3.6 n times to FACE, the list of
+shapes from exercise 10.3.1. Each application should translate the shape by one
+pixel. The purpose of this function is to simulate a continuously moving shape
+on canvas, the last missing piece of the extended exercise 10.3.
+
+Contract:
+;; apply-n : N -> list-of-shapes
+;; applies the move function n times to FACE as defined in chapter 10. Each
+;; application translates the face 1 pixel on the x axis, and returns the
+;; translated shape.
+(define (apply-n n) ...)
+
+Template:
+Generic template for all natural numbers.
+(define (fun-for-natural n)
+  (cond
+    [(zero? n) ...]
+    [else
+      ... (fun-for-natural (sub1 n)) ...]))
+Examples:
+(apply-n 0) => 
+    FACE
+(apply-n 1) => 
+    FACE but all x positions in the posn structures are incremented by 1.
+
+We know that moving the shape 0 pixels should just result in nothing, and
+accordingly return the FACE list of shapes.
+(define (apply-n n)
+  (cond
+    [(zero? n) FACE]
+    [else
+      (move-shape-lr 
+        (apply-n (sub1 n)))]))
