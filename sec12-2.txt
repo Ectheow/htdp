@@ -1,0 +1,244 @@
+Section 12
+==========
+
+Composing Functions, Revisited Again
+------------------------------------
+
+In section 3 we said that programs were collections of function definitions and
+possibly some variable definitions too. To guide the division of labor among
+functions we also introduced a rough guideline:
+
+    Formulate auxiliary function definitions for every dependency between
+    quantities in the problem statement
+
+So far the guideline has been reasonably effective but it is now time to take a
+second look at it and to formulate some additional guidance concerning auxiliary
+functions.
+
+In the first subsection we refine our original guideline concerning auxiliary
+programs. The suggestions mostly put into words the experiences that we made
+with the exercises. The second and third one illustrate two of the ideas in more
+depth; the last one is an extended exercise.
+
+12.1 Designing Complex Programs
+-------------------------------
+
+When we develop a program, we may hope to implement it with a single function
+definition but we should always be prepared to write auxiliary functions. In
+particular, if the problem statement mentions several dependencies, it is
+natural to express each of them as a function. Others who read the problem
+statement and the program can follow our reasoning more easily that way. The
+movie-theater example in section 3.1 is a good example for this style of
+development.
+
+Otherwise we should follow the design recipe and start with a thorough analysis
+of the input and output data. Using the data analysis we should design a
+template and attempt to refine the template into a complete function definition.
+Turning a template into a complete function definition means combining the
+values of the template's subexpressions into the final answer. As we do so we
+might encounter several situations:
+    1. If the formulation of an answer requires a case analysis of the available
+    values, use a cond-expression.
+
+    2. If a computation requires knowledge of a particular domain of
+    application, for example, drawing on (computer) canvases, accounting, music,
+    or science, use an auxiliary function.
+
+    3. If a computation must process a list, a natural number, or some other
+    piece of data of arbitrary size, use an auxiliary function.
+
+    4. If the natural formulation of the function isn't quite what we want, it
+    is most likely a generalization of our target. In this case the main
+    function is a short definition that defers the computation to the
+    generalized auxiliary program.
+
+The last two criteria are situations that we haven't discussed yet. The
+following two subsections illustrate them with examples.
+
+After we determine the need for an auxiliary function we should add a contract,
+a header, and a purpose statement to a WISH LIST of functions. 
+
+Guidline on wish lists: Maintain a list of functions that must be developed to
+complete a program. Develop each function according to the design recipe. 
+
+Before we put a function on the wish list, we must check whether something like
+the function already exists or is already on the wish list. Scheme provides many
+primitive operations and functions, and so do other languages. We should find
+out as much as possible about our working language, though only when we settle
+on one. For beginners, a superficial knowledge of the language is fine.
+
+If we follow these guidelines we interleave the development of one function with
+that of others. As we finish a function that does not depend on anything other
+than our wish list, we can test it. Once we have tested such basic functions we
+can work our way backwards and test other functions until we have finished the
+wish list. By testing each function rigorously before we test those that depend
+on it we greatly reduce the effort of searching for logical mistakes. 
+
+12.2 Recursive Auxiliary Functions
+----------------------------------
+
+People need to sort things all the time. Investment advisors sort portfolios by
+the profit each holding generates. Doctors sort lists of transplant patients.
+Mail programs sort messages. More generally, sorting lists of values by some
+criteria is a task that many programs need to perform.
+
+Here we study how to sort a list of numbers not because it is important for many
+programming tasks, but also because it provides a good case study of the design
+of auxiliary programs. A sorting function consumes a list and produces one.
+Indeed, the two lists contain the same numbers, though the output list contains
+them in a different order. This is the essence of the contract and purpose
+statement:
+
+;; sort : list-of-numbers -> list-of-numbers
+;; to create a sorted list of numbers from all the numbers in alon
+(define (sort alon) ...)
+
+Here is one example per clause in the data definition:
+
+(sort empty)
+;; expected value:
+empty
+
+(sort (cons 1297.04 (cons 20000.00 (cons -505.25 empty))))
+;; expected value:
+(cons 20000.00 (cons 1297.04 (cons -505.25 empty)))
+
+The answer for the input empty is empty, because empty contains the same items
+(none) in that sorted order.
+
+Next we must translate the data definition into a function template. Again, we
+have dealt with lists of numbers before, so this step is easy:
+
+(define (sort alon)
+  (cond
+    [(empty? alon) ...]
+    [else ... (first alon) ... (sort (rest alon)) ...]))
+
+Using this template, we can finally turn to the interesting part of the program
+development. We consider each case of the cond-expression separately, starting
+with the simple case. If sort's input is empty, then the answer is empty, as
+specified by the example. So let's assume that the input is not empty. That is,
+let's deal with the second cond-clause. It contains two expressions and,
+following the design recipe, we must understand what they compute:
+
+    1. (first alon) extracts the first number from the input;
+    2. (sort (rest alon)) produces a sorted version of (rest alon), according to
+    the purpose statement of the function.
+
+Putting together these two values means inserting the first number into its
+appropriate spot in the sorted rest of the list.
+
+Let's look at the second example in this context. When sort consumes (cons
+1297.04 (cons 20000.00 (cons -505.25 empty))), then 
+    1. (first alon) evaluates to 1297.04,
+    2. (rest alon) is (cons 20000.0 (cons -505.25 empty)) and
+    3. (sort (rest alon)) produces (cons 20000.00 (cons -505.25 empty)).
+
+To produce the desired answer, we must insert 1297.04 between the two numbers of
+the last list. More generally, the answer in the second cond-line must be an
+expression that inserts (first alon) in its proper place into the sorted list
+(sort (rest alon)). 
+
+Inserting a number into a sorted list isn't a simple task. We may have to search
+through the entire list before we know what the proper place is. Searching
+through the list, however, can be done only with a function, because lists are
+of arbitrary size and processing such values requires recursive functions. Thus
+we must develop an auxiliary function that consumes the first number and a
+sorted list and creates a sorted list from both. Let us call this function
+insert and let us formulate a wish-list entry:
+
+;; insert : number list-of-numbers -> list-of-numbers
+;; to create a list of numbers from n and the numbers on alon that is sorted in 
+;; descending order; alon is already sorted.
+(define (insert n alon) ...)
+
+Using insert, it is easy to complete the definition of sort:
+
+(define (sort alon)
+  (cond
+    [(empty? alon) empty]
+    [else  (insert (first alon) (sort (rest alon)))]))
+
+The answer in the second line says that in order to produce the final result,
+sort extracts the first item of the non-empty list, computes the sorted version
+of the rest of the list, and inserts the former into the latter at its
+appropriate place.
+
+Of course, we are not really finished until we have developed insert. We already
+have a contract, a header, and a purpose statement. Next we need to make up
+function examples. Since the first input of insert is atomic, let's make up
+examples based on the data definition for lists. That is, we first consider what
+insert should produce when given a number and empty. According to insert's
+purpose statement, the output must be a list, it must contain all numbers from
+the second input, and it must contain the first argument. This suggests the
+following:
+
+(insert 5 empty)
+;; expected value:
+(cons 5 empty)
+
+Instead of 5, we could have used any number. 
+
+The second example must use a non-empty list, but then, the idea for insert was
+suggested by just such an example when we studied how sort would deal with
+non-empty lists. Specifically, we said that sort had to insert 1297.04 into
+(cons 20000.00 (cons -505.25 empty)) at its proper place:
+    
+    (insert 1297.04 (cons 20000.00 (cons -505.25 empty)))
+    ;; expected value:
+    (cons 20000.00 (cons 1297.04 (cons -505.25 empty)))
+
+In contrast to sort, the function insert consumes two inputs. But we know that
+the first one is a number and atomic. We can therefore focus on the second
+argument which is a list of numbers and which suggests that we use the
+list-processing template one more time:
+
+(define (insert n alon)
+  (cond
+    [(empty? alon) ...]
+    [else ... (first alon) ... (insert n (rest alon)) ...]))
+
+The only difference between this template and the one for sort is that this one
+needs to take into account the additional argument n.
+
+To fill the gaps in the template of insert, we again proceed on a case-by-case
+basis. The first case concerns the empty list. According to the purpose
+statement, insert must now construct a list with one number: n. Hence the answer
+in the first case is (cons n empty). 
+
+The second case is more complicated than that. When alon is not empty, 
+
+    1. (first alon) is the first number in alon, and
+    2. (insert n (rest alon)) produces a sorted list consisting of n and all
+    numbers on (rest alon). 
+
+The problem is how to combine these pieces of data to get the answer. Let us
+consider an example:
+    (insert 7 (cons 6 (cons 5 (cons 4 empty))))
+
+Here n is 7 and larger than any of the numbers in the second input. Hence it
+suffices if we just cons 7 onto (cons 6 (cons 5 (cons 4 empty))). In contrast,
+when the application is something like
+    (insert 3 (cons 6 (cons 2 (cons 1 (cons -1 empty)))))
+n must indeed be inserted into the rest of the list. More concretely,
+
+    1. (first alon) is 6.
+    2. (insert n (rest alon)) is (cons 3 (cons 2 (cons 1 (cons -1 empty))))
+By adding 6 onto this last list with cons, we get the desired answer. 
+
+Here is how we generalize from these example. The problem requires a further
+case distinction. If n is larger than (or equal to) f(first alon), all the items
+in alon are smaller than n, after all, alon is already sorted. The result is
+(cons n alon) for this case. If however, n is smaller than (first alon), then we
+have not yet found teh proper place to insert n into alon. We do know that the
+first item of the result must be (first alon) and that n must be inserted into
+(rest alon). The final result in this case is
+
+    (cons (first alon) (insert n (rest alon)))
+
+because this list contains n and all items of alon in sorted order -- which is
+what we need.
+
+
+
+
