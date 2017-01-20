@@ -239,6 +239,754 @@ first item of the result must be (first alon) and that n must be inserted into
 because this list contains n and all items of alon in sorted order -- which is
 what we need.
 
+The translation of this discussion into Scheme requires the formulation of a
+conditional expression that distinguishes between the two possible cases:
+    (cond
+      [(>= n (first alon)) ...]
+      [(< n (first alon)) ...])
+
+From here we just need to put the proper answer expressions into the two
+cond-clauses.
+
+    (define (sort alon)
+      (cond
+        [(empty? alon) empty]
+        [(insert (first alon) (sort (rest alon)))]))
+
+    (define (insert n alon)
+      (cond
+        [(empty? alon) (cons n empty)]
+        [else
+          (cond
+            [(> n (first alon)) (cons n alon)]
+            [(<= n (first alon)) (cons (first alon) (insert n (rest alon)))])]))
+
+This particular program for sorting is known as insertion sort.
+
+Exercise 12.2.1. Develop a program that sorts lists of mail messages by date.
+Mail structures are defined as follows:
+
+    (define-struct mail (from date message))
+
+a mail-message is a structure:
+
+        (make-mail name n s)
+
+where name is a string, n is a number, and s is a string.
+
+Examples:
+(sort-mail empty)
+empty
+
+(sort-mail 
+  (cons (make-mail "Cats J. Dogs" 20160913 "doodle")
+    (cons (make-mail "Albert T. Muckracker" 20170914 "rats my cats")
+      (cons (make-mail "Jesus H. Trump" 20159210 "fraud plz")
+        (cons (make-mail "Albert T. Henkel, esq." 20189209 "frweraer")
+empty))))) => 
+
+(cons (make-mail "Albert T. Henkel, esq." 20189209 "frweraer")
+  (cons (make-mail "Albert T. Muckracker" 20170914 "rats my cats")
+    (cons (make-mail "Cats J. Dogs" 20160913 "doodle")
+      (cons (make-mail "Jesus H. Trump" 20159210 "fraud plz") empty))))
+
+
+We can use the same sort function with a slightly different insert.
+;; sort-mail : list-of-mail -> list-of-mail
+;; sorts a list of mail structures by date.
+(define (sort-mail alom)
+  (cond
+    [(empty? alom) empty]
+    [else
+      (insert-mail (first alom) (sort (rest alom)))]))
+
+;; insert-mail: mail-structure, list-of-mail -> list-of-mail
+;; inserts a mail structure into the proper position in a list of mail sorted by
+;; date.
+(define (insert-mail mail alom)
+  (cond
+   [(empty? alom) (cons mail empty)]
+   [else
+      (cond
+        [(> (mail-date mail) (mail-date (first alom))) (cons mail alom)]
+        [(<= (mail-date mail) (mail-date (first alom))) 
+            (cons (first alom) (insert mail (rest alom)))])]))
+
+
+Tests:
+> (sort-mail empty)
+'()
+> (sort-mail (cons (make-mail "Cats J. Dogs" 20160913 "doodle")
+    (cons (make-mail "Albert T. Muckracker" 20170914 "rats my cats")
+      (cons (make-mail "Jesus H. Trump" 20159210 "fraud plz")
+        (cons (make-mail "Albert T. Henkel, esq." 20189209 "frweraer")
+empty))))) 
+(cons
+ (make-mail "Albert T. Henkel, esq." 20189209 "frweraer")
+ (cons
+  (make-mail "Albert T. Muckracker" 20170914 "rats my cats")
+  (cons
+   (make-mail "Cats J. Dogs" 20160913 "doodle")
+   (cons (make-mail "Jesus H. Trump" 20159210 "fraud plz") '()))))
+> 
+
+Also develop a program that sorts lists of mail messages by name. To compare two
+strings alphabetically use the string<? primitive.
+;; sort-mail-by-name : list-of-mail -> list-of-mail
+;; sorts a list of mail structures by name.
+(define (sort-mail-by-name alom)
+  (cond
+    [(empty? alom) empty]
+    [else
+      (insert-mail-by-name (first alom) (sort-mail-by-name (rest alom)))]))
+
+;; insert-mail-by-name: mail-structure, list-of-mail -> list-of-mail
+;; inserts a mail structure into the proper position in a list of mail sorted by
+;; date.
+(define (insert-mail-by-name mail alom)
+  (cond
+   [(empty? alom) (cons mail empty)]
+   [else
+      (cond
+        [(not (string <? (mail-name mail) (mail-name (first alom)))) (cons mail alom)]
+        [else
+            (cons (first alom) (insert-mail-by-name (rest alom)))])]))
+
+
+Exercise 12.2.2 Here is the function search:
+
+;; search : number list-of-numbers -> boolean
+(define (search n alon)
+  (cond
+    [(empty? alon) false]
+    [else (or (= (first alon) n) (search n (rest alon)))]))
+It determines whether some number occurs in a list of numbers. The function may
+have to traverse the entire list to find out that the number of interest isn't
+contained in the list.
+
+Develop the function search-sorted, which determines whether a number occurs in
+a sorted list of numbers. The function takes advantage of the fact that the list
+is sorted.
+
+Assume that the list is sorted in descending order like the previous examples.
+
+;; search-sorted: number, list-of-numbers  -> boolean
+;; searches the sorted (descending order) list for a number matching n.
+(define (search-sorted number list-of-numbers) ...)
+
+Use a standard list-processing template:
+(define (search-sorted number list-of-numbers)
+  (cond
+   [(empty? list-of-numbers) ...]
+   [else
+     ... (first list-of-numbers)
+     ... (search-sorted number (rest list-of-numbers))]))
+
+Examples:
+(search-sorted 5 (cons 5 (cons 4 (cons 3 empty)))) 
+"should be"
+true
+
+(search-sorted 5 empty)
+"should be"
+false
+
+(search-sorted 3 (cons 5 (cons 4 (cons 1 empty))))
+"should be"
+false
+
+(search-sorted 1 (cons 5 (cons 4 (cons 3 (cons 1 empty)))))
+"should be"
+true
+
+We can fill out the first cond-question with the answer from the examples. Next,
+we need to determine if the number is in the list, taking advantage of if it's
+sorted. First, we should come up with a more obvious way to do it - the number
+is in the list if it is equal to the (first list-of-numbers) or (search-sorted
+number (rest list-of-numbers)) returns true:
+    (or (= (first list-of-numbers) number) (search-sorted number (rest
+list-of-numbers)))
+
+However, we can refine this: If the number is greater than the first of the list
+of numbers, there is no need to continue searcing, because the number is
+definitely not in the list. 
+
+    (cond
+      [(> number (first list-of-numbers)) false]
+      [else
+        (or (= (first list-of-numbers) number) (search-sorted number (rest
+list-of-numbers)))])
+
+
+So now we have the full answer to the second cond-line.
+
+(define (search-sorted n lon)
+  (cond
+    [(empty? lon) false]
+    [else
+      (cond
+        [(> n (first lon)) false]
+        [else 
+          (or (= (first lon) n)
+              (search-sorted n (rest lon)))])]))
+
+
+Tests:
+> (search-sorted 5 (cons 5 (cons 4 (cons 3 empty)))) 
+"should be"
+true
+
+(search-sorted 5 empty)
+"should be"
+false
+
+(search-sorted 3 (cons 5 (cons 4 (cons 1 empty))))
+"should be"
+false
+
+(search-sorted 1 (cons 5 (cons 4 (cons 3 (cons 1 empty)))))
+"should be"
+true
+#true
+"should be"
+#true
+#false
+"should be"
+#false
+#false
+"should be"
+#false
+#true
+"should be"
+#true
+> 
+12.3 Generalizing problems, Generalizing functions.
+Consider the problem of drawing a polygon, that is, a geometric shape with an
+arbitrary number of corners.
+
+--skip to extended exercise--
+12.4 Extended Exercise: Rearranging Words
+-----------------------------------------
+
+Newspapers often contain exercises that ask readers to find all possible words
+made up from some letters. One way to play this game is to form all possible
+arrangements of the letters in a systematic manner and to see which
+arrangements are dictionary words. Suppose the letters ``a'', ``d'', ``e'', and
+``r'' are given. There are twenty-four possible arrangements of these letters:
+
+      ader eadr erad drea ared
+      daer edar erda arde raed
+      dear edra adre rade read
+      dera aerd dare rdae reda
+      aedr eard drea rdea
+
+The three legitimate words in this list are ``read'', ``dear'', and ``dare''.
+
+The systematic enumeration of all possible arrangements is clearly a task for a
+computer program. It consumes a word and produces a list of the word's
+letter-by-letter rearrangements.
+
+One representation of a word is a list of symbols. Each item in the input
+represents a letter: 'a, 'b, ...,'z. Here is the data definition for words:
+
+A word is either
+  1. empty, or
+  2. (cons a w) where a is a symbol ('a, 'b, ..., 'z) and w is a word.
+
+Exercise 12.4.1. Formulate the data definition for lists of
+words. Systematically make up examples of words and lists of words.
+
+a list-of-words is either;
+  1. empty, or
+  2. (cons w low) where w is a word, and low is a list-of-words.
+
+word examples:
+the word "abc":
+(cons 'a
+    (cons 'b
+      (cons 'c empty)))
+the word "dog":
+(cons 'd
+  (cons 'o
+    (cons 'g empty)))
+the list-of-words "cat is dog":
+(cons
+  (cons 'c (cons 'a (cons 't empty)))
+  (cons
+    (cons 'i (cons 's empty))
+    (cons
+      (cons 'd (cons 'o (cons 'g empty))) empty)))
+the list-of-words "doodle cats rats":
+(cons
+   (cons 'd (cons 'o (cons 'o (cons 'o (cons 'd (cons 'l (cons 'e empty)))))))
+  (cons
+     (cons 'c (cons 'a (cons 't (cons 's empty))))
+    (cons
+       (cons 'r (cons 'a (cons 't (cons 's empty))))
+     empty)))
+
+Let us call the function arrangements. Its template is that of a
+list-processing function:
+
+;; arrangements: word -> list-of-words
+;; to create a list of all rearrangements of the letters in a-word
+(define (arrangements a-word)
+  (cond
+    [(empty? a-word) ...]
+    [else ... (first a-word) ... (arrangements (rest a-word)) ...]))
+Given the contract, the supporting data definitions, and the examples, we can
+now look at each cond-line in the template:
+    1. If the input is empty, there is only one possible rearrangement of the
+     input: the empty word. Hence the result is (cons empty empty), the list
+     that contains the empty list as the only item.
+    2. Otherwise there is a first letter in the word, and (first a-word) is
+    that letter is a letter and the recursion produces the list of all possible
+    rearrangements for the rest of the word. For example, if the list is
+
+    (cons 'd (cons 'e (cons 'r empty)))
+
+    then the recursion is (arrangements (cons 'e (cons 'r empty))). It will
+    produce the result
+      (cons (cons 'e (cons 'r empty))
+        (cons (cons 'r (cons 'e empty)) empty))
+
+    To obtain all possible rearrangements for the entire list, we must now
+    insert the first item, 'd in our case, into all of these words between all
+    possible letters at the beginning and end.
+
+The task of inserting a letter into many different words requires processing an
+arbitrarily large list. So we need another function, call it
+insert-everywhere/in-all-words, to complete the definition of arrangements:
+
+(define (arrangements a-word)
+  (cond
+    [(empty? a-word) (cons empty empty)]
+    [else (insert-everywhere/in-all-words (first a-word)
+            (arrangements (rest a-word)))]))
+
+Exercise 12.4.2. Develop the function insert-everywhere/in-all-words. It
+consumes a symbol and a list of words. The result is a list of words like its
+second argument, but with the first argument inserted between all letters and
+at the beginning and the end of all words of the second argument.
+
+Hint: reconsider the example from above. We stopped and decided that we needed
+to insert 'd into the words (cons 'e (cons 'r empty)) and (cons 'r (cons 'e
+empty)). The following is therefore a natural candidate:
+
+(insert-everywhere/in-all-words 'd
+  (cons (cons 'e (cons 'r empty))
+   (cons (cons 'r (cons 'e empty))
+     empty)))
+
+for the ``function examples'' step. Keep in mind that the second input
+corresponds to the sequence of (partial) words ``er'' and ``re''.
+
+Also, use the scheme operation append, which consumes two lists and produces
+the concatenation of the two lists. For example:
+
+(append (list 'a 'b 'c) (list 'd 'e))
+= (list 'a 'b 'c 'd 'e)
+
+contract:
+;; insert-everywhere/in-all-words: symbol list-of-words -> list-of-words
+;; process alow and return a list-of-words like alow but with s inserted at the
+;; start, end, and between every letter for every word on the list.
+(define (insert-everywhere/in-all-words s alow) ...)
+
+Examples:
+(insert-everywhere/in-all-words 'd empty)
+"should be"
+empty
+
+(insert-everywhere/in-all-words 'd (cons empty empty))
+"should be"
+(cons (cons 'd empty) empty)
+
+(insert-everywhere/in-all-words 'd (cons (cons 'c empty) empty))
+"should be"
+(cons
+  (cons 'd (cons 'c empty))
+  (cons
+    (cons 'c (cons 'd empty))
+    empty))
+
+(insert-everywhere/in-all-words 'd
+  (cons
+    (cons 'r (cons 'e  empty))
+    (cons
+      (cons 'e (cons 'r empty)) empty)))
+"should be"
+(cons
+  (cons 'r (cons 'e (cons 'd empty)))
+  (cons
+    (cons 'r (cons 'd (cons 'e empty)))
+    (cons
+      (cons 'd (cons 'r (cons 'e empty)))
+      (cons
+        (cons 'e (cons 'r (cons 'd empty)))
+	(cons
+	  (cons 'e (cons 'd (cons 'r empty)))
+	  (cons
+           (cons 'd (cons 'e (cons 'r empty))) empty))))))
+
+Template:
+
+(define (insert-everywhere/in-all-words s low)
+  (cond
+    [(empty? low) ...]
+    [else
+      ... (first low) ... (insert-everywhere/in-all-words s (rest low)) ...]))
+
+For the first case, we know if we have an empty list-of-words, there are no
+words to insert any symbols into, so we return empty. For the second case, we
+know that
+     1. (first low) is a word, which we need to insert s into every position
+     for.
+     2. (insert-everywhere/in-all-words s (rest low)) inserts s into every
+     position of all words in (rest low).
+In order to complete the contract, we need to:
+     1. insert s into every position of (first low)
+     2. add the resulting list-of-words onto the list-of-words returned by
+     insert-everywhere/in-all-words s (rest low).
+for (2.) we can use the append function (1.) is a list-processing function and
+requires an auxiliary function, insert-everywhere.
+
+(define (insert-everywhere/in-all-words s low)
+  (cond
+    [(empty? low) empty]
+    [else
+      (append
+        (insert-everywhere s (first low))
+	(insert-everywhere/in-all-words s (rest low)))]))
+
+insert-everywhere design:
+
+;; insert-everywhere : symbol, words -> list-of-words
+;; inserts s into every position in low, returns a list-of-words.
+(define (insert-everywhere s low) ...)
+
+Examples:
+(insert-everywhere 'a empty)
+"should be"
+(cons (cons 'a empty) empty)
+
+(insert-everywhere 'd (cons 'a empty))
+"should be"
+(cons
+  (cons 'a (cons 'd empty))
+  (cons
+    (cons 'd (cons 'a empty)) empty))
+
+(insert-everywhere 'c (cons 'a (cons 't empty)))
+"should be"
+(cons
+  (cons 'c (cons 'a (cons 't empty)))
+  (cons
+    (cons 'a (cons 'c (cons 't empty)))
+    (cons
+      (cons 'a (cons 't (cons 'c empty))) empty)))
+
+Template:
+(define (insert-everywhere s word)
+  (cond
+    [(empty? word) ...]
+    [else
+      ... (first word) ... (insert-everywhere s (rest word)) ...]))
+
+For the cond clauses, (1.) is answered by an example. For (2.), (first word) is
+a symbol of the word. (insert-everywhere s (rest low)) returns a list-of-words
+where s has been inserted into every possible place of (rest word), so if we
+had (cons 's (cons 'd empty)) as input, (rest (cons 's (cons 'd empty))) is
+(cons 'd empty), and if s was 'k, it would return:
+      (cons
+        (cons 'k (cons 'd empty))
+	(cons
+	  (cons 'd (cons 'k empty)) empty))
+and we need to produce the list:
+      (cons
+        (cons 'k (cons 's (cons 'd empty)))
+	(cons
+	  (cons 's (cons 'k (cons 'd empty)))
+	  (cons
+	    (cons 's (cons 'd (cons 'k empty))) empty)))
+The list has a single extra item in terms of length. Two if the items may be
+computed by just putting (first word) before the elements of the list returned
+by (insert-everywhere s (rest low)). The third is just (cons s word). To
+prepend a symbol onto the first of each list of symbols in a list-of-words, we
+will need an extra list-processing function, prepend, taking a symbol and a
+list-of-words. This will return a list-of-words, to which we will add (cons s
+low):
+
+(define (insert-everywhere s word)
+  (cond
+    [(empty? word) (cons s empty)]
+    [else
+      (cons
+        (cons s word)
+	(prepend (first word)
+	  (insert-everywhere s (rest word))))]))
+
+prepend design:
+Contract:
+;; prepend: symbol, list-of-words -> list-of-words
+;; prepend s to each element of low.
+(define (prepend s low) ...)
+
+Examples:
+(prepend 'c (cons (cons 'a empty)))
+"should be"
+(cons
+  (cons 'c (cons 'a empty)) empty)
+
+(prepend 'd (cons (cons 'a empty) (cons (cons 'b empty) empty)))
+"should be"
+(cons
+  (cons 'd (cons 'a empty))
+  (cons
+    (cons 'd (cons 'b empty)) empty))
+
+(prepend 'c empty)
+"should be"
+empty
+
+Template:
+(define (prepend s low)
+  (cond
+    [(empty? low) ...]
+    [else
+      ... (first low) ... (prepend s (rest low)) ...]))
+
+The answer to first cond question will be empty, as per the example. An empty
+list of words will produce an empty prepend result. For the second example, we
+know that (prepend s (rest low)) will return a list of words where s has been
+prepended to each word. To complete the function and return the correct result,
+we must add one extra item, (first low) but with s prepended, that is, (cons s
+(first low)).
+
+(define (prepend s low)
+  (cond
+    [(empty? low) empty]
+    [else
+      (cons
+        (cons s (first low))
+	(prepend s (rest low)))]))
 
 
 
+Function tests:
+
+prepend:
+
+
+> (prepend 'c (cons (cons 'a empty) empty))
+"should be"
+(cons
+  (cons 'c (cons 'a empty)) empty)
+
+(prepend 'd (cons (cons 'a empty) (cons (cons 'b empty) empty)))
+"should be"
+(cons
+  (cons 'd (cons 'a empty))
+  (cons
+    (cons 'd (cons 'b empty)) empty))
+
+(prepend 'c empty)
+"should be"
+empty
+
+(cons (cons 'c (cons 'a '())) '())
+"should be"
+(cons (cons 'c (cons 'a '())) '())
+(cons (cons 'd (cons 'a '())) (cons (cons 'd (cons 'b '())) '()))
+"should be"
+(cons (cons 'd (cons 'a '())) (cons (cons 'd (cons 'b '())) '()))
+'()
+"should be"
+'()
+
+insert-everywhere:
+
+> (insert-everywhere 'a empty)
+"should be"
+(cons (cons 'a empty) empty)
+
+(insert-everywhere 'd (cons 'a empty))
+"should be"
+(cons
+  (cons 'a (cons 'd empty))
+  (cons
+    (cons 'd (cons 'a empty)) empty))
+
+(insert-everywhere 'c (cons 'a (cons 't empty)))
+"should be"
+(cons
+  (cons 'c (cons 'a (cons 't empty)))
+  (cons
+    (cons 'a (cons 'c (cons 't empty)))
+    (cons
+      (cons 'a (cons 't (cons 'c empty))) empty)))
+(cons (cons 'a '()) '())
+"should be"
+(cons (cons 'a '()) '())
+(cons (cons 'd (cons 'a '())) (cons (cons 'a (cons 'd '())) '()))
+"should be"
+(cons (cons 'a (cons 'd '())) (cons (cons 'd (cons 'a '())) '()))
+(cons
+ (cons 'c (cons 'a (cons 't '())))
+ (cons
+  (cons 'a (cons 'c (cons 't '())))
+  (cons (cons 'a (cons 't (cons 'c '()))) '())))
+"should be"
+(cons
+ (cons 'c (cons 'a (cons 't '())))
+ (cons
+  (cons 'a (cons 'c (cons 't '())))
+  (cons (cons 'a (cons 't (cons 'c '()))) '())))
+>
+
+insert-everywhere/in-all-words:
+(insert-everywhere/in-all-words 'd empty)
+"should be"
+empty
+
+(insert-everywhere/in-all-words 'd (cons empty empty))
+"should be"
+(cons (cons 'd empty) empty)
+
+(insert-everywhere/in-all-words 'd (cons (cons 'c empty) empty))
+"should be"
+(cons
+  (cons 'd (cons 'c empty))
+  (cons
+    (cons 'c (cons 'd empty))
+    empty))
+
+(insert-everywhere/in-all-words 'd
+  (cons
+    (cons 'r (cons 'e  empty))
+    (cons
+      (cons 'e (cons 'r empty)) empty)))
+"should be"
+(cons
+  (cons 'r (cons 'e (cons 'd empty)))
+  (cons
+    (cons 'r (cons 'd (cons 'e empty)))
+    (cons
+      (cons 'd (cons 'r (cons 'e empty)))
+      (cons
+        (cons 'e (cons 'r (cons 'd empty)))
+	(cons
+	  (cons 'e (cons 'd (cons 'r empty)))
+	  (cons
+           (cons 'd (cons 'e (cons 'r empty))) empty))))))
+'()
+"should be"
+'()
+(cons (cons 'd '()) '())
+"should be"
+(cons (cons 'd '()) '())
+(cons (cons 'd (cons 'c '())) (cons (cons 'c (cons 'd '())) '()))
+"should be"
+(cons (cons 'd (cons 'c '())) (cons (cons 'c (cons 'd '())) '()))
+(cons
+ (cons 'd (cons 'r (cons 'e '())))
+ (cons
+  (cons 'r (cons 'd (cons 'e '())))
+  (cons
+   (cons 'r (cons 'e (cons 'd '())))
+   (cons
+    (cons 'd (cons 'e (cons 'r '())))
+    (cons
+     (cons 'e (cons 'd (cons 'r '())))
+     (cons (cons 'e (cons 'r (cons 'd '()))) '()))))))
+"should be"
+(cons
+ (cons 'r (cons 'e (cons 'd '())))
+ (cons
+  (cons 'r (cons 'd (cons 'e '())))
+  (cons
+   (cons 'd (cons 'r (cons 'e '())))
+   (cons
+    (cons 'e (cons 'r (cons 'd '())))
+    (cons
+     (cons 'e (cons 'd (cons 'r '())))
+     (cons (cons 'd (cons 'e (cons 'r '()))) '()))))))
+
+Arrangements:
+> (arrangements (cons 'a (cons 'b (cons 'c empty))))
+(cons
+ (cons 'a (cons 'b (cons 'c '())))
+ (cons
+  (cons 'b (cons 'a (cons 'c '())))
+  (cons
+   (cons 'b (cons 'c (cons 'a '())))
+   (cons
+    (cons 'a (cons 'c (cons 'b '())))
+    (cons
+     (cons 'c (cons 'a (cons 'b '())))
+     (cons (cons 'c (cons 'b (cons 'a '()))) '()))))))
+> (arrangements (cons 'd (cons 'e (cons 'r (cons 'a empty)))))
+(cons
+ (cons 'd (cons 'e (cons 'r (cons 'a '()))))
+ (cons
+  (cons 'e (cons 'd (cons 'r (cons 'a '()))))
+  (cons
+   (cons 'e (cons 'r (cons 'd (cons 'a '()))))
+   (cons
+    (cons 'e (cons 'r (cons 'a (cons 'd '()))))
+    (cons
+     (cons 'd (cons 'r (cons 'e (cons 'a '()))))
+     (cons
+      (cons 'r (cons 'd (cons 'e (cons 'a '()))))
+      (cons
+       (cons 'r (cons 'e (cons 'd (cons 'a '()))))
+       (cons
+        (cons 'r (cons 'e (cons 'a (cons 'd '()))))
+        (cons
+         (cons 'd (cons 'r (cons 'a (cons 'e '()))))
+         (cons
+          (cons 'r (cons 'd (cons 'a (cons 'e '()))))
+          (cons
+           (cons 'r (cons 'a (cons 'd (cons 'e '()))))
+           (cons
+            (cons 'r (cons 'a (cons 'e (cons 'd '()))))
+            (cons
+             (cons 'd (cons 'e (cons 'a (cons 'r '()))))
+             (cons
+              (cons 'e (cons 'd (cons 'a (cons 'r '()))))
+              (cons
+               (cons 'e (cons 'a (cons 'd (cons 'r '()))))
+               (cons
+                (cons 'e (cons 'a (cons 'r (cons 'd '()))))
+                (cons
+                 (cons 'd (cons 'a (cons 'e (cons 'r '()))))
+                 (cons
+                  (cons 'a (cons 'd (cons 'e (cons 'r '()))))
+                  (cons
+                   (cons 'a (cons 'e (cons 'd (cons 'r '()))))
+                   (cons
+                    (cons 'a (cons 'e (cons 'r (cons 'd '()))))
+                    (cons
+                     (cons 'd (cons 'a (cons 'r (cons 'e '()))))
+                     (cons
+                      (cons 'a (cons 'd (cons 'r (cons 'e '()))))
+                      (cons
+                       (cons 'a (cons 'r (cons 'd (cons 'e '()))))
+                       (cons
+                        (cons 'a (cons 'r (cons 'e (cons 'd '()))))
+                        '()))))))))))))))))))))))))
+> (arrangements (cons 'c (cons 't (cons 'a empty))))
+(cons
+ (cons 'c (cons 't (cons 'a '())))
+ (cons
+  (cons 't (cons 'c (cons 'a '())))
+  (cons
+   (cons 't (cons 'a (cons 'c '())))
+   (cons
+    (cons 'c (cons 'a (cons 't '())))
+    (cons
+     (cons 'a (cons 'c (cons 't '())))
+     (cons (cons 'a (cons 't (cons 'c '()))) '()))))))
+> 
+
+1
