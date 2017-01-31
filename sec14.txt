@@ -1,0 +1,313 @@
+Section 14
+==========
+
+More Self-referential Data Definitions
+--------------------------------------
+
+Lists and natural numbers are two classes of data whose description
+requires self-referential data definitions. Both data definitions
+consist of two clauses; both have a single self-reference. Many
+interesting classes of data, however, require more complex definitions
+than that. Indeed, there is no end to the variations. It is therefore
+necessary to learn how to formulate data definitions on our own,
+starting with informal descriptions of information. Once we have
+those, we can just follow a slightly modified design recipe for
+self-referential data definitions.
+
+14.1 Structures in Structures
+-----------------------------
+
+Medical researchers rely on family trees to do research on hereditary
+diseases. They may, for example, search a family tree for a certain
+eye color. Computers can help with these tasks, so it is natural to
+design representations of family trees and functions for processing
+them.
+
+One way to maintain a family tree is to add a node to the tree every
+time a child is born. From the node, we can draw connections to the
+node for the father and the one for the mother, which tells us how the
+people in the tree are related. For those people in the tree whose
+parents are unknown, we do not draw any connections. The result is a
+so-called _ancestor family tree_ because, given any node in the tree,
+we can find the ancestors of that person if we follow the arrows but
+not the descendants. 
+
+As we record a family tree we may also want to record certain pieces
+of information. The birth date, birth weight, the color of the eyes,
+and the color of the hair are the pieces of information that we care
+about. Others record different information.
+
+
+See figure 35 for a drawing of an ancestor family tree. Adam is the
+child of Beggina and Carl; he has yellow eyes and was born in
+1950. Smilarly, Gustav is the child of Eva and Fred, has brown eyes,
+and was born in 1988. To represent a child in a family tree is to
+combine several pieces of information: information about the father,
+the mother, the name, the birth date, and eye color.
+This suggests that we define a new structure:
+
+(define-struct child (father mother name date eyes))
+
+The five fields of child structures record the required information,
+which suggests the following data definition:
+
+A child is a structure:
+  (make-child f m na da ec)
+
+where f and m are child structures; na and ec are symbols, and da is a
+number.
+
+While this data definition is simple, it is unfortunately also
+useless. The definition refers to itself but, because it doesn't have
+any clauses, there is no way to create a child structure -- if we
+tried to create a child structure, we would have to write:
+
+      (make-child
+	(make-child
+	  (make-child
+	    (make-child
+	      ...
+	      )))
+	      ... ... ...)
+
+
+without end. It is for this reason that we demand that all
+self-referential data definitions consist of several clauses (for now)
+and that at least one of them does not refer to the data definition.
+
+Let's postpone the data definition for a moment and study instead how
+we can use child structures to represent family trees. Suppose we are
+about to add a child to an existing family tree, and furthermore
+suppose that we already have representations for the parents. Then we
+can just construct a new child structure. For example, for Adam we
+could create the following child structure:
+
+      (make-child Carl Bettina 'Adam 1950 'yellow)
+
+assuming Carl and Bettina stand for representations of Adam's parents.
+
+The problem is that we don't always know a person's parents. In the
+family depicted in figure 35, we don't know Bettina's parents. Yet,
+evin if we don't know a person's father or mother, we must still use
+some Scheme value for the two fields in a child structure. We could
+use all kinds of values to signal a lack of information (5, false, or
+'none); here, we use empty. For example, to construct a child
+structure for Bettina, we do the following:
+
+	  (make-child empty empty 'Bettina 1926 'green)
+
+Of course, if only one of the two parents is missing, we fill just
+that field with empty.
+
+Our analysis suggests that a child node has the following data
+definition:
+
+	A child node is (make-child f m na da ec) where
+	  1. f and m are either
+	     a. empty or
+	     b. child nodes
+	  2. na and ec are symbols
+	  3 da is a number
+
+This definition is special in two regards. First, it is a
+self-referential data definition involving structures. Second, the
+data definition mentions two alternatives for the first and second
+component. This violates our conventions concerning the shape of data
+definitions. It violates them because (1.) can be two distinct types
+of data - an element of a structure should only be of a single data
+class.
+
+
+We can avoid this problem by defining the collection of nodes in a
+family tree instead:
+       A family-tree-nodee (short: ftn) is either
+       	 1. empty; or
+	 2. (make-child f m na da ec)
+	 where f and m are ftns, na and ec are symbols, and da is a
+	 number -- now we have a simple definition shape without any
+	 subclauses.
+The new definition satisfies our conventions. It consists of two
+clauses. One of the clauses is self-referential, the other is not -
+the fields themselves shouldn't have multiple disjoint clauses, I
+guess. Rather than have multiple disjoint clauses for a single data
+element, which creates a problem for family-tree-node function
+templates, we redefine the entire structure, to describe all things we
+may find in a family-tree-node.
+
+In contrast to previous data definitions involving structures, the
+definition of ftn is not a plain explanation of what kind of data can
+show up in which field. Instead, it is multi-clausal and
+self-referential. Considering that this is the first such data
+definition, let us carefully translate the exmample from figure 35 and
+thus reassure ourselves that the new class of data can represent the
+information of interest.
+
+The information for Carl is easy to translate into a ftn:
+
+(make-child empty empty 'Carl 1926 'green)
+
+Bettina and Fred are represented with similar nodes. Accordingly, the
+node for Adam is created with:
+
+(make-child (make-child empty empty 'Carl 1926 'green)
+	    (make-child empty empty 'Bettina 1926 'green)
+	    'Adam
+	    1950
+	    'yellow)
+
+As the examples show, a simple-minded, node-by-node transliteration of
+figure 35 requires numerous repititions of data. For example, if we
+constructed the child structure for Dave like the one for Adam, we
+would get
+
+      (make-child (make-child empty empty 'Carl 1926 'green)
+      		  (make-child empty empty 'Bettina 1926 'green)
+		  'Dave
+		  1955
+		  'black)
+
+Hence it is a good idea to introduce a variable definition per node
+and to use the variable thereafter. To make things easy, we use Carl
+to stand for the child structure that describes Carl, and so on. The
+complete transliteration of the family tree into Scheme can be found
+below.
+
+	;; Oldest Generation
+	(define Carl (make-child empty empty 'Carl 1926 'green))
+	(define Bettina (make-child empty empty 'Bettina 1926 'green))
+
+
+	;; Middle Generation
+	(define Adam (make-child Carl Bettina 'Adam 1950 'yellow))
+	(define Dave (make-child Carl Bettina 'Dave 1955 'black))
+	(define Eva (make-child Carl Bettina 'Eva 1965 'blue))
+	(define Fred (make-child empty empty 'Fred 1966 'pink))
+
+	;; Youngest Generation:
+	(define Gustav (make-child Fred Eva 'Gustav 1988 'brown))
+
+The structure definitions in figure 36 naturally correspond to an
+image of deeply nested boxes. Each box has five compartments. The
+first two contain boxes agian, which in turn contain boxes in their
+first two compartments, and so on. Thus, if we were to draw the
+structure definitions for the family tree using nested boxes, we would
+quickly be overwhelmed by the details of the picture. Furthermore, the
+picture would copy certain portions of the tree just like our attempt
+to use make-child without variable definitions. For these reasons, it
+is better to imagine the structures as boxes and arrows, as originally
+draw in figure 35. In general, a programmer must flexibly switch back
+and forth between both of these graphical illustrations. For
+extracting values from structures, the boxes-in-boxes image works
+best; for finding our way around large collections of interconnected
+structures, the boxes-and-arrows image works better.
+
+Equipped with a firm understanding of the family tree representation,
+we can turn to the design of functions that consume family trees. Let
+us first look at a generic function of this kind:
+
+;; fun-for-ftn : ftn -> ???
+(define (fun-for-ftn a-ftree) ...)
+
+AFter all, we should be able to construct the template without
+considering the purpose of a function.
+
+Since the data definition for ftns contains two clauses, the template
+must consist of a cond-expression with two clauses. The first deals
+with empty, the second with child structures:
+
+;; fun-for-ftn : ftn -> ???
+(define (fun-for-ftn a-ftree)
+  (cond
+    [(empty? a-ftree) ...]
+    [else ; (child? a-ftree)
+    ...]))
+
+Furthermore, for the first clause, the input is atomic so there is
+nothing further to be done. For the second clause, though, the input
+contains five pieces of information: two other family tree nodes, the
+person's name, birth date, and eye color:
+
+;; fun-for-ftn : ftn -> ???
+(define (fun-for-ftn a-ftree)
+  (cond
+    [(empty? a-ftree) ...]
+    [else
+      ... (fun-for-ftn (child-father a-ftree)) ...
+      ... (fun-for-ftn (child-mother a-ftree)) ...
+      ... (child-name a-ftree) ...
+      ... (child-date a-ftree) ...
+      ... (child-eyes a-ftree) ... ]))
+
+We also apply fun-for-ftn to the father and mother fields because of
+the self-references in the second clause of the data definition.
+
+Let us now turn to a concrete example: blue-eyed-ancestor?, the
+function that determines whether anyone in some given family tree has
+blue eyes:
+
+;; blue-eyed-ancestor? : ftn -> boolean
+;; to determine whether a-ftree contains a child structure with 'blue
+;; in the eyes field.
+(define (blue-eyed-ancestor? a-ftree) ...)
+
+Following our recipe, we first develop some examples. Consider the
+family tree node for Carl. He does not have blue eyes, and because he
+doesn't have any (known) ancestors in our family tree, the family tree
+represented by this node does not contain a person with blue eyes. In
+short,
+
+(blue-eyed-ancestor? Carl)
+
+evaluates to false. In contrast, the family tree represented by Gustav
+contains a node for Eva who does have blue eyes. Hence
+
+(blue-eyed-ancestor? Gustav)
+
+evaluates to true.
+
+The function template is like that of fun-for-ftn, except that we use
+the name blue-eyed-ancestor?. As always, we use the template to guide
+the function design. First we assume that (empty? a-ftree) holds. In
+that case, the family tree is empty, and nobody has blue eyes. Hence
+the answer must be false.
+
+The second clause of the template contains several expressions, which
+we must interpret:
+
+1. (blue-eyed-ancestor? (child-father a-ftree)) which determines
+whether someone in the father's ftn has blue eyes;
+2. (blue-eyed-ancestor? (child-mother a-ftree)) which determines
+whether someone in the mother's ftn has blue eyes;
+3. (child-name a-ftree), which extracts the child's name;
+4. (child-date a-ftree), which extracts the child's date of birth; and
+5. (child-eyes a-ftree) which extracts the child's eye color.
+
+It is now up to us to use these values properly. Clearly, if the child
+structure contains 'blue in the eyes field, the function's answer is
+true. Otherwise, the function produces true if there is a blue-eyed
+person in either the father's or the mother's family tree. The rest of
+the data is useless.
+
+Our discussion suggests that we formulate a conditional expression and
+that the first condition is
+
+(symbol=? (child-eyes a-ftree) 'blue)
+
+The two recursions are the other two conditions. If either one
+produces true, the function produces true. The else-clause produces
+false.
+
+In summary, the answer in the second clause is the expression:
+
+(cond
+  [(symbol=? (child-eyes a-ftree) 'blue) true]
+  [(blue-eyed-ancestor? (child-father a-ftree)) true]
+  [(blue-eyed-ancestor? (child-mother a-ftree)) true]
+  [else false])
+
+The first definition in figure 37 pulls everything together. The
+second definition shows how to formulate this cond-expression as an
+equivalent or-expression, testing one condition after the next, until
+one of them is true or all of them have evaluated to false.
+
+;; blue-eyed-ancestor? : ftn -> boolean

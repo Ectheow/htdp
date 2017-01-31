@@ -1,0 +1,83 @@
+Section 12
+==========
+
+Composing FUnctions, Revisited Again
+====================================
+
+In section 3 we said that programs were collections of function definitions and
+possibly some variable definitions, too. To guide the division of labor among
+functions, we also introduced a rough guideline:
+	
+	Formulate auxiliary function definitions for every dependency between
+	quantities in the problem statement.
+
+So far the guideline has been reasonably effective but it is now time to take a
+second look at it and to formulate some additional guidance concerning auxiliary
+functions.
+
+In the first subsection, we refine our original guideline concerning auxiliary
+programs. The suggestions mostly put into words the experiences that we made
+with the exercises. The second and third one illustrate two of the ideas in more
+depth; the last one is an extended exercise. 
+
+12.1 Designing Complex Programs
+-------------------------------
+
+When we develop a program, we may hope to implement it with a single function
+definition but we should always be prepared to write auxiliary functions. In
+particular, if the problem statement mentions several dependencies, it is
+natural to express each of them as a function. Others who read the problem
+statement and the program can follow our reasoning more easily that way. The
+movie-theater example in section 3.1 is a good example for this style of
+development. 
+
+Otherwise, we should follow the design recipe and start with a thorough analysis
+of the input and output data. Using the data analysis we should design a
+template and attempt to refine the template into a complete function definition.
+Turning a template into a complete function definition means combining the
+values of the template's subexpressions into the final answer. As we do so, we
+might encounter several situations:
+
+	1. If the formulation of an answer requires a case analysis of the
+	available values, use a cond-expression.
+
+	2. If a computation requires knowledge of a particular domain of
+	application, for example, drawing on (computer) canvases, accounting,
+	music, or science, use an auxiliary functino.
+
+	3. If a computation must process a list, a natural number, or some other
+	piece of data of arbitrary size, use an auxiliary function.
+
+	4. If the natural formulation of the function isn't quite what we want,
+	it is most likely a generalization of our target. In this case, the main
+	function is a short definition that defers the computation to a
+	generalized auxiliary program.
+
+The last two criteria are sigtuations we haven't discussed yet. The following
+two subsections illustrate them with examples.
+
+After we determine the need for an auxiliary function we should add a contract,
+a header, and a purpose statement to a WISH LIST of functions.
+
+	Guideline on Wish Lists
+
+	Maintain a list of functions that must be developed to complete a
+	program. Develop each function according to a recipe.
+
+Before we put a function on the wish list, we must check whether something like
+the function already exists or is already on the wish list. Scheme provides many
+primitive operations and functions, and so do other languages. We should find
+out as much as possible about our working language, though only when we settle
+on one. For beginners, a superficial knowledge of a language is fine.
+
+If we follow these guidelines, we interleave the development of one function
+with that of others. As we finish a function that does not depend on anything on
+our wish list, we can test it. Once we have tested such basic functions, we can
+work our way backwards and test other functions until we have finished the wish
+list. By testing each function rigorously before we test those that depend on
+it, we greatly reduce the effort of searching for logical mistakes.
+
+
+
+
+

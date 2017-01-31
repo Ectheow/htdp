@@ -355,7 +355,7 @@ Contract:
 Example:
 According to our contract, we want to know how many times cons was used.
 (depth (cons 'hello empty)) =>  1
-(depth (cons (cons (cons 'cats empty)))) => 3
+(depth (cons (cons (cons 'cats empty) empty) empty) empty) => 3
 (depth 'cat) => 0
 
 The only hard part is filling out the second cond question. We know that
@@ -364,9 +364,10 @@ So, we must add one to that result, since we took a first, and that means we
 firsted a cons.
 
 (define (depth dl)
-  [(symbol? dl) 0]
-  [else
-    (add1 (fun-for-dl (first dl)))])
+  (cond
+   [(symbol? dl) 0]
+   [else
+    (add1 (fun-for-dl (first dl)))]))
 
 Develop the function make-deep, which consumes a symbol s and a natural number
 and produces a deep list containing s and constructed with n conses.
@@ -376,15 +377,1559 @@ Contract:
 ;; makes a deep list, the list is n deep, with s as the symbol at the bottom.
 (define (make-deep s n) ...)
 
+Examples:
+(make-deep 's 0) => 's
+(make-deep 's 1) => (cons 's empty)
+(make-deep 's 3) => (cons (cons (cons 's empty) empty) empty)
+
+For a template, we'll use the template for a natural number function.
 
 Template:
 (define (make-deep s n)
-  [(zero? n) ...]
-  [else
-    ... (make-deep s (sub1 n)) ...])
+  (cond
+   [(zero? n) ...]
+   [else
+    ... (make-deep s (sub1 n)) ...]))
 
 (define (make-deep s n)
   [(zero? n) s]
   [else
     (cons (make-deep s (sub1 n)) empty)])
 
+Hand evaulation:
+(make-deep 's 0)
+	= (cond 
+	    [(zero? 0) 's]
+	    [else (cons (make-deep 's (sub1 0)) empty)])
+
+	= (cond
+		[true 's]
+		[else (cons (make-deep 's (sub1 0)) empty)])
+	= 's
+
+(make-deep 's 1)
+	= (cond
+	    [(zero? 1) 's]
+	    [else (cons (make-deep 's (sub1 1) empty))])
+	= (cond
+	    [false 's]
+	    [else (cons (make-deep 's (sub1 1)) empty)])
+	= (cons (make-deep 's (sub1 1)) empty)
+	= (cons (make-deep 's 0) empty) <we know that (make-deep 's 0) is 's from above>
+	= (cons 's empty)
+(make-deep 's 2)
+	= (cond 
+	   [(zero? 2) 's]
+	   [else (cons (make-deep 's (sub1 2)) empty)])
+	= (cond
+	    [false 's]
+	    [else (cons (make-deep 's (sub1 2)) empty)])
+	= (cond
+	     [else (cons (make-deep 's (sub1 2)) empty)])
+	= (cons (make-deep 's (sub1 2)) empty)
+	= (cons (make-deep 's 1) empty) <again, from above we know (make-deep 's 1)>
+	= (cons (cons 's empty) empty)
+
+11.3 Extended Exercise: Creating Lists, Testing Functions
+---------------------------------------------------------
+
+We often encounter situations where we would like to create lists of data that
+involve numbers. For example, we may wish to create large lists of numbers to
+test a function like extract1 in section 10.2 on large lists instead of
+hand-coded small ones. Sometimes we would like to visualize randomly picked
+data. We can create such functions using recursion on natural numbers and a
+random number generator.
+
+Exercise 11.3.1 Scheme provides the operation random. It consumes a natural
+number n greater than 1, and produces a random integer between 0 and n-1:
+
+	;; random : N -> N
+	;; to compute a natural number between 0 and n-1.
+	(define (random n) ...)
+
+Two successive uses of (random n) my produce two distinct results.
+
+Now consider the following definition:
+
+	;; random-n-m : integer integer -> integer
+	;; ...
+	;; Assume : n < m
+	(define (random-n-m n m)
+	  (+ (random (- m n)) n))
+
+Formulate a succinct and precise purpose statement for random-n-m. Use a number
+line with an interval to explain the result of (random n). Use symbolic
+evaluation to support your explanation.
+
+;; random-n-m : integer integer -> integer
+;; to compute a random natural number between n and m-1.
+(define (random-n-m n m)
+  (+ (random (- m n)) n))
+
+The result of (random n):
+    0                                 n
+----[*********************************)---------
+
+Where each dash or [ is a possible result of (random n). 
+
+For (random-n-m n m)  
+	= (+ (random (- m n)) n)
+	
+0        n              m
+|--------|--------------|-------->
+
+(- m n) is:
+
+0            (- m n)
+|--------------|-------->
+
+SO (random (- m n)) is a number in:
+
+0           (- m n)
+[**************)-------->
+
+
+And if we then evaluate (+ (random (- m n)) n):
+
+0        n                 m
+|--------[*****************)---------->
+
+Where a * represents a possible result.
+
+Exercise 11.3.2 Develop the function tie-dyed. It consumes a natural number and
+produces a list of that many numbers, each randomly chosen in the range from 20
+and 120. Use tie-dyed to apply draw-circles from exercise 9.5.8.
+
+Contract:
+;; tie-dyed : n -> list-of-numbers
+(define (tie-dyed n) ...)
+
+Examples:
+
+In order to have examples, we can use a data definition:
+
+a RB20-120 is a:
+number:
+0         20              120   
+|---------[****************)---------->
+
+Where * is a possible result, [ represents being included in the range, and ) is
+excluded.
+
+(tie-dyed 0) => empty
+(tie-dyed 1) => (cons RB20-120 empty)
+(tie-dyed 2) => (cons RB20-120 (cons RB20-120 empty))
+(tie-dyed 3) => (cons RB20-120 (cons RB20-120 (cons RB20-120 empty)))
+
+Or:
+
+(tie-dyed 0) => empty
+(tie-dyed 1) => (cons (random-n-m 20 120) empty)
+(tie-dyed 2) => (cons (random-n-m 20 120) (cons (random-n-m 20 120) empty))
+(tie-dyed 3) => 
+	(cons (random-n-m 20 120) 
+	 (cons (random-n-m 20 120) 
+	  (cons (random-n-m 20 120) empty)))
+
+Template:
+We use the natural-number function processing template:
+
+(define (tie-dyed n)
+  (cons
+    [(zero? n) ...]
+    [else
+      ... (tie-dyed (sub1 n)) ...]))
+
+We also know we are producing a list, and we know from the example that if n is
+zero we produce the empty list.
+
+(define (tie-dyed n)
+  (cons
+    [(zero? n) empty]
+    [else
+      (cons ... (tie-dyed (sub1 n)) ...)]))
+
+Finally, we know that (tie-dyed (sub1 n)) will return a list of n-1 RB20-120s,
+so we simply need to add another item like that to the list:
+
+(define (tie-dyed n)
+  (cons
+    [(zero? n) empty]
+    [else
+      (cons (random-n-m 20 120) 
+            (tie-dyed (sub1 n)))]))
+
+Example test outputs:
+
+> (tie-dyed 2)
+(cons 47 (cons 115 '()))
+> (tie-dyed 0)
+'()
+> (tie-dyed 5)
+(cons 50 (cons 117 (cons 94 (cons 103 (cons 22 '())))))
+> (tie-dyed 15)
+(cons
+ 86
+ (cons
+  86
+  (cons
+   119
+   (cons
+    116
+    (cons
+     53
+     (cons
+      88
+      (cons
+       68
+       (cons
+        41
+        (cons 74 (cons 42 (cons 109 (cons 73 (cons 68 (cons 104 (cons 84 '()))))))))))))))
+
+Exercise 11.3.3 Develop the function create-temps. It consumes a natural number
+n and two integers, called low and high. It produces a list of n integers that
+are between low and high.
+
+create-temps is clearly the same as tie-dyed, but with parameters for random-n-m
+instead of just constant numbers.
+
+Contract:
+;; create-temps : N, N, N -> lon
+;; create a list of temperatures no less than n, up to but not including m, with
+;; list-size elements.
+(define (create-temps n m list-size) ...)
+
+Skip template since that work has been done in 11.3.2.
+
+(define (create-temps n m list-size)
+  (cond
+    [(zero? list-size) empty]
+    [else
+      (cons
+        (random-n-m n m)
+	(create-temps n m (sub1 list-size)))]))
+
+Use create-temps to test check-range from exercise 9.5.4. 
+
+Finally, discuss the following questions. Can we simply feed the result of
+create-temps into check-range or do we need to know the list that create-temps
+produced? are there values for low and high such that we don't need to know the
+result of create-temps and yet we can predict the result of the test? Which
+function tests which? What does that tell us about testing with automatically
+generated test data?
+
+	* Can we simply feed the result of create-temps into check-range or do
+	  we need to know the list that create-temps produced?
+
+	  You should probably also have a look at the list create-temps
+	  produced, since it *is* random, it is possible that it just generates
+	  a single number all the time, and doesn't produce a good spread of
+	  numbers in the range. It is always possible that certain numbers in
+	  the range that would break the tested function would not be produced,
+	  if you haven't otherwise tested the create-temps function.
+
+	  Book answer:
+	  We cannot simply feed the result of create-temps into check-range to
+	  test create-temps; we must also know the low and high arguments to
+	  create-temps.
+
+
+	* Are there values for low and high such that we don't need to know the
+	  result of create-temps and yet we can predict the result of the test?
+
+	  Technically you can give negative numbers to check-range and it would
+	  function well, where the results for random-n-m should always be
+	  positive, in which case it would always fail. But other than that I
+	  can't think of any.
+	  
+	  Book answer:
+	  If low is one greater than high than we know that the entire list must
+	  contain low.
+
+
+	* Which function tests which?
+
+	  They test each other. Each expression should have a theoretical value,
+	  and if they don't produce the expected value at least one of the
+	  functions is wrong.
+
+	  Book answer:
+	  Each function can test the other one.
+
+	* What does this tell us about testing with automatically generated
+	  data?
+
+	  The automatic data generator itself should first be tested, however,
+	  using a random number requires itself some kind of range-testing
+	  function, which again itself must be tested. Automatic test data may
+	  be useful for trying to brute-force find a bug by generating huge
+	  amounts of data. For example, we could run a test where check-range?
+	  consumes the output of create-temps for every combination of n from 0
+	  to 20 and m from 20 to 200, with every length of list from 1 to 1000,
+	  but this isn't a good substitute for directed intentional corner-case
+	  testing.
+
+	  Book answer:
+	  They are good for stress tests, but they are not good for testing in
+	  general.
+
+Exercise 11.3.4 Develop the function create-prices, which consumes a natural
+number and produces a list with a corresponding number of prices between $.10
+and $10.00 with increments of a dime. Use create-prices to test dollar-store?
+from exercise 9.5.3. 
+
+There are 10 .10 increments in [.10,10.00]. So we need a random number between
+[1,100] and multiply it by .10, for n list items. 
+
+Contract:
+a PRICE is a real number.
+
+a LIST-OF-PRICES is:
+	1. a PRICE
+	2. (cons PRICE LIST-OF-PRICES)
+
+;; create-prices : N -> list-of-prices
+;; generates a list of prices between $.10 and $10.00 n items long.
+(define (create-prices n) ...)
+
+Template:
+Use a standard list-producing, natural-number consuming template:
+
+(define (create-prices n)
+  (cond
+    [(zero? n) empty]
+    [else
+      (cons ...
+        (create-prices (sub1 n)) ...)]))
+
+The magic is to add a single item to the list using random-n-m, where n is .1,
+and m is 1.00 - except that's not the way random-n-m works. So we need a number
+between [1,100], and to multiply that by .10.
+
+(define (create-prices n)
+  (cond
+    [(zero? n) empty]
+    [else
+      (cons
+        (* .10 (random-n-m 1 100))
+	(create-prices (sub1 n)))]))
+
+
+Exercise 11.3.5 Develop a program that visualizes a student riot. IN preparation
+of a student riot, a small group of students meets to make paint-filled
+balloons. The typical riot uses 'red only. Then, on the evening of the riot, the
+students enter a university's progressive theater with the balloons and throw
+them all over the seats.
+
+The program's only input should be a natural number, which represents the number
+of balloons thrown. The visualization should use a canvas that contains a black
+grid and the position of the balls.
+
+Assume a random distribution of the balls over the theater's seats. Each box in
+the grid represents a seat. Configure the program so the change of one variable
+definition changes the number of columns in the grid and a change to another
+changes the number of rows.
+
+Program description:
+	* start with a blank canvas.
+	* draw a grid:
+		draw evenly spaced lines on the x axis from 0 to X MAX.
+		draw evenly spaced lines on the y axis from 0 to Y MAX.
+	* draw the balloons:
+		for each number, [0,NUMBER OF BALLOONS], draw a balloon in one
+		of the boxes at random.
+
+
+The first bit is easy:
+	(start X-MAX Y-MAX)
+
+We should define the inner parts of the second bullet so we know what the
+contract for the upper one will be:
+
+;; draw-x-lines : N N -> true
+;; draw lines on the x axis, spaced spacing, stopping at the nearest multiple of
+;; spacing to x-max.
+(define (draw-x-lines spacing x-max) ...)
+
+The definitions of draw-x-lines and draw-y-lines will look similar, but lets
+implement one first before trying to consolidate. We will need a function to
+draw a line, from the documentation we find:
+
+;; draw-solid line strt end c -> true
+;; draw a c colored line from strt to end.
+(define (draw-solid-line strt end c) ...)
+
+We also need a template. The draw-x-lines function consumes two natural numbers.
+One of them can never change. We know that the spacing never should change. WE
+can therefore plug in a natural number function, where x-max is the changing
+parameter.
+
+(define (draw-x-lines spacing x-max)
+  (cond
+    [(zero? x-max) ...]
+    [else
+      ... (draw-x-lines spacing (sub x-max spacing)) ...]))
+
+However, there is a problem with the template. x-max may not be an even multiple
+of spacing. One problem may be that we didn't start with a GRID data definition?
+a grid is almost a list of lines. We may describe a line as:
+
+a LINE is a structure with:
+	a start point
+	an end point
+	a color.
+
+an X-GRID-LINE is:
+	1. (make-line (make-posn 0 0) (make-posn 0 Y-MAX) 'red)
+	2. (make-line 
+	      (make-posn 
+	        (+ (posn-x (line-start LAST-LINE))
+		    LINE-SPACING)
+		0)
+	      (make-posn
+	        (+ (posn-x (line-start LAST-LINE))
+		    LINE-SPACING)
+		Y-MAX)
+	      'red)
+	    where LAST-LINE is also an X-GRID line. 
+	     
+(define (fun-for-x-grid-line line)
+  (cond
+    [(is? line (make-line (make-posn 0 0) (make-posn 0 Y-MAX) 'red)) ...]
+    [else
+      ...
+      (fun-for-x-grid-line
+         (make-line
+	   (make-posn (+ (posn-x (line-start line)) LINE-SPACING)
+	     (posn-y (line-start line)))
+	   (make-posn (+ (posn-x (line-start line)) LINE-SPACING)
+	     Y-MAX)))]))
+
+Since everything about a line except the x position of both coordinates is
+implied we can just pass the x position, and the spacing. Since the critical
+element to the recursion is the + operator applied to an x coordinate, to create
+a recursive definition, we use the - operator applied to some parameter as the
+inverse operator to the input. 
+
+Generative functions of series use one operator, processing functions use the
+opposite operator. x-grid is a series. We generate it with + operators
+essentially, although we could formalize it with other operators.
+
+(define (next-x-grid line) ...)
+
+(define (next-x-grid line)
+  (make-line
+    (make-posn
+      (+ (posn-x (line-start line))
+          spacing) 0)
+    (make-posn
+      (+ (posn-x (line-start line)) spacing) Y-MAX)))
+
+
+;; fun-for-x-grid : number number -> ...
+(define (fun-for-x-grid spacing x-coord)
+  (cond
+    [(zero? x-coord) ...]
+    [else
+      ...
+      (fun-for-x-grid
+        spacing
+        (- x-coord spacing))]))
+        
+;; draw-x-lines : number , number -> true
+;; draws a grid of x lines on the canvas spacing apart, returns true.
+(define (draw-x-lines spacing x-max) ...)
+
+Template:
+
+;; draw-x-lines  : number, number -> true
+;; 
+(define (draw-x-lines spacing x-max)
+  (cond
+    [(zero? x-max) ...]
+    [else
+      ...
+      (draw-x-lines spacing (- x-max spacing))]))
+
+The difference here from any othe
+(define (draw-x-lines spacing x-max)
+  (cond
+    [(<= 0 x-max) 
+      (draw-line (make-posn 0 0) (make-posn 0 Y-MAX) 'red)]
+    [else
+      (and
+       (draw-line (make-posn x-max 0) (make-posn x-max Y-MAX) 'red)
+       (draw-x-lines
+         spacing
+	 (- x-max spacing)))]))
+We could also use a different type of purely natural-number function:
+(define (draw-x-lines spacing nlines)
+  (cond
+    [(zero? nlines) ...]
+    [else
+      ... (draw-x-lines spacing (sub1 nlines)) ...]))
+The trick is to figure out which natural number is gonig to get changed by 1,
+and what to do at 0.
+
+nlines is 0: draw the y-axis.
+nlines is > 0: draw a line at nlines*spacing, parallel to the y-axis. 
+
+This follows the natrual number template much more exactly.
+
+Contract:
+;; draw-x-lines : N N -> true
+;; draw nlines evenly spaced lines, spacing apart,  parallel to the y axis, on
+;; the x axis.
+(define (draw-x-lines spacing nlines) ...)
+
+It is relatively easy to fill in. Assuming that the n-1th x-lines are drawn
+starting at 0 and spaced spacing apart, the actual drawing could be done like
+this:
+	(draw-line 
+	 (make-posn  (* spacing nlines) 0) 
+	 (make-posn (* spacing nlines) Y-MAX))
+Since draw-line returns true and our contract returns true, the function works
+itself out from there:
+	(define (draw-x-lines spacing nlines)
+	  (cond
+	    [(zero? nlines)
+	      (draw-line (make-posn 0 0) 
+	      	(make-posn 0 Y-MAX))]
+	    [else 
+	      (and
+	       (draw-line 
+	        (make-posn (* spacing nlines) 0)
+		(make-posn (* spacing nlines) Y-MAX))
+	       (draw-x-lines spacing (sub1 nlines))])))
+spacing could be a constant and not a parameter, and Y-MAX could be a parameter
+and not a constant. 
+
+
+the Y-GRID definition is the same. 
+(define (draw-y-lines spacing nlines)
+  (cond
+    [(zero? y-max)
+      (draw-line
+        (make-posn 0 0)
+	(make-posn X-MAX 0))]
+    [else
+      (and
+        (draw-line
+	  (make-posn 0 (* spacing nlines))
+	  (make-pson X-MAX (* spacing nlines))))]))
+
+So, draw-grid would be:
+
+(define (draw-grid n-x-lines x-spacing n-y-lines y-spacing)
+  (and
+    (draw-y-lines y-spacing n-y-lines)
+    (draw-x-lines x-spacing n-x-lines)))
+
+Assuming the constants ROWS, COLUMNS WIDTH, HEIGHT, representing the desired
+rows and columns and the actual window width and height, respectively:
+
+(draw-grid ROWS (/ HEIGHT ROWS) COLUMNS (/ WIDTH COLUMNS))
+
+will draw a grid for us with the desired number of rows and columns.
+
+next we need to draw a defined number of randomly placed red dots.
+
+;; draw-dots : N -> true
+;; draw ndots dots randomly around the canvas.
+(define (draw-dots ndots) ...)
+
+We assume the constants HEIGHT and WIDTH for this function. The template is
+easy.
+
+(define (draw-dots ndots)
+  (cond
+    [(zero? ndots) ...]
+    [else
+      ...
+      (draw-dots (sub1 ndots))]))
+
+Consulting the documentation we find this function for solid circles or 'disks':
+
+;; draw-solid-disk posn number symbol -> true
+;; draw the disk, centered at center, with radius r and color c.
+(define (draw-solid-disk center r c) ...)
+
+Assuming we know the HEIGHT and WIDTH, we can come up with random x and y
+coordinates using random, not even random-n-m since we know 0 forms the low
+bound for the canvas, as well as the random function.
+
+random y coordinate: (random HEIGHT)
+random x coordinate: (random WIDTH)
+
+Accordingly, since we know draw-dots will draw n dots on the canvas according to
+the contract, the only thing we need to do is draw one more:
+
+(draw-solid-disk
+  (make-posn (random WIDTH) (random HEIGHT))
+  DOT-SIZE
+  'red)
+
+(define (draw-dots ndots)
+ (cond
+   [(zero? ndots) true]
+   [else
+     (and
+       (draw-solid-disk
+         (make-posn (random WIDTH) (random HEIGHT))
+	 DOT-SIZE
+	 'red))]))
+The whole program:
+
+(define HEIGHT 500)
+(define WIDTH 1000)
+(define DOT-SIZE 4)
+(define COLUMNS 20)
+(define ROWS 10)
+
+(define (draw-dots ndots)
+ (cond
+   [(zero? ndots) true]
+   [else
+     (and
+       (draw-solid-disk
+         (make-posn (random WIDTH) (random HEIGHT))
+	 DOT-SIZE
+	 'red))]))
+(define (draw-y-lines spacing nlines)
+  (cond
+    [(zero? y-max)
+      (draw-line
+        (make-posn 0 0)
+	(make-posn X-MAX 0))]
+    [else
+      (and
+        (draw-line
+	  (make-posn 0 (* spacing nlines))
+	  (make-pson X-MAX (* spacing nlines)))
+	 (draw-y-lines spacing (sub1 nlines)))]))
+
+(define (draw-x-lines spacing nlines)
+  (cond
+    [(zero? nlines)
+      (draw-line (make-posn 0 0) 
+      	(make-posn 0 Y-MAX))]
+    [else 
+      (and
+       (draw-line 
+        (make-posn (* spacing nlines) 0)
+	(make-posn (* spacing nlines) Y-MAX))
+       (draw-x-lines spacing (sub1 nlines))])))
+
+(define (draw-grid n-x-lines x-spacing n-y-lines y-spacing)
+  (and
+    (draw-y-lines y-spacing n-y-lines)
+    (draw-x-lines x-spacing n-x-lines)))
+
+
+(start 500 500)
+(draw-grid ROWS (/ HEIGHT ROWS) COLUMNS (/ WIDTH COLUMNS))
+;; user calls draw-dots.
+
+There are about a billion typos in that, but the program works, after their
+correction. The connections between functions are a bit bizzarre - namely, I
+feel that I maybe should have height and width as paremeters to the grid drawing
+functions, but at this juncture it doesn't matter I don't think. The solution is
+basically the same - they didn't capitalize constants, and used them liberally
+inside the functions, which were only passed calculated parameters. The lesson
+here is don't get too complicated, and perhaps try to force functions to conform
+to simpler data definitions than they initially seem to. Don't unessecarily ever
+pass a constant to a function unless there is an actual place where that
+constant is no good, for small programs. Things were made much cleaner by using
+(/ HEIGHT ROWS) as a spacing and ROWS as a number of lines to draw rather than
+passing in a raw height or width, which would have necessitated awkward
+predicates for the base case of the function. 
+
+11.4 Alternative Data Definitions for Natural Numbers
+-----------------------------------------------------
+
+Using the above, standard data definition for natural numbers makes it easy to
+develop all kinds of functions on numbers. Consider, for example, a function
+that multiplies the first n numbers. Put differently, it consumes a natural
+number n and multiplies all numbers between 0 (exclusive) and n (inclusive). The
+function is called factorial and has the mathematical notation !. Its contract
+is easy to formulate:
+
+;; ! : N -> N
+;; to compute n * ( n - 1) * ... * 2 * 1
+(define (! n) ...)
+
+It consumes a natural number and produces one.
+
+Specifying its input-output relationship is a bit more tricky. We know, of
+course, what the product of 1, 2, and 3 is, so we have:
+
+(= (! 3) 6)
+and, similarly
+(= (! 10) 3628800)
+
+The real question is what to do with the input 0.  According to the informal
+description of the task, ! is supposed to produce the product ofa ll numbers
+between 0 (exclusive) and n (inclusive), the argument. Since n is 0, this
+request is rather strange because there are no numbers between 0 (exclusive) and
+0 (inclusive). We solve the problem by following mathematical convention and set
+that (! 0) evaluates to 1. 
+
+From here, the rest is straightforward. The template for ! is clearly that of a
+natural number processing function:
+
+(define (! n)
+  (cond
+    [(zero? n) ...]
+    [else ... (! (sub1 n)) ...]))
+
+The answer in the first cond-clause is given: 1. In the second clause, the
+recursion produces the product of the first n - 1 numbers. TO get the product of
+the first n numbers, we just need to multiply the (value of the) recursion by n:
+
+(define (! n)
+  (cond
+    [(zero? n) 1]
+    [else
+      (* n (! sub1 n))]))
+
+Exercise 11.4.1. Determine the value of (! 2) by hand and with DrScheme. Also
+test ! with 10, 100, and 1000. 
+
+(! 2) 
+	= (cond
+	    [(zero? 2) 1]
+	    [else
+	      (* 2 (! sub1 2))])
+	= (cond
+	    [false 1]
+	    [else
+	      (* 2 (! (sub1 2)))])
+	= (* 2 (! (sub1 2)))
+	= (* 2 (! 1))
+	= (* 2
+	    (cond
+	      [(zero? 1) 1]
+	      [else 
+	        (* 1 (! (sub1 1)))]))
+	= (* 2
+	     (cond
+	       [false 1]
+	       [else
+	         (* 1 (! (sub1 1)))]))
+	= (* 2 
+	    (* 1 (! (sub1 1))))
+	= (* 2
+	     (* 1 (! 0)))
+	= (* 2
+	    (* 1 
+	      (cond
+	        [(zero? 0) 1]
+		[else
+		  (* 0 (! (sub1 0)))])))
+	= (* 2
+	    (* 1
+	      1))
+	= (* 2 1)
+	= 2
+
+Dr Scheme:
+> (! 2)
+2
+> (! 10)
+3628800
+> (! 100)
+93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000
+> (! 1000)
+402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+>
+
+Now suppose we wish to design the function product-from-20, which computes the
+product from 20 (exclusive) to some number n (inclusive) that is greater or
+equal to 20. We have several choices here. First we could define a function that
+computes (! n) and (! 20) and divides the former by the latter. A simple
+mathematical argument shows that this approach indeed yields the product of all
+numbers between 20 (exclusive) and n (inclusive): 
+	
+	n*(n-1)*...21*20*...1/(20*...1) = n*(n-1)*...*21.
+
+Exercise 11.4.2. Use the idea to define product, a function that consumes two
+natural numbers, n and m, with m > n, and that produces the product of the
+numbers between n (exclusive) and m (inclusive).
+
+;; product : N N -> N
+;; produces the product of the numbers between n (exclusive) and m (inclusive)
+(define (product n m) ...)
+
+(define (product n m)
+  (/ (! m) (! n)))
+
+
+Second, we can follow our design recipe, starting with a precise
+characterization of the functions input. Obviously, the inputs belong to the
+natural numbers, but we know more than that. It belongs to the following
+collection of numbers: 20,21,22,... . By now we know how to describe such a set
+precisely with a data definition:
+
+	A natural number [>= 20] is either:
+		1. 20 or
+		2. (add1 n)if n is a natural number [>= 20]
+	Notation: in contracts we will use N [>= 20] instead of ``natural
+	numbers [>= 20].''
+
+Using the new data definition we can formulate a contract for product-from-20:
+
+;; product-from-20: N [>= 20] -> N
+;; to compute n * (n-1) * ... 21 * 1.
+(define (product-from-20 n-above-20) ...)
+
+Here is a first example for product-from-20's input-output specification:
+
+(= (product-from-20 21) 21)
+
+Since the function multiplies all numbers between 20 (exclusively) and its
+input, (product-from-20 21) must produce 21, which is the only number in the
+interval. Similarly,
+
+(= (product-from-20 22) 462)
+
+for the same reason. Finally, we again follow mathematical convention and agree
+that
+
+(= (product-from-20 20) 1)
+
+The template for product-from-20 is a straightforward adaptation of the template
+for !, or any natural number processing function:
+
+(define (product-from-20 n-above-20)
+  (cond
+    [(= n-above-20 20) ...]
+    [else ... (product-from-20 (sub1 n-above-20)) ...]))
+
+The input n-above-20 is either 20 or larger. If it is 20, it does not have any
+components according to the data definition. Otherwise, it is the result of
+adding 1 to a natural number [>= 20], and we can recover this component by
+subtracting 1. The value of this selector expression belongs to the same class
+of data as the input and is thus a candidate for natural recursion.
+
+Comleting the template is equally straightforward. As specified, the result of
+(product-from-20 20) is 1, which determines the answer for the first
+cond-clause. Otherwise, (product-from-20 (sub1 n-above-20)) already produces the
+product of all the numbers between 20 (exclusive) and n-above-20 - 1. The only
+number not included in this range is n-above-20. Hence (* n-above-20
+(product-from-20 (sub1 n-above-20))) is the correct answer to the second clause.
+
+(define (product-from-20 n-above-20)
+  (cond
+    [(= n-above-20 20) 1]
+    [else
+      (* n-above-20 (product-from-20 (sub1 n-above-20)))]))
+
+Exercise 11.4.3 Develop product-from-minus-11. The function consumes an integer
+n greater than or equal to -11 and produces the product of all integers between
+-11 (exclusive) and n (inclusive).
+	I'm assuming they mean what they say, and that a number >= 0 will result
+	in the entire result being 0.
+
+	A number [>= -11] is:
+		1. -11
+		2. some number (add1 n) where n is a number [>= -11].
+	
+	Template for our new data definition:
+
+	(define (fun-for-n-above-neg11 n)
+	  (cond
+	    [(= -11) ...]
+	    [else ... (fun-for-n-above-neg11 (sub1 n)) ...]))
+	
+	Contract:
+	;; product-from-minus-11 : N [>= -11] -> N 
+	;; given n, compute the product from -11 (exclusive) to n (inclusive)
+	(define (product-from-minus-11 n) ...)
+
+	Examples:
+	(= (product-from-minus-11 10) 0)
+	(= (product-from-minus-11 -10) -10)
+	(= (product-from-minus-11 -11) 1)
+	(= (product-from-minus-11 -9) 90)
+
+	Fill out the template for our product:
+
+	(define (product-from-minus-11 n)
+	  (cond
+	    [(= -11) ...]
+	    [else ...
+	      (product-from-minus-11 (sub1 n)) ...]))
+	
+	(define (product-from-minus-11 n)
+	  (cond
+	    [(= -11) 1]
+	    [else
+	      (* n (product-from-minus-11 (sub1 n)))]))
+	Test:
+	> (product-from-minus-11 10)
+	0
+	> (product-from-minus-11 -10)
+	-10
+	> (product-from-minus-11 -9)
+	90
+	> (product-from-minus-11 -2)
+	-3628800
+	>
+Exercise 11.4.4. In exercise 11.2.2, we developed a function that tabulates some
+mathematical function f for an interval of the shape (0,n]. 
+
+Develop the function tabluate-f20, which tabulates the values of f for natural
+numbers greater than 20. Specifically, the function consumes a natural number n
+greater or equal to 20 and produces a list of posns, each of which has the shape
+(make-posn n (f n)) for some n between 20 (exclusive) and n (inclusive).
+
+
+;; f : number -> number
+(define (f x)
+  (+ (* 3 (* x x))
+    (+ (* -6 x)
+        -1)))
+
+We already have a data definition, but I'll review it:
+
+A number [>= 20] is:
+	1. 20
+	2. any number (add1 n) where n is a number [>= 20]
+
+Contract:
+
+;; tabulate-f20 : N [>= 20] -> N
+;; tabulates the values of f for natural numbers greater than 20 - given n,
+;; return a list of the inputs and outputs of f for each number between 20
+;; (exclusive) and n (inclusive).
+(define (tabulate-f20 n) ...)
+
+Examples:
+
+I'm going to be lazy and not evaulate (f n).
+
+(= (tabulate-f20 20) empty)
+(= (tabulate-f20 21) (cons (make-posn 21 (f 21)) empty)
+(= (tabulate-f20 22) (cons (make-posn 22 (f 22)) (cons (make-posn 21 (f 21))
+empty))
+
+Template from data definition:
+
+(define (tabulate-f20 n)
+  (cond
+    [(= 20 n) ...]
+    [else
+      ... (tabulate-f20 (sub1 n)) ...]))
+
+Expansion:
+The expansion, given the examples, is quite easy. We know empty is the answer to
+the first cond clause from the example. We know that for the second cond-clause,
+the job is done for us for numbers from 20 (exclusive) to (sub1 n) (inclusive).
+So we need to add the posn structure (make-posn n (f n)) to the list using a
+cons statement.
+
+(define (tabulate-f20 n)
+  (cond
+    [(= 20 n) empty]
+    [else
+      (cons
+        (make-posn n (f n))
+	(tabulate-f20 (sub1 n)))]))
+Test:
+
+> (tabulate-f20 20)
+'()
+> (tabulate-f20 21)
+(cons (make-posn 21 1196) '())
+> (f 21)
+1196
+> (tabulate-f20 22)
+(cons (make-posn 22 1319) (cons (make-posn 21 1196) '()))
+> (f 22)
+1319
+> (tabulate-f20 23)
+(cons (make-posn 23 1448) (cons (make-posn 22 1319) (cons (make-posn 21 1196) '())))
+> (f 23)
+1448
+> 
+
+A comparison of ! and product-from-20 suggests the natural question of how to
+design a function that multiplies all natural numbers in some range. Roughly
+speaking, product is like product-from-20 except that the limit is not a part of
+the function definition. Instead, it is another input, which suggests the
+following contract:
+
+;; product : N N -> N
+;; to compute n * (n - 1) * ... * (limit + 1) * 1
+(define (product limit n) ...)
+
+The intention is that product, like product-from-20, computes the product from
+limit (exclusive) to some number n (inclusive) that is greater than or equal to
+limit.
+
+Unfortunately, product's contract, in contrast from product-from-20's, is rather
+imprecise. In particular, it does not describe the collection of numbers that
+product consumes as the second input. Given its first input, limit, we know that
+the second input belongs to limit, (add1 limit), (add1 (add1 limit)), etc. While
+it is easy to enumerate the possible second inputs, it also shows that the
+description of the collection depends on the first input -- an unusual situation
+that we have not encountered before.
+
+Still, if we assume limit is some number, the data description for the second
+input is nearly obvious:
+
+Let limit be a natural number. A natural number [>= limit] (N[>=limit]) is
+either
+	1. limit or
+	2. (add1 n) if n is a natural number [>= limit].
+IN other words, the data definition is like that for natural numbers [>= limit]
+with 20 replaced by a variable limit. Of course, in high school, we refer to
+N[>=0] as _the_ natural numbers, and N[>=1] as _the_ positive integers.
+
+With this new data definition, we specify the contract for product as follows:
+
+;; product : N[limit] N[>= limit] -> N
+;; to compute n * (n-1) * ... * (limit + 1) * 1
+(define (product limit n) ...)
+
+That is, we name the first input, a natural number, with the notation [limit]
+and specify the second input using the name for the first one. 
+
+The rest of the program development is straightforward. It is basically the same
+as that for product-from-20 with 20 replaced by limit throughout. The only
+modification concerns the natural recursion in the function template. Since the
+function consumes a limit and a N [>= limit], the template must contain an
+application of product to limit and (sub1 n):
+
+	(define (product limit n)
+	  (cond
+	    [(= n limit) ...]
+	    [else ... (product limit (sub1 n)) ...]))
+Otherwise things remain the same. The full function definition is contained in
+figure 31.
+
+Exercise 11.4.5. In exercise 11.2.2 and 11.4.4, we developed functions that
+tabulate f from some natural number or natural number [>= 20] down to 0 or 20
+(exclusive), respectively.
+
+Develop the function tabulate-f-lim, which tabulates the values of f in an
+analogous manner from some natural number n down to some other natural number
+limit.
+
+Contract:
+;; tabulate-f-lim : N[limit] N[>= limit] -> list-of-posns
+;; compute a list of posns representing each value of f from limit (exclusive)
+;; to n (inclusive).
+(define (tabulate-f-lim limit n) ...)
+
+Examples:
+(= (tabulate-f-lim 2 4)
+  (cons 4 (make-posn 4 (f 4))
+    (cons 3 (make-posn 3 (f 3)))))
+(= (tabulate-f-lim 3 3) empty)
+(= (tabulate-f-lim 0 0) empty)
+(= (tabualte-f-lim 3 6)
+  (cons 6 (make-posn 6 (f 6))
+    (cons 5 (make-posn 5 (f 5))
+      (cons 4 (make-posn 4 (f 4))))))
+
+Template:
+Use the earlier developed template for functions using N[>= limit].
+  (define (tabulate-f-lim limit n)
+    (cond
+      [(= n limit) ...]
+      [else
+        ... (tabulate-f-lim limit (sub1 n)) ...]))
+Definition:
+
+From the example we know that whenever n == limit, we should return empty. Next,
+we know that we process all components of the input data after the first one
+with the recursion, which according to the contract, returns a list of posns
+from limit (exclusive) to n-1(inclusive), so we need to add one extra item,
+which is (make-posn n (f n)).
+
+
+  (define (tabulate-f-lim limit n)
+    (cond
+      [(= n limit) empty]
+      [else
+        (cons
+	  (make-posn n (f n))
+	  (tabulte-f-lim limit (sub1 n)))]))
+
+Tests:
+> (tabulate-f-lim 3 3)
+'()
+> (tabulate-f-lim 0 0)
+'()
+> (tabulate-f-lim 3 4)
+(cons (make-posn 4 23) '())
+> (tabulate-f-lim 0 3)
+(cons (make-posn 3 8) (cons (make-posn 2 -1) (cons (make-posn 1 -4) '())))
+> (tabulate-f-lim 3 6)
+(cons (make-posn 6 71) (cons (make-posn 5 44) (cons (make-posn 4 23) '())))
+> (f 6)
+71
+> (f 3)
+8
+> (f 4)
+23
+> (f 5)
+44
+> (f 1)
+-4
+> (f 2)
+-1
+>
+
+
+Exercise 11.4.6. In exercises 11.2.2, 11.4.4, and 11.4.5, we developed functions
+that tabulate the mathematical function f in various ranges. In both cases, the
+final function produced a list of posns that was ordered in descending order.
+That is, an expression like (tabulate-f 3) yields the list
+
+	(cons (make-posn 3 2.4)
+	  (cons (make-posn 2 3.4)
+	    (cons (make-posn 1 3.6)
+	      (cons (make-posn 0 3.0)
+	        empty))))
+If we prefer a list of posns in ascending order, we must look at a different
+data collection, natural numbers up to a certain point in the chain:
+
+A natural number [<= 20] (N[<=20]) is either
+	1. 20 or
+	2. (sub1 n) if n is a natural number [<= 20].
+
+Of course, in high school, we refer to N[<=-1] as the negative integers.
+
+Develop the function 
+
+;; tabulate-f-up-to-20 : N [<= 20] -> N
+(define (tabulate-f-up-to-20 n-below-20) ...)
+
+which tabulates the values of f for natural numbers less than 20. Specifically,
+it consumes a natural number n less than or equal to 20 and produces a list of
+posns, each of which has the shape (make-posn n (f n)) for some n between 0 and
+n (inclusively). 
+
+Example:
+
+(= (tabulate-f-up-to-20 19) 
+  (cons (make-posn 19 (f 19)) 
+    (cons (make-posn 20 (f 20)) empty)))
+(= (tabulate-f-up-to-20 20) (cons (make-posn 20 (f 20)) empty))
+(= (tabulate-f-up-to-20 18) 
+  (cons (make-posn 18 (f 18)) 
+    (cons (make-posn 19 (f 19))
+      (cons (make-posn 20 (f 20)) empty))))
+
+Template:
+We have yet to define a template for a natural number [<= 20]. The simplest
+place to start is to note that it is a recursive data definition, and to revert
+the recursion, we do the opposite of the step applied in the recursive part of
+the data definition:
+	2. (sub1 n) if n is a natural number [<= 20] ==>
+	(add1 n) is the operation needed to get the 'rest'.
+
+(define (fun-for-n-below-20 n)
+  (cond
+    [(= n 20) ...]
+    [else
+      ... (fun-for-n-below-20 (add1 n)) ...]))
+
+Definition:
+For the application  of the template, we can first answer the question posed in
+the first cond-clause from the examples, which specify (cons (make-posn 20 (f
+20)) empty). Second, we know from the examples and the data definition and the
+contract, that we will apply the function to the numbers between n+1 (inclusive)
+and 20 (inclusive). So we need to put (make-posn n (f n)) onto the list, first.
+
+
+(define (tabulate-f-up-to-20 n)
+  (cond
+    [(= n 20) (cons (make-posn 20 (f 20)) empty)]
+    [else
+      (cons
+        (make-posn n (f n))
+	(tabulate-f-up-to-20 (add1 n)))]))
+
+The book has a more typical definition that's a straightforward adaptation where
+the answer to the cond question is empty, but I think this is wrong, given the
+wording of the question. I'll keep this answer.
+
+Exercise 11.4.7. Develop the function is-not-divisible-by-<=i. It consumes a
+natural number [>= 1], i, and a natural number m, with i < m. If m is not
+divisible by an number between 1 (exclusive) and i (inclusive) the function
+produces true; otherwise, its output is false.
+
+Data Definition: 
+a natural number [>= 1] is either:
+	1. 1 or
+	2. any number (add1 n) if n is a natural number [>= 1]
+
+
+Contract:
+;; is-not-divisible-by-<=i: N[m] N[>=1][<m] -> boolean
+;; if m is not divisible by a number between 1 (exclusive) i (inclusive), return
+;; true. Otherwise, false.
+(define (is-not-divisible-by-<=i m i) ...)
+
+Examples:
+;; There is no number between 1 (exclusive) and 1 (inclusive), so return true.
+(= (is-not-divisible-by-<=i 1 1) true)
+(= (is-not-divisible-by-<=i 3 2) true)
+(= (is-not-divisible-by-<=i 4 2) false)
+(= (is-not-divisible-by-<=i 5 2) true)
+(= (is-not-divisible-by-<=i 13 3) true)
+(= (is-not-divisible-by-<=i 13 13) false)
+
+Template:
+(define (is-not-divisible-by-<=i m i)
+  (cond
+    [(= 1 i) ...]
+    [else
+      ... (is-not-divisible-by-<=i m (sub1 i)) ...]))
+
+Definition:
+According to the examples, the answer to the first cond-clause should be true.
+The answer to the second clause is true when 
+	* m is not divisible by i and
+	* m is not divisible by an number < i.
+This naturally lends itself to two tests:
+	1. (not (= (remainder m i) 0))
+	2. (is-not-divisible-by-<=i m (sub1 i)).
+
+(define (is-not-divisible-by-<=i m i)
+  (cond
+    [(= 1 i) true]
+    [else
+      (and
+        (not (= (remainder m i) 0))
+	(is-not-divisible-by-<=i m (sub1 i)))]))
+
+Use is-not-divisible-by<=i to determine prime?, which consumes a natural number
+and determines whether or not it is prime.
+
+(define (prime? m) (is-not-divisible-by-<=i m (sub1 m)))
+
+> (prime? 199)
+#true
+> (prime? 13)
+#true
+> (prime? 12)
+#false
+> (prime? 4)
+#false
+> (prime? 20)
+#false
+> (prime? 101)
+#true
+> > (prime? 199)
+#true
+> (prime? 13)
+#true
+> (prime? 12)
+#false
+> (prime? 4)
+#false
+> (prime? 20)
+#false
+> (prime? 101)
+#true
+>
+This definition of prime? is not correct, because 1 is defined to not be prime,
+and besides, 0 is not an acceptable i input for the function.
+
+(define (prime? m)
+  (cond
+    [(= 1 m) false]
+    [else
+      (is-divisible-by-<=i m (sub1 m))]))
+
+11.5 More on the Nature of Natural Numbers
+------------------------------------------
+
+The natural numbers are a small subset of scheme's numbers, not all of them.
+Hence the function template above _cannot_ be used for processing arbitrary
+numbers, in particular, inexact numbers. Still, the template is a good starting
+point for functions whose definitions involve both natural numbers and other
+scheme numbers. To illustrate this point, let us design the function add-to-pi,
+which consumes a natural number n and produces n + 3.14 without using +.
+
+Following the design recipe, we start with
+	;; add-to-pi : N -> number
+	;; to compute n + 3.14 without using +
+	(define (add-to-pi n) ...)
+Another easy step is to determine the output for a few sample inputs:
+
+	(= (add-to-pi 0) 3.14)
+	(= (add-to-pi 2) 5.14)
+	(= (add-to-pi 6) 9.14)
+
+The difference between hello's contract (see exercise 11.2.1) and that of
+add-to-pi is the output, but as we have seen this does not affect the template
+design. We obtain the template for add-to-pi by renaming hellos appropriately:
+
+  (define (add-to-pi n)
+    (cond
+      [(zero? n) ...]
+      [else
+       ... (add-to-pi (sub1 n)) ...]))
+In combination with the examples, the template immediately suggests how to
+complete the function. If the input is 0, add-to-pi's answer is 3.14. Otherwise,
+(add-to-pi (sub1 n)) produces (- n 1) + 3.14; since the correct answer is 1 more
+than this value, the answer in the second cond-line is (add1 (add-to-pi (sub1
+n))):
+  (define (add-to-pi n)
+    (cond
+      [(zero? n) 3.14]
+      [else
+        (add1 (add-to-pi (sub1 n)))]))
+
+Exercise 11.5.1 Define add, which consumes two natural numbers, n and x, and
+produces n + x without using Scheme's +.
+
+Contract:
+
+;; add: N N -> N
+;; add n and x, N and X both being positive integers.
+(define (add n x) ...)
+
+Examples:
+(= (add 1 2) 3)
+(= (add 3 3) 6)
+(= (add 0 0) 0)
+(= (add 0 5) 5)
+
+Template:
+We use a natural number template, where we assume that the other paremeter is
+just a 'constant', used in calculation. n is our changing natural number:
+
+(define (add n x)
+  (cond
+    [(zero? n) ...]
+    [else
+      ... (add (sub1 n) x) ...]))
+
+Definition:
+For the first answer to the first cond question, we look at the examples. When n
+is 0, we just return x.  For the second question, we see that (add (sub1 n) x)
+will return (n-1)+x, n+x = 1+(n-1)+x, so we just need to add1.
+
+(define (add n x)
+  (cond
+    [(zero? n) x]
+    [else
+      (add1 (add (sub1 n)) x)]))
+
+Tests:
+
+> (add 1 2)
+3
+> (add 56 6)
+62
+> (add 3 5)
+8
+> (add 0 0)
+0
+> (add 0 5)
+5
+> (add 5 0)
+5
+> 
+
+Exercise 11.5.2 Develop the function multiply-by-pi, which consumes a natural
+number and multiplies it by 3.14 without using *. For example,
+	
+		(= (multiply-by-pi 0) 0)
+		(= (multiply-by-pi 2) 6.28)
+		(= (multiply-by-pi 3) 9.42)
+Contract:
+;; multiply-by-pi: N -> number
+;; multiply pi by n.
+(define (multiply-by-pi n) ...)
+
+Template:
+Use a typical natural number template.
+(define (multiply-by-pi n)
+  (cond
+    [(zero? n) ...]
+    [else
+      ... (multiply-by-pi (sub1 n)) ...]))
+Definition:
+From the examples, when n is 0, the answer is 0. Next for the second cond-line's
+answer, we know that we have the correct answer to 3.14*(n-1), from
+(multiply-by-pi (sub1 n)):
+	3.14*(n-1)+3.14 = 3.14*(1+n-1) = 3.14*n 
+
+We only need to add 3.14 to the answer to get the answer to our function. 
+
+(define (multiply-by-pi n)
+  (cond
+    [(zero? n) 0]
+    [else
+      (+ 3.14 (multiply-by-pi (sub1 n)))]))
+
+I tried to use add rather than +, but the problem is you can't add two imprecise
+numbers with that function definition. mutliply-by-pi is guaranteed to return an
+imprecise, non-natural number, and 3.14 is of course itself a non-natural, so we
+need to use the + operator, add requires at least one natural number which we
+can't have here - the natural number use for the recursive step of the function
+must reach exactly zero, but subtracting one some number of times from an
+inexact number will never produce zero.
+
+Tests:
+
+Define multiply, which consumes two natural numbers, n and x, and produces n*x
+without using Scheme's *. Eliminate + from this definition too.
+
+Since we have half a brain, we realize we already did the hard work in
+multiply-by-pi, and only need to replace the constant 3.14 with another
+parameter, called x. In order to not use +, we use add, which would present a
+problem in multiply-by-pi since we would add two floats and basically die, but
+since multiply is defined as taking natural numbers only, we can use our add
+function.
+
+;; multiply N N -> N
+;; multiply n by x.
+(define (multiply n x)
+  (cond
+    [(zero? n) 0]
+    [else
+      (add x (multiply (sub1 n) x))]))
+
+Exercise 11.5.3 Develop the function exponent, which consumes a natural number n
+and a number x that computes x^n. Eliminate * from this definition too. 
+
+This is impossible as stated. saying 'a number x', implies that x can be
+inexact. But you can't, given the knowledge we have, multiply two inexact
+numbers together without the * operator. This is because we would proceed by
+using a recursive routine to repeatedly subtract one from one of the arguments
+until it hit zero; an inexact nubmer will never hit 0. Either we need to use
+natural numbers or we need to use *.
+
+Contract:
+;; exponent: N N -> N
+;; raise x to the nth, where x and n are both natural numbers.
+(define (exponent x n) ...)
+
+Examples:
+(= (exponent 1 2) 1)
+(= (exponent 3 0) 1)
+(= (exponent 3 3) 27)
+(= (exponent 4 2) 16)
+
+
+Template:
+(define (exponent x n)
+  (cond
+    [(zero? n) ...]
+    [else
+      ... (exponent x (sub1 n)) ...]))
+
+Definition: 
+(define (exponent x n)
+  (cond
+    [(zero? n) 1]
+    [else
+      (multiply x (exponent x (sub1 n)))]))
+
+
+This will work for natural numbers only.
+
+We can make it work with a regular number for x and a natural number for n by
+replacing the `multiply' call with *:
+(define (exponent x n)
+  (cond
+    [(zero? n) 1]
+    [else
+      (* x (exponent x (sub1 n)))]))
+
+Tests:
+
+> (exponent 2 2)
+4
+> (exponent 2 3)
+8
+> (exponent 2 0)
+1
+> (exponent 2 1)
+2
+> (exponent 5 6)
+15625
+> (exponent 2 12)
+4096
+> (exponent 2 20)
+1048576
+> 
+
+Exercise 11.5.4 Deep lists (see exercise 11.2.4) are another representation for
+natural numbers. Show how to represent 0, 3, and 8. 
+0: 's
+3: (cons (cons (cons 's empty) empty) empty)
+8: (cons 
+     (cons 
+       (cons 
+         (cons 
+	   (cons 
+	     (cons 
+	       (cons 
+	         (cons 's empty) empty) empty) empty) empty) empty) empty) empty)
+Develop the function addDL, which consumes two deep lists, representing the
+natural numbers n and m, and produces a deep list representing n+m.
+
+;; addDL: dl dl -> dl
+;; add the natural number representations n and m, returning their sum.
+(define (addDL n m) ...)
+
+Examples:
+(= (addDL empty (cons 's empty)) (cons 's empty))
+(=  (addDL (cons 's empty) empty) (cons 's empty))
+(= (addDL (cons 's empty) (cons 's empty)) (cons (cons 's empty) empty))
+(= (addDL (cons (cons 's empty)) (cons (cons (cons 's empty) empty) empty)
+     (cons (cons (cons (cons (cons 's empty) empty) empty) empty) empty)))
+
+Template:
+OUr data definition, as a reminder:
+a DEEP-LIST is either:
+	1. a symbol
+	2. (cons DL empty) where DL is a DEEP-LIST.
+
+(define (addDL n m)
+  (cond
+    [(symbol? n) ...]
+    [else
+      ... (addDL (first n) m) ... ]))
+
+Definition:
+For the first cons-question, if n is empty, then return m, since adding empty to
+anything returns the second thing.  A number representation is incremented with
+cons. When we wish to add a number we cons. So assuming (addDL (rest n) m)
+returns the value it's contract says it does, we only need to cons on one more
+to return the correct result for the present function call.
+
+(define (addDL n m)
+  (cond
+    [(empty? n) m]
+    [else
+      (cons (addDL (rest n) m) empty)]))
+
+Tests:
+> (addDL empty (cons 's empty))
+first: expects a non-empty list; given: '()
+> (addDL 's (cons 's empty))
+(cons 's '())
+> (addDL 's 's)
+'s
+> (addDL (cons 's empty) (cons 's empty))
+(cons (cons 's '()) '())
+> (addDL (cons (cons 's empty)) (cons (cons 's empty)))
+cons: expects 2 arguments, but found only 1
+> (addDL (cons (cons 's empty) empty) (cons (cons 's empty) empty))
+(cons (cons (cons (cons 's '()) '()) '()) '())
+> (addDL (cons (cons (cons 's empty) empty) empty) (cons (cons (cons 's empty) empty) empty))
+(cons (cons (cons (cons (cons (cons 's '()) '()) '()) '()) '()) '())
+> (depth (addDL (make-deep 's 20) (make-deep 's 30)))
+50
+> (depth (addDL (make-deep 's 321) (make-deep 's 233)))
+554
