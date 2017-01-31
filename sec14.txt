@@ -311,3 +311,26 @@ equivalent or-expression, testing one condition after the next, until
 one of them is true or all of them have evaluated to false.
 
 ;; blue-eyed-ancestor? : ftn -> boolean
+;; to determine whether a-ftree contains a child structure with 'blue
+;; in the eyes field. version 1: using a nested cond-expression.
+(define (blue-eyed-ancestor? a-ftree)
+  (cond
+    [(empty? a-ftree) false]
+    [else (cond
+     	    [(symbol=? (child-eyes a-ftree) 'blue) true]
+	    [(blue-eyed-ancestor? (child-father a-ftree)) true]
+	    [(blue-eyed-ancestor? (child-mother a-ftree)) true]
+	    [else false])]))
+
+;; blue-eyed-ancestor? : ftn -> boolean
+;; to determine whether a-ftree contains a child structure with 'blue
+;; in the eyes field version 2: using an or-expression.
+(define (blue-eyed-ancestor? a-ftree)
+  (cond
+    [(empty? a-ftree) false]
+    [else (or (symbol=? (child-eyes a-ftree) 'blue)
+    	    (or (blue-eyed-ancestor? (child-father a-ftree))
+	        (blue-eyed-ancestor? (child-mother a-ftree))))]))
+
+The function blue-eyed-ancestor? is unusual in that it uses the
+recursions as conditions in a cond-expression. 
