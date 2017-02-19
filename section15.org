@@ -1,0 +1,436 @@
+* Section 15
+** Mutually Referential Data Definitions
+   In the preceding section we developed data representations of
+   family trees, Web pages, and Scheme expressions. Developing
+   functions for these data definitions was based on one and the same
+   design recipe. If we wish to develop more realistic representations
+   of Web pages or Scheme expressions or if we wish to study
+   descendant family trees rather than ancestor trees we must learn to
+   describe classes of data that are interrelated. That is we must
+   formulate several data definitions at once where the data
+   definitions not only refer to themselves, but also refer to other
+   data definitions.
+*** 15.1 Lists of structures, Lists in structures
+    When we build a family tree retroactively we often start from the
+    child's perspective and proceed from there to parents,
+    grandparents, etc. As we construct the tree we write down who is
+    whose child rather than who is whose parents. We build a
+    _descendant family tree_. Drawing a descendant tree proceeds just
+    like drawing an ancestor tree, except that all arrows are
+    reversed. 
+
+    Representing these new kinds of family trees and their nodes in a
+    computer requires different classes of data than do the ancestor
+    family trees. This time a node must include information about the
+    children instead of the two parents. Here is a structure
+    definition:
+
+    #+BEGIN_SRC scheme
+    (define-struct parent (children name date eyes))
+    #+END_SRC
+    
+    The last three fields in a parent structure contain the same basic
+    information as a corresponding child structure, but the contents
+    of the first one pose an interesting question. Since a parent may
+    have an arbitrary number of children, the children field must
+    contain an undetermined number of nodes, each of which represents
+    one child.
+
+    The natural choice is to insist that the children field always
+    stands for a list of parent structures. The list represents the
+    children; if a person doesn't have children, the list is
+    empty. This decision suggests the following data definition:
+
+      A _parent_ is a structure:
+      #+BEGIN_SRC scheme
+      (make-parent loc n d e)
+      #+END_SRC
+      where loc is a list of children, n and e are symbols, and d is a
+      number.
+
+    Unfortunately, this data definition violates our criteria
+    concerning definitions. In particular, it mentions the name of a
+    collection that is not yet defined: list of children.
+
+    Since it is impossible to define a class of parents without
+    knowing what a list of children is, let's start from the latter:
+    
+      A _list of children_ is either
+      1. empty or
+      2. (cons p loc) where p is a parent and loc is a list of
+         children.
+
+    This second definition looks standard but it suffers from the
+    same problem as the one for parents. The unknown class it refers
+    to is that of the class of parents, which cannot be defined
+    without a definition for the list of children and so on.
+
+    The conclusion is that the two data definitions refer to each
+    other and are only meaningful if introduced _together_:
+
+    A _parent_ is a structure:
+      (make-parent loc n d e)
+    where loc is a list of children, n and e are symbols, and d is a
+    number.
+    
+    A list-of-children is either
+    1. empty or
+    2. (cons p loc) where p is a parent and loc is a list of children.
+
+    When two (or more) data definitions refer to each other they are
+    said to be MUTUALLY RECURSIVE or MUTUALLY REFERENTIAL. 
+
+    Now we can translate the family tree of figure 40 into our Scheme
+    data language. Before we can create a parent structure, of course,
+    we must first define all of the nodes that represent children. And
+    just as in section 14.1, the best way to do this is to name a
+    parent structure before we reuse it in a list of children. Here is
+    an example:
+
+    #+BEGIN_SRC scheme
+    (define Gustav (make-parent empty 'Gustav 1988 'brown))
+    (make-parent (list Gustav) 'fred 1950 'yellow))
+    #+END_SRC
+    
+    To create a parent structure for Fred, we first define one for
+    Gustav so that we can form (list Gustav), the list of children for
+    Fred. 
+
+    Here are the definitions for the complete family tree. To avoid
+    repetitions it also includes definitions for lists of children. 
+
+    #+BEGIN_SRC scheme
+    ;; youngest generation:
+    (define Gustav (make-parent empty 'Gustav 1988 'brown))
+    ;; children of Fred and Eva.
+    (define Fred&Eva (list Gustav))
+
+    ;; middle generation
+    (define Adam (make-parent empty 'Adam 1950 'yellow))
+    (define Dave (make-parent empty 'Dave 1955 'black))
+    (define Eva (make-parent Fred&Eva 'Eva 1965 'blue))
+    (define Fred (make-parent Fred&Eva 'Fred 1966 'black))
+    
+    (define Carl&Bettina (list Adam Dave Eva))
+
+    ;; oldest generation
+    (define Carl (make-parent Carl&Bettina 'Carl 1926 'green))
+    (define Bettina (make-parent Carl&Bettina 'Bettina 1926 'green))
+    #+END_SRC
+    
+
+    Let us now study the development of blue-eyed-descendant?, the
+    natural companion of blue-eyed-ancestor?. It consumes a parent
+    structure and determines whether it or any of its descendants has
+    blue eyes:
+
+    ;; blue-eyed-descendant? : parent -> boolean
+    ;; to determine whether a-parent or any of its descendands
+    ;; (children, grandchildren, and so on) have 'blue in the eyes
+    ;; field.
+    (define (blue-eyed-descendant? a-parent) ...)
+
+    Here are three simple examples, formulated as tests:
+
+    (boolean=? (blue-eyed-descendant? Gustav) false)
+    (boolean=? (blue-eyed-descendant? Eva) true)
+    (boolean=? (blue-eyed-descendant? Bettina) true)
+
+    According to our rules the template for blue-eyed-descendant? is
+    simple. Since its input is a plain class of structures the
+    template contains nothing but selector expressions for the fields
+    in the structure:
+
+    #+BEGIN_SRC scheme
+    (define (blue-eyed-descendant? a-parent)
+     ... (parent-children a-parent) ...
+     ... (parent-name a-parent) ...
+     ... (parent-date a-parent) ...
+     ... (parent-eyes a-parent) ... )
+    #+END_SRC
+    
+    The structure definition for parent specifies four fields so there
+    are four expressions. 
+
+    The expressions in the template remind us that the eye color of
+    the parent is available and can be checked. Hence we add a
+    cond-expression that compares (parent-eyes a-parent) to 'blue:
+
+    #+BEGIN_SRC scheme
+    (define (blue-eyed-descendant? a-parent)
+     (cond
+      [(symbol=? (parent-eyes a-parent) 'blue) true]
+      [else
+       ... (parent-children a-parent) ...
+       ... (parent-name a-parent) ...
+       ... (parent-date a-parent) ...]))
+    #+END_SRC
+
+    The answer is true if the condition holds. The else clause
+    contains the remaining expressions. The name and date field have
+    nothing to do with the eye color of a person so we can ignore
+    them. This leaves us with
+
+    (parent-children a-parent)
+
+    an expression that extracts the list of children from the parent
+    structure.
+
+    If the eye color of some parent structure is not 'blue, we must
+    clearly search the list of children for a blue-eyed
+    descendant. Following our guidelines for complex functions we add
+    the function to our wish list and continue from there. The
+    function that we want to put on a wish list consumes a list of
+    children and checks whether any of these or their grandchildren
+    has blue eyes. Here are the contract, header, and purpose
+    statement:
+
+    ;; blue-eyed-children? : list-of-children -> boolean
+    ;; to determine whether any of the structures on aloc is blue-eyed
+    ;; or has any blue-eyed descendant.
+    (define (blue-eyed-children? aloc) ...)
+
+    Using blue-eyed-children? we can complete the definition of
+    blue-eyed-descendant?:
+
+    #+BEGIN_SRC scheme
+    (define (blue-eyed-descendant? a-parent)
+     (cond
+      [(symbol=? (parent-eyes a-parent) 'blue) true]
+      [else (blue-eyed-children? (parent-children a-parent))]))
+    #+END_SRC
+
+    That is, if a-parent doesn't have blue eyes we look through the
+    list of its children.
+
+    Before we can test blue-eyed-descendant? we must define the
+    function on our wish list. To make up examples and tests for
+    blue-eyed-children? we use the list-of-children definitions in
+    figure 41:
+
+    (not (blue-eyed-children? (list Gustav)))
+    (blue-eyed-children? (list Adam Dave Eva))
+
+    Gustav doesn't have blue eyes and has no recorded
+    descendants. Hence blue-eyed-children? produces false for (list
+    Gustav). In contrast, Eva has blue eyes and therefore
+    blue-eyed-children? produces true for the second list of children.
+
+    Since the input for blue-eyed-children? is a list the template is
+    the standard pattern:
+    #+BEGIN_SRC scheme
+    (define (blue-eyed-children? aloc)
+     (cond
+      [(empty? aloc) ...]
+      [else
+       ... (first aloc) ...
+       ... (blue-eyed-children? (rest aloc)) ...]))
+    #+END_SRC
+    
+    Next we consider the two cases. If blue-eyed-children?'s input is
+    empty the answer is false. Otherwise we have two expressions:
+    1. (first aloc) which extracts the first item, a parent structure,
+       from the list; and
+    2. (blue-eyed-children? (rest aloc)), which determines whether any
+       of the structures on aloc is blue-eyed or has any blue-eyed
+       descendant. 
+
+    Fortunately we already have a function that determines whether a
+    parent structure or any of its descendants has blue eyes:
+    blue-eyed-descendant?. This suggests that we check whether
+    
+    (blue-eyed-descendant? (first aloc))
+
+    holds and, if so, blue-eyed-children? can produces true. If not
+    the second expression determines whether we have more luck with
+    the rest of the list.
+
+    Below are complete definitions for both functions:
+    blue-eyed-descendant? and blue-eyed-children?. Unlike any other
+    group of functions these two functions refer to each other. They
+    are MUTUALLY RECURSIVE. Not surprisingly, the mutual references in
+    the definitions match the mutual references in data
+    definitions. The figure also contains a pair of alternative
+    definitions that use or instead of nested cond-expressions.
+
+    #+BEGIN_SRC scheme
+    ;; blue-eyed-descendant? : parent -> boolean
+    ;; to determine whether a-parent any of the descendants (children, 
+    ;; grandchildren, and so on) have 'blue in the eyes field.
+    (define (blue-eyed-descendant? a-parent)
+     (cond
+      [(symbol=? (parent-eyes a-parent) 'blue) true]
+      [else (blue-eyed-children? (parent-children a-parent))]))
+
+    ;; blue-eyed-children? : list-of-children -> boolean
+    ;; to determine whether any of the structures in aloc is blue-eyed
+    ;; or has any blue-eyed descendant
+    (define (blue-eyed-children? aloc)
+     (cond
+      [(empty? aloc) false]
+      [else 
+       (cond
+        [(blue-eyed-descendant? (first aloc)) true]
+	[else (blue-eyed-children? (rest aloc))])]))
+    #+END_SRC
+    
+    Exercise 15.1.1. Evaluate (blue-eyed-descendant? Eva) by
+    hand. Then evaluate (blue-eyed-descendant? Bettina). 
+    
+    #+BEGIN_EXAMPLE
+    (blue-eyed-descendant? Eva)
+    = (blue-eyed-descendant? (make-parent Fred&Eva 'Eva 1965 'blue))
+    = (cond
+       [(symbol=? (parent-eyes (make-parent Fred&Eva 'Eva 1965 'blue)) 'blue) true]
+       [else (blue-eyed-children? (parent-children (make-parent Fred&Eva 'Eva 1965 'blue)))])
+    = (cond
+       [(symbol=? 'blue 'blue) true]
+       [...])
+    = (cond
+       [true true]
+       [...])
+    = true
+    #+END_EXAMPLE
+
+    #+BEGIN_EXAMPLE
+      (blue-eyed-descendant? Bettina)
+    = (blue-eyed-descendant? (make-parent Carl&Bettina 'Bettina 1926 'green))
+    = (cond
+       [(symbol=? (parent-eyes (make-parent Carl&Bettina 'Bettina 1926 'green))) true]
+       [else (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))]
+    = (cond
+        [(symbol=? 'green 'blue) true]
+	[else (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))])
+    = (cond
+       [false true]
+       [else (blue-eyed-children? ...)])
+    = (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))
+    = (blue-eyed-children? Carl&Bettina)
+    = (blue-eyed-children? (list Adam Dave Eve))
+    = (cond
+        [(empty? (list Adam Dave Eve)) false]
+	[else
+	 (cond
+	  [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
+	  [else (blue-eyed-children? (rest aloc))])])
+    = (cond
+        [false false]
+	[else ...]
+    = (cond
+       [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
+       [else (blue-eyed-children? (rest aloc))])
+    = (cond
+       [(blue-eyed-descendant? Adam) true]
+       [else ...]
+    = (cond
+       [(cond
+         [(symbol=? (parent-eyes (make-parent empty 'Adam 1950 'yellow))) true]
+	 [else ...])]
+      [else ...])
+    = (cond
+       [(cond
+        [(symbol=? 'yellow 'blue) true]
+        [else ...])]
+       [else ...])
+    = (cond
+       [(cond
+        [false true]
+	[else (blue-eyed-children? (parent-children (make-parent empty 'Adam 1950 'yellow)))])]
+       [else ...])
+    = (cond
+       [(blue-eyed-children? (parent-children (make-parent empty 'Adam 1950 'yellow)))]
+       [else ...])
+    = (cond
+       [(blue-eyed-children? empty)]
+       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+    = (cond
+       [(cond
+         [(empty? empty) false]
+	 [else (blue-eyed-children? empty)])]
+       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+    = (cond
+       [(cond
+        [true false]
+	[else (blue-eyed-children? empty)]) true]
+       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+    = (cond
+        [false true]
+	[else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+    = (blue-eyed-children? (rest (list Adam Dave Eve)))
+    = (blue-eyed-children? (list Dave Eve))
+    = (cond
+       [(empty? (list Dave Eve)) false]
+       [else
+        (cond
+	 [(blue-eyed-descendant? (first (list Dave Eve))) true]
+	 [else (blue-eyed-children? (rest (list Dave Eve)))])])
+    = (cond
+       [false false]
+       [else ...]
+    = (cond
+       [(blue-eyed-descendant? (first (list Dave Eve))) true]
+       [else (blue-eyed-children? (rest (list Dave Eve)))])
+    = (cond
+       [(blue-eyed-descendant? (make-parent empty 'Dave 1955 'black)) true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(cond
+         [(symbol=? (parent-eyes (make-parent empty 'Dave 1955 'black))) true]
+	 [else (blue-eyed-children? (rest (list Dave Eva)))])])
+    = (cond
+       [(cond
+         [(symbol=? 'black 'blue) true]
+	 [else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(cond
+        [false true]
+	[else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black))) true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(blue-eyed-children? empty) true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(cond
+         [(empty? empty) false]
+	 [else 
+	  (cond
+	   [(blue-eyed-descendant? empty) true]
+	   [else (blue-eyed-children? (rest empty))])]) true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [(cond
+        [true false]
+	[else
+	 (cond
+	  [(blue-eyed-descendant? empty) true]
+	  [else (blue-eyed-children? (rest empty))])]) true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (cond
+       [false true]
+       [else (blue-eyed-children? (rest (list Dave Eva)))])
+    = (blue-eyed-children? (rest (list Dave Eva)))
+    = (blue-eyed-children? (list Eva))
+    = (cond
+       [(empty? (list Eva)) false]
+       [else
+        (cond
+	 [(blue-eyed-descendant? (list Eva)) true]
+	 [else (blue-eyed-children? (rest (list Eva)))])])
+    = (cond
+       [false false]
+       [else 
+        (cond
+	 [(blue-eyed-descendant? (list Eva)) true]
+	 [else (blue-eyed-children? (rest (list Eva)))])])
+    = (cond
+       [(blue-eyed-descendant? (list Eva)) true]
+       [else (blue-eyed-children? (rest (list Eva)))])
+    = (cond
+       [true true]
+       [else ...]
+    = true
+    #+END_EXAMPLE
