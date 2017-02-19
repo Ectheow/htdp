@@ -1,0 +1,384 @@
+** 14.4 Extended Exercise: Evaluating Scheme
+   DrScheme is itself a program that consists of several parts. One
+   function checks whether the definitions and expressions we wrote
+   down are grammatical scheme expressions. With what we have learned
+   in this section, we can now develop simple versions of these
+   functions.
+
+   Our first task is to agree on a data representation for Scheme
+   programs. In other words we must figure out how to represent a
+   Scheme expression as a piece of Scheme data. This sounds unusual
+   but it is not difficult. Suppose we just want to represent numbers,
+   variables, additions, and multiplications for a start. Clearly,
+   numbers can stand for numbers and symbols for variables. Additions
+   and multiplications, however, call for a class of compound data
+   because they consist of an operator and two subexpressions.
+
+   A straightforward way to represent additions and  multiplications
+   is to use two structures: one for additions and another one for
+   multiplications. Here are the structure definitions:
+   
+   #+BEGIN_SRC scheme
+   (define-struct add (left right))
+   (define-struct mul (left right))
+   #+END_SRC
+
+   Each structure has two components. One represents the left
+   expression and the other one the right expression of the operation.
+
+   | Scheme Expression   | Representation of Scheme expression      |
+   |---------------------+------------------------------------------|
+   | 3                   | 3                                        |
+   | x                   | 'x                                       |
+   | (* 3 10)            | (make-mul 3 10)                          |
+   | (+ (* 3 3) (* 4 4)) | (make-add (make-mul 3 3) (make-mul 4 4)) |
+   | (* 1/2 (* 3 3))     | (make-mul 1/2 (make-mul 3 3))            |
+   
+   Let's look at some examples:
+
+   These example cover all cases: numbers, variables, simple
+   expressions, and nested expressions.
+
+   - Exercise 14.4.1. Provide a data definition for the representation
+     of Scheme expressions. Then translate the following expressions
+     into representations:
+     1. (+ 10 -10)
+     2. (+ (* 20 3) 33)
+     3. (* 3.14 (* r r))
+     4. (+ (* 9/5 c) 32)
+     5. (+ (* 3.14 (* o o)) (* 3.14 (* i i)))
+
+     A scheme-expression is:
+     1. n, where n is a number or
+     2. s, where s is a symbol or
+     3. (make-mul l r) where l and r are both scheme-expressions or
+     4. (make-add l r) where l and r are both scheme-expressions.
+
+     Answers:
+     1. (+ 10 -10) -> (make-add 10 -10)
+     2. (+ (* 20 3) 33) -> 
+	(make-add (make-mul 20 3) 33)
+     3. (* 3.14 (* r r)) ->
+	(make-mul 3.14 (make-mul 'r 'r))
+     4. (+ (* 9/5 c) 32) ->
+	(make-add (make-mul 9/5 'c) 32)
+     5. (+ (* 3.14 (* o o)) (* 3.14 (* i i))) ->
+	(make-add
+	  (make-mul 3.14 (make-mul 'o 'o))
+	  (make-mul 3.14 (make-mul 'i 'i)))
+     A Scheme evaluator is a function that consumes a representation
+     of a Scheme expression and produces its value. For example, the
+     expression 3 has the value 3, and (+ 3 5) has the value 8, (+ (*
+     3 3) (* 4 4)) has the value 25, etc. Since we are ignoring
+     definitions for now, an expression that contains a variable, for
+     example, (+ 3 x), does not have a value; after all, we do not
+     know what the variable stands for. In other words, our Scheme
+     evaluator should be applied only to representations that do not
+     contain variables. We say such expressions are _numeric_
+
+   - Exercise 14.4.2. Develop the function numeric? which consumes
+     (the representation of) a Scheme expression and determines
+     whether it is numeric.
+
+     Contract:
+     ;; numeric? : scheme-expression -> boolean
+     ;; determine whether a scheme expression is numeric.
+     (define (numeric a-se) ...)
+
+     Examples:
+     (numeric? 3)
+     (not (numeric? 's))
+     (numeric? (make-add 1 2))
+     (numeric? (make-add (make-mul 1 2) (make-add (make-mul 3 4) 2)))
+     (not (numeric? (make-add (make-mul (make-add 's 1) 3) 5)))
+     (not (numeric? (make-mul 's 1)))
+     
+     Template:
+     Our data definition, for those who missed it:
+     A scheme-expression is:
+     1. n a number or
+     2. s a symbol or
+     3. (make-mul l r) where l and r are both scheme-expressions or
+     4. (make-add l r) where l and are are both-scheme-expressions
+
+     Our template then follows the data definition shape:
+
+     #+BEGIN_SRC scheme
+     (define (numeric? a-se)
+       (cond
+         [(number? a-se) ...]
+	 [(symbol? a-se) ...]
+	 [(mul? a-se) ...
+	 ... (numeric? (mul-left a-se)) ...
+	 ... (numeric? (mul-right a-se)) ...]
+	 [(add? a-se) ...
+	 ... (numeric? (add-left a-se)) ...
+	 ... (numeric? (add-right a-se)) ...]))
+     #+END_SRC
+    
+     Definition:
+     We'll go on a case-by-case basis. 
+     - Case one :: a-se is a number -- it is by definition numeric.
+     - Case two :: a-se is a symbol -- it is not numeric.
+     - case three :: a-se is a mul expression, with left and right
+                     expressions. It is numeric if both the left and
+                     right representations of scheme expressions are
+                     themselves numeric and devoid of symbols.
+     - Case four :: a-se is a add expression, with left and right
+                    scheme-expressions. It is numeric when both left
+                    and right sub-expressions are also numeric.
+     The scheme follows nicely - when we use 'both' we mean
+     'and'. When we use 'it is not' or 'it is', we mean false or true
+     respectively. The template does the rest.
+
+     #+BEGIN_SRC scheme
+     (define (numeric? a-se)
+       (cond
+         [(number? a-se) true]
+	 [(symbol? a-se) false]
+	 [(mul? a-se)
+	  (and
+	    (numeric? (mul-left a-se))
+	    (numeric? (mul-right a-se)))]
+	 [(add? a-se)
+	  (and
+	   (numeric? (add-left a-se))
+	   (numeric? (add-right a-se)))]))
+     #+END_SRC
+	   
+     Tests:
+
+     #+BEGIN_SRC scheme
+     (numeric? 3)
+     (not (numeric? 's))
+     (numeric? (make-add 1 2))
+     (numeric? (make-add (make-mul 1 2) (make-add (make-mul 3 4) 2)))
+     (not (numeric? (make-add (make-mul (make-add 's 1) 3) 5)))
+     (not (numeric? (make-mul 's 1)))
+     #true
+     #true
+     #true
+     #true
+     #true
+     #true
+     #+END_SRC
+
+   - Exercise 14.4.3. Provide a data definition for numeric
+     expressions. Develop the function evaluate-expression. The
+     function consumes (the representation of) a numeric Scheme
+     expression and computes its value. When the function is tested,
+     modify it so it consumes all kinds of Scheme expressions; the
+     revised version raises an error when it encounters a variable. 
+
+     A numeric-scheme-expression is:
+     1. n, where n is a number
+     2. (make-add l r) where l and r are numeric-scheme-expressions
+     3. (make-mul l r) where l and r are numeric-scheme-expressions
+
+     Contract:
+     ;; evaluate-expression : numeric-scheme-expression -> number
+     ;; computes the value of a (representatin of) a numeric Scheme
+     ;; expression.
+     (define (evaluate-expression a-nse) ...)
+
+     Examples:
+     (= (evaluate-expression 3) 3)
+     (= (evaluate-expression (make-add 1 2)) 3)
+     (= (evaluate-expression (make-mul 3 (make-add 1 1))) 6)
+     (= (evaluate-expression (make-add (make-mul 3 (make-add 1 2))
+     (make-add 3 2))) 14)
+
+     Template:
+
+     #+BEGIN_SRC scheme
+     (define (evaluate-expression a-nse)
+      (cond
+       [(number? a-nse) ...]
+       [(add? a-nse)
+        ... (evaluate-expression (add-left a-nse)) ...
+	... (evaluate-expression (add-right a-nse)) ...]
+       [(mul? a-nse)
+        ... (evaluate-expression (mul-left a-nse)) ...
+        ... (evaluate-expression (mul-right a-nse)) ...]))
+     #+END_SRC
+	
+     Definition:
+     The definition is radically straightforward. an add expression
+     should return the sum of its left and right expressions. The mul
+     expression multiply its own left and right expressions, and the
+     value of a number is itself.
+
+     #+BEGIN_SRC  scheme
+     (define (evaluate-expression a-nse)
+      (cond
+       [(number? a-nse) a-nse]
+       [(add? a-nse) 
+        (+ (evaluate-expression (add-left a-nse))
+	   (evaluate-expression (add-right a-nse)))]
+       [(mul? a-nse)
+        (* (evaluate-expression (mul-left a-nse))
+	   (evaluate-expression (mul-right a-nse)))]))
+     #+END_SRC
+
+     Tests:
+
+     #+BEGIN_SRC scheme
+     > (= (evaluate-expression 3) 3)
+     (= (evaluate-expression (make-add 1 2)) 3)
+     (= (evaluate-expression (make-mul 3 (make-add 1 1))) 6)
+     (= (evaluate-expression (make-add (make-mul 3 (make-add 1 2))
+     (make-add 3 2))) 14)
+
+     #true
+     #true
+     #true
+     #true
+     > 
+     #+END_SRC
+
+     To modify it for all scheme expressions, we'll signal an error if
+     a-nse is a symbol:
+     
+     #+BEGIN_SRC  scheme
+     (define (evaluate-expression a-nse)
+      (cond
+       [(number? a-nse) a-nse]
+       [(symbol? a-nse) (error 'evaluate-expression "not a numeric expression")]
+       [(add? a-nse) 
+        (+ (evaluate-expression (add-left a-nse))
+	   (evaluate-expression (add-right a-nse)))]
+       [(mul? a-nse)
+        (* (evaluate-expression (mul-left a-nse))
+	   (evaluate-expression (mul-right a-nse)))]))
+     #+END_SRC
+	   
+     Tests:
+
+     #+BEGIN_SRC scheme
+     > (evaluate-expression 's)
+     evaluate-expression: not a numeric expression
+     > (evaluate-expression (make-add 1 (make-mul 3 's)))
+     evaluate-expression: not a numeric expression
+     > (evaluate-expression 1)
+     1
+     > (evaluate-expression (make-add 1 1))
+     2
+     > (evaluate-expression (make-mul (make-add 1/2 3.14) (make-mul 3.3 9.33)))
+     112.07196
+     > 
+     #+END_SRC
+
+   - Exercise 14.4.4. When people evaluate an application (f a) they
+     substitute a for f's parameter in f's body. More generally, when
+     people evaluate expressions with variables, they substitute the
+     variables with values.
+
+     Develop the function subst. The function consumes (the
+     representation of) a variable (V), a number (N), and (the
+     representation of) a Scheme expression. It produces a
+     structurally equivalent expression in which all occurences of V
+     are substituted by N. 
+
+     Contract:
+     ;; subst : symbol, number, scheme-expression -> scheme-expression
+     ;; substitute all occurences of s with n, returning the result.
+     (define (subst s n a-se) ...)
+
+     Examples:
+     (subst 'a 2 'a)
+     "should be"
+     2
+     (subst 'a 1 (make-add 2 'a)) 
+     "should be"
+     (make-add 2 1)
+     (subst 'c 3 (make-add (make-mul (make-add 1 'c) 3) 5))
+     "should be"
+     (make-add (make-mul (make-add 1 3) 3) 5)
+     (subst 'cats 5 (make-add (make-add 5 33) 
+                              (make-add (make-mul 1 5) (make-mul 5
+     'cats))))
+     "should be"
+     (make-add (make-add 5 33) (make-add (make-mul 1 5) (make-mul 5
+     5)))
+     
+     Template:
+     We follow a standard template design for scheme-expressions.
+     #+BEGIN_SRC scheme
+     (define (subst s n a-se)
+      (cond
+       [(number? a-se) ...]
+       [(symbol? a-se) ...]
+       [(add? a-se)
+        ... (subst s n (add-left a-se)) ...
+	... (subst s n (add-right a-se)) ...]
+       [(mul? a-se)
+        ... (subst s n (mul-left a-se)) ...
+	... (subst s n (mul-right a-se)) ...]))
+     #+END_SRC
+	
+     Definition:
+     there is a case for each case in the definition:
+     - it is a number :: we don't need to substitute, return a-se.
+     - it is a symbol :: if the symbol a-se is equal to the input symbol s,
+                         then return n. If not, return a-se.
+     - it is an add :: we don't process the add structure directly. We
+                      assume that (subst s n (add-left a-se)) returns
+                      the correct result and so does the application
+                      on the right subtree. This means that these
+                      structures are exactly like our input but with
+                      substitutions having taken place. All we need to
+                      do to ensure we return the correct
+                      scheme-expression is create a new add structure
+                      out of the results.
+     -  it is a mul :: same story as add but with mul.
+
+     #+BEGIN_SRC scheme
+     (define (subst s n a-se)
+      (cond
+       [(number? a-se) a-se]
+       [(symbol? a-se) 
+        (cond
+	 [(symbol=? a-se s) n]
+	 [else a-se])]
+       [(add? a-se)
+        (make-add (subst s n (add-left a-se))
+	          (subst s n (add-right a-se)))]
+       [(mul? a-se)
+        (make-mul (subst s n (mul-left a-se))
+	          (subst s n (mul-right a-se)))]))
+     #+END_SRC
+
+     Tests:
+     #+BEGIN_SRC scheme
+     >      (subst 'a 2 'a)
+     	"should be"
+     	2
+     	(subst 'a 1 (make-add 2 'a)) 
+     	"should be"
+     	(make-add 2 1)
+     	(subst 'c 3 (make-add (make-mul (make-add 1 'c) 3) 5))
+     	"should be"
+     	(make-add (make-mul (make-add 1 3) 3) 5)
+     	(subst 'cats 5 (make-add (make-add 5 33) 
+     				(make-add (make-mul 1 5) (make-mul 5
+     	'cats))))
+     	"should be"
+     	(make-add (make-add 5 33) (make-add (make-mul 1 5) (make-mul 5
+     	5)))
+     2
+     "should be"
+     2
+     (make-add 2 1)
+     "should be"
+     (make-add 2 1)
+     (make-add (make-mul (make-add 1 3) 3) 5)
+     "should be"
+     (make-add (make-mul (make-add 1 3) 3) 5)
+     (make-add (make-add 5 33) (make-add (make-mul 1 5) (make-mul 5 5)))
+     "should be"
+     (make-add (make-add 5 33) (make-add (make-mul 1 5) (make-mul 5 5)))
+     > 
+     #+END_SRC
+
+     
+   
