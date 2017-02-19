@@ -333,4 +333,2053 @@ one of them is true or all of them have evaluated to false.
 	        (blue-eyed-ancestor? (child-mother a-ftree))))]))
 
 The function blue-eyed-ancestor? is unusual in that it uses the
-recursions as conditions in a cond-expression. 
+recursions as conditions in cond-expressions. To understand how this
+works, let us evaluate an application of blue-eyed-ancestor? to Carl
+by hand:
+
+   (blue-eyed-ancestor? Carl)
+ = (blue-eyed-ancestor? (make-child empty empty 'Carl 1926 'green))
+ = (cond
+     [(empty? (make-child empty empty 'Carl 1926 'green)) false]
+     [else
+       (cond
+         [(symbol=?
+	     (child-eyes (make-child empty empty 'Carl 1926 'green))
+	     'blue)
+	     true]
+	 [(blue-eyed-ancestor?
+	     (child-father (make-child empty empty 'Carl 1926 'green))
+	   true]
+	 [(blue-eyed-ancestor?
+	   (child-mother (make-child empty empty 'Carl 1926 'green)))
+	   true]
+	 [else false]))])
+ = (cond
+     [(symbol=? 'green 'blue) true]
+     [(blue-eyed-ancestor? empty) true]
+     [(blue-eyed-ancestor? empty) true]
+     [else false])
+ = (cond
+     [false true]
+     [false true]
+     [false true]
+     [else false])
+ = false
+
+The evaluation confirms that blue-eyed-ancestor? works properly for
+Carl, and it also illustrates how the function works.
+
+Exercise 14.1.1. The second definition of blue-eyed-ancestor? in
+figure 37 uses an or-expression instead of a nested conditional. Use a
+hand-evaulation to show that this definition produces the same output
+for the inputs empty and Carl.
+
+
+   (blue-eyed-ancestor? Carl)
+ = (cond
+     [(empty? (make-child empty empty 'Carl 1926 'green)) false]
+     [else
+       (or (symbol=? (child-eyes (make-child empty empty 'Carl 1926 'green)) 'blue)
+         (or (blue-eyed-ancestor?
+	      (child-father
+	       (make-child empty empty 'Carl 1926 'green)))
+	      (child-mother
+	       (make-child empty empty 'Carl 1926 'green))))])
+ = (cond
+     [false false]
+     [else
+       (or (symobl=? 'green 'blue)
+         (or (blue-eyed-ancestor? empty)
+	     (blue-eyed-ancestor? empty)))])
+ = (or false (or (blue-eyed-ancestor? empty)
+       	     	 (blue-eyed-ancestor? empty)))
+ = (or false (or
+     (cond
+       [(empty? empty) false]
+       [else ...])
+     (cond
+       [(empty? empty) false]
+       [else
+         ...])))
+ = (or false (or false false))
+ = false
+
+Exercise 14.1.2. Confirm that
+  (blue-eyed-ancestor? empty)
+evaluates to false with a hand-evaluation
+
+   (blue-eyed-ancestor? empty)
+ = (cond
+     [(empty? empty) false]
+     [else
+       (cond
+         [(blue-eyed-ancestor? (child-father empty)) true]
+	 [(blue-eyed-ancestor? (child-mother empty)) true]
+	 [else false])])
+ = (cond
+     [true false]
+     [else
+       (cond
+         [(blue-eyed-ancestor? (child-father empty)) true]
+	 [(blue-eyed-ancestor? (child-mother empty)) true]
+	 [else false])])
+ = false
+
+Exercise 14.1.3. Develop count-persons. The function consumes a family
+tree node and produces the number of people in the corresponding
+family tree.
+
+Contract:
+;; count-persons: family-tree-node -> number
+;; count the number of people in the family tree.
+(define (count-persons ftn) ...)
+
+Template:
+Follow the standard template as defined by the data definition:
+an FTN is either:
+   1. empty
+   2. (make-child father mother dob eye-color)
+      where father and mother are FTNs and dob is a number and
+      eye-color is a symbol.
+      
+(define (count-persons ftn)
+  (cond
+    [(empty? ftn) ...]
+    [else
+      ... (child-dob ftn) ...
+      ... (child-eye-color ftn) ...
+      ... (count-person (child-father ftn)) ...
+      ... (count-person (child-mother ftn)) ...]))
+
+Examples:
+
+(count-persons empty)
+"should be"
+0
+(count-persons Carl)
+"should be"
+1
+(count-persons Bettina)
+"should be"
+1
+(count-persons Gustav)
+"should be"
+5
+(count-persons Eva)
+"should be"
+3
+
+
+To fill out the template we examine the examples and recognize that
+the empty ftn should give a result of 0. Also, count-person will
+return the number of people in the child's fathers' and mothers' trees
+respectively, which means that we only need one more person in the
+family tree - the child - and we're done. We don't care about eye
+color or dob.
+
+(define (count-persons ftn)
+  (cond
+    [(empty? ftn) 0]
+    [else
+      (+ 1
+        (count-persons (child-father ftn))
+	(count-persons (child-mother ftn)))]))
+
+Tests:
+Teachpacks: draw.rkt and arrow.rkt.
+> (count-persons empty)
+"should be"
+0
+(count-persons Carl)
+"should be"
+1
+(count-persons Bettina)
+"should be"
+1
+(count-persons Gustav)
+"should be"
+5
+(count-persons Eva)
+"should be"
+3
+
+0
+"should be"
+0
+1
+"should be"
+1
+1
+"should be"
+1
+5
+"should be"
+5
+3
+"should be"
+3
+> 
+
+Exercise 14.1.4. Develop the function average-age. It consumes a
+family tree node and the current year. It produces the average age of
+all people in the family tree.
+
+Average age is the sum of all ages in the family tree divided by the
+number of people in it.
+
+;; average-age: family-tree-node, number -> number
+;; given a node on the family tree, compute the average age of its
+;; members. 
+(define (average-age ftn current-year) ...)
+
+Template: we realize there are two simple calculations for this, and
+that the average is:
+
+(/ (sum-of-ages ftn current-year) (count-persons ftn))
+
+(define (average-age ftn current-year)
+  (/ (sum-of-ages ftn current-year) (count-persons ftn)))
+  
+Testing reveals that since we defined an empty node to have 0 persons
+and have a 0 sum of age, we end up dividing by zero. So we need a case
+for an empty family tree:
+
+(define (average-age ftn current-year)
+  (cond
+    [(empty? ftn) 0]
+    [else
+      (/ (sum-of-ages ftn current-year) (count-persons ftn))]))
+
+
+Examples:
+(average-age empty 2000)
+"should be"
+0
+(average-age Carl 2000)
+"should be"
+74
+(average-age Bettina 2000)
+"should be"
+74
+(average-age Adam 2000)
+"should be"
+66
+(average-age Gustav 2000)
+"should be"
+45.8
+
+Tests:
+> (average-age empty 2000)
+"should be"
+0
+(average-age Carl 2000)
+"should be"
+74
+(average-age Bettina 2000)
+"should be"
+74
+(average-age Adam 2000)
+"should be"
+66
+(average-age Gustav 2000)
+"should be"
+45.8
+
+0
+"should be"
+0
+74
+"should be"
+74
+74
+"should be"
+74
+66
+"should be"
+66
+45.8
+"should be"
+45.8
+> 
+
+We already defined count-persons
+;; sum-of-ages : ftn -> number
+;; sum of the ages of all members of the family tree.
+(define (sum-of-ages ftn current-year) ...)
+
+Template:
+use the standard template for ftn's, current-year is not being
+processed.
+
+(define (sum-of-ages ftn current-year)
+  (cond
+    [(empty? ftn) ...]
+    [else
+      ... (child-year ftn) ...
+      ... (child-eyes ftn) ...
+      ... (child-name ftn) ...
+      ... (sum-of-ages (child-father ftn) current-year) ...
+      ... (sum-of-ages (child-mother ftn) current-year) ...]))
+
+
+Examples:
+(sum-of-ages empty 2000)
+"should be"
+0
+(sum-of-ages Carl 2000)
+"should be"
+74
+(sum-of-ages Adam 2000)
+"should be"
+198
+(sum-of-ages Gustav 2000)
+"should be"
+229
+
+Filling it out:
+If the ftn is empty, there are no ages and no members, so the total
+age is zero. Otherwise, the sum of ages is the current node's age, in
+addition to all the other nodes' ages. We don't care about the name or
+eye color of the child.
+
+
+(define (sum-of-ages ftn current-year)
+  (cond
+    [(empty? ftn) 0]
+    [else
+      (+
+       (- current-year (child-year ftn))
+       (sum-of-ages (child-father ftn) current-year)
+       (sum-of-ages (child-mother ftn) current-year))]))
+Tests:
+> (sum-of-ages empty 2000)
+0
+> (sum-of-ages Carl 2000)
+74
+> (sum-of-ages Adam 2000)
+198
+> (sum-of-ages Gustav 2000)
+229
+> 
+
+Exercise 14.1.5. Develop the function eye-colors, which consumes a
+family tree node and produces a list of all eye colors in the tree. An
+eye color may occur more than once in the list.
+
+Contract
+;; eye-colors: ftn -> list-of-symbols
+;; consumes a family-tree-node, returns a list of eye colors in the
+;; family tree.
+(define (eye-colors ftn) ...)
+
+Template:
+Use the standard family-tree-node template.
+(define (eye-colors ftn)
+  (cond
+    [(empty? ftn) ...]
+    [else
+      ... (child-year ftn) ...
+      ... (child-name ftn) ...
+      ... (child-eye-color ftn) ...
+      ... (eye-colors (child-father ftn)) ...
+      ... (eye-colors (child-mother ftn)) ...]))
+
+Examples:
+(eye-colors Carl)
+"should be"
+(list 'green)
+(eye-colors Bettina)
+"should be"
+(list 'green)
+(eye-colors Adam)
+"should be"
+(list  'yellow 'green 'green)
+(eye-colors Gustav)
+(list 'brown 'pink 'blue 'green 'green)
+
+Definition:
+An empty ftn has no people and none of them have eye colors, so we
+return empty. For the second case, we only care for selections about
+the two recursions and the eye-color symbol. So we'll append the two
+lists that were returned by the father and mother nodes, and cons on
+the child symbol.
+
+(define (eye-colors ftn)
+  (cond
+    [(empty? ftn) empty]
+    [else
+      (cons
+        (child-eye-color ftn)
+	(append
+	  (eye-colors (child-father ftn))
+	  (eye-colors (child-mother ftn))))]))
+
+> (eye-colors Carl)
+"should be"
+(list 'green)
+(eye-colors Bettina)
+"should be"
+(list 'green)
+(eye-colors Adam)
+"should be"
+(list  'yellow 'green 'green)
+(eye-colors Gustav)
+(list 'brown 'pink 'blue 'green 'green)
+(cons 'green '())
+"should be"
+(cons 'green '())
+(cons 'green '())
+"should be"
+(cons 'green '())
+(cons 'yellow (cons 'green (cons 'green '())))
+"should be"
+(cons 'yellow (cons 'green (cons 'green '())))
+(cons 'brown (cons 'pink (cons 'blue (cons 'green (cons 'green '())))))
+(cons 'brown (cons 'pink (cons 'blue (cons 'green (cons 'green '())))))
+> 
+
+Exercise 14.1.6. Suppose we need the function
+proper-blue-eyed-ancestor?. It is like blue-eyed-ancestor? but
+responds with true only when some proper ancestor, not the given one,
+has blue eyes.
+
+The contract for this new function is the same as the old one:
+
+;; proper-blue-eyed-ancestor? : ftn -> boolean
+;; to determine whether a-ftree has a blue-eyed ancestor.
+(define (proper-blue-eyed-ancestor? a-ftree) ...)
+
+To appreciate the difference, we need to look at Eva, who is
+blue-eyed, but does not have a blue-eyed ancestor. Hence
+
+(blue-eyed-ancestor? Eva)
+is true but
+(proper-blue-eyed-ancestor? Eva)
+is false. After all Eva is not a proper ancestor of herself.
+
+Suppose a friend sees the purpose statement and comes up with this
+solution:
+
+(define (proper-blue-eyed-ancestor? a-ftree)
+  (cond
+    [(empty? a-ftree) false]
+    [else (or (proper-blue-eyed-ancestor? (child-father a-ftree))
+    	      (proper-blue-eyed-ancestor? (child-mother a-ftree)))]))
+
+What would be the result of (proper-blue-eyed-ancestor? A) for any A.?
+- it would be false always. You have no return value for anything
+other than false, since all the other answers to the cond questions
+are recursions, which all will end up with empty nodes at the end and
+returning false.
+
+fix the friends solution.
+
+You can simply call blue-eyed-ancestor? on the father and mother of
+the ftree node given. The template is similar, but instead we call
+blue-eyed-ancestor? and not proper-blue-eyed-ancestor?
+
+
+(define (proper-blue-eyed-ancestor? a-ftree)
+ (cond
+   [(empty? a-ftree) false]
+   [else
+    (or (blue-eyed-ancestor? (child-father a-ftree))
+    	(blue-eyed-ancestor? (child-mother a-ftree)))]))
+
+
+   
+Examples:
+(proper-blue-eyed-ancestor? Eva) "should be"
+false
+(proper-blue-eyed-ancestor? Gustav) "should be"
+true
+(proper-blue-eyed-ancestor? Carl) "should be"
+false
+
+> (proper-blue-eyed-ancestor? Eva) "should be"
+false
+(proper-blue-eyed-ancestor? Gustav) "should be"
+true
+(proper-blue-eyed-ancestor? Carl) "should be"
+false
+
+#false
+"should be"
+#false
+#true
+"should be"
+#true
+#false
+"should be"
+#false
+> 
+
+14.2 Extended Exercise: Binary Search Trees
+-------------------------------------------
+
+Programmers often work with trees, though rarely with family trees. A
+particularly well-known form of tree is the binary search tree. Many
+applications employ binary search trees to store and retrieve
+information.
+
+To be concrete, we discuss binary trees that manage information about
+people. In this context, a binary tree is similar to a family tree but
+instead of child structures it contains nodes:
+
+(define-struct node (ssn name left right))
+
+Here we have decided to record the social security number, the name,
+and two other trees. The latter are like the parent fields of family
+trees, though the relationship between a node and its left and right
+trees is not based on family relationships.
+
+The corresponding data definition is just like the one for family
+trees: a binary-tree (short: BT) is either
+       1. false; or
+       2. (make-node soc pn lft rgt)
+         where soc is a number, pn is a symbol, and lft and rgt are
+	 BTs.
+
+The choice of false to indicate a lack of information is arbitrary. We
+could have chosen empty again, but false is an equally good and
+equally frequent choice that we should become familiar with.
+
+Here are two binary trees:
+
+     (make-node
+	15
+	'd
+	false
+	(make-node 24 'i false false))
+
+
+     (make-node
+	15
+	'd
+	(make-node 87 'h false false)
+	false)
+
+Figure 38 shows how we should think about such trees. The trees are
+drawn upside down, that is, with the root at the top and the crown of
+the tree at the bottom. Each circle corresponds to a node, labeled
+with the ssn field of a corresponding node structure. The trees omit
+false.
+
+		        63
+			*
+		       / \
+                      /   \
+		  29 *     * 89
+		    /     / \
+		15 *  77 *   * 95
+		  / \         \
+		 *   *         *
+		 10 24         99
+
+Exercise 14.2.1. Draw the two trees above in the manner of figure
+38. Then develop contains-bt. The function consumes a number and BT
+and determines whether the number occurs in the tree.
+
+                        15
+			*
+		         \
+			  * 24
+
+                        15
+			*
+		       /
+		   87 *
+
+Contract:
+;; contains-bt? : binary-tree number -> boolean
+;; determines whether or not n is an ssn present in the binary
+;; tree. Returns true if it is, false if not.
+(define (contains-bt? bt n) ...)
+
+Examples:
+
+(define bt1 (make-node 15 'd false (make-node 24 'i false false))
+(define bt2 (make-node 21 'e bt1  false))
+(define bt3 (make-node 89 'f bt1 bt2))
+(define bt4 (make-node 16 'c false (make-node 19 'z false false))
+(define bt5 (make-node 22 bt4 bt3))
+
+(contains-bt? bt5 15)
+"should be"
+true
+(contains-bt? bt1 15)
+"should be"
+true
+(contains-bt? false 12)
+"should be"
+false
+(contains-bt? bt4 22)
+"should be"
+false
+(contains-bt? bt5 22) 
+"should be"
+true
+
+Template:
+The data definition again is:
+
+a binary-tree or BT is:
+  1. false
+  2. (make-node n lft rgt)
+
+So the processing function should represent this structure by
+containing a cond-clause for each possibility.
+
+(define (contains-bt? bt n)
+  (cond
+    [(false? bt) ...]
+    [else
+      ... (node-soc bt) ...
+      ... (node-pn bt) ...
+      ... (contains-bt? (node-lft bt)) ...
+      ... (contains-bt? (node-rgt bt)) ...]))
+
+For the first question, we know that an empty or false node has no soc
+and therefore cannot have the one we're looking for and so we return
+false. In the second question, in the first place, we're only
+interested in soc, not pn, so that can leave. Finally, the number is
+contained in the bt if the current node's soc is equal to n, or if
+either the left or right branches of the tree contain that number for
+their soc.
+
+(define (contains-bt? bt n)
+  (cond
+    [(false? bt) false]
+    [else
+      (or
+        (= (node-soc bt) n)
+	(or 
+	  (contains-bt? (node-lft bt))
+	  (contains-bt? (node-rgt bt))))]))
+
+Tests:
+
+> (contains-bt? bt5 15)
+"should be"
+true
+(contains-bt? bt1 15)
+"should be"
+true
+(contains-bt? false 12)
+"should be"
+false
+(contains-bt? bt4 22)
+"should be"
+false
+(contains-bt? bt5 22) 
+"should be"
+true
+#true
+"should be"
+#true
+#true
+"should be"
+#true
+#false
+"should be"
+#false
+#false
+"should be"
+#false
+#true
+"should be"
+#true
+>
+
+Exercise 14.2.2. Develop search-bt. The function consumes a number n
+and a BT. If the tree contains a node structure whose soc field is n,
+the function produces the value of the pn field in that
+node. Otherwise the function produces false.
+
+Contract:
+;; search-bt: binary-tree-node number -> false or symbol
+;; search the binary tree and for nodes with value n - if any are
+;; found, return the first nodes' name symbol. If no node is found,
+;; return false.
+(define (search-bt bt n) ...)
+
+(define bt1 (make-node 15 'd false (make-node 24 'i false false))
+(define bt2 (make-node 21 'e bt1  false))
+(define bt3 (make-node 89 'f bt1 bt2))
+(define bt4 (make-node 16 'c false (make-node 19 'z false false))
+(define bt5 (make-node 22 'y bt4 bt3))
+(define bt6 (make-node 99 'x bt1 bt2))
+(define bt7 (make-node 101 'm false false))
+(define bt8 (make-node 102 'n false false))
+(define bt9 (make-node 88 'j bt8 bt7))
+(define bt10 (make-node 97 'w bt3 bt5))
+
+Examples:
+(search-bt bt1 24)
+"should be"
+'i
+(search-bt false 10)
+"should be"
+false
+(search-bt bt10 15)
+"should be"
+'d
+(search-bt bt9 16)
+"should be"
+false
+(search-bt bt9 101)
+"should be"
+'m
+(search-bt bt10 16)
+"should be"
+'c
+
+
+Template:
+(define (search-bt bt n)
+  (cond
+    [(false? bt) ...]
+    [else
+      ... (node-name bt) ...
+      ... (node-ssn bt) ...
+      ... (search-bt (node-right bt)) ...
+      ... (search-bt (node-left bt)) ...]))
+
+Fill it out:
+The answer to the first cond is as per the contract false. For the
+second question, we know that if the node ssn is equal to n, we should
+return that node's name. If it's not, then we should return the symbol
+that searching the right node returns if it does return one, otherwise
+the symbol searching the left node returns, and if neither of these
+return a symbol, we return false.
+
+(define (search-bt bt n)
+  (cond
+    [(false? bt) false]
+    [else
+      (cond
+        [(= (node-ssn bt) n) (node-name bt)]
+	[(symbol? (search-bt (node-left bt) n))
+	  (search-bt (node-left bt) n)]
+	[(symbol? (search-bt (node-right bt) n))
+	  (search-bt (node-right bt) n)]
+	[else false])]))
+
+Tests:
+
+(search-bt bt1 24)
+"should be"
+'i
+(search-bt false 10)
+"should be"
+false
+(search-bt bt10 15)
+"should be"
+'d
+(search-bt bt9 16)
+"should be"
+false
+(search-bt bt9 101)
+"should be"
+'m
+(search-bt bt10 16)
+"should be"
+'c
+
+'i
+"should be"
+'i
+#false
+"should be"
+#false
+'d
+"should be"
+'d
+#false
+"should be"
+#false
+'m
+"should be"
+'m
+'c
+"should be"
+'c
+> 
+ 
+
+
+Both trees in figure 38 are binary trees but they differ in a
+significant way. If we read the numbers in the two trees from left to
+right we obtain two sequences:
+
+
+      Tree A: 10  15  24  29  63  77  89  95  99
+      Tree B: 87  15  24  29  63  33  89  95  99
+
+The sequence for tree A is sorted in ascending order, the one for B
+is not. 
+
+A binary tree that has an ordered sequence of information is a BINARY
+SEARCH TREE. Every binary search tree is a binary tree, but not every
+binary tree is a binary search tree. We say that the class of binary
+search trees is a PROPER SUBCLASS of that of binary trees, that is, a
+class that does not contain all binary trees. More contretely, we
+formulate a condition -- or data invariant -- that distinguishes a
+binary search tree from a binary tree:
+       The BSD Invariant
+
+  A binary-search tree (short: BST) is a BT:
+    1. false is always a BST;
+    2. (make-node soc pn lft rgt) is a bst if
+       a. lft and rgt are BSTs,
+       b. all ssn numbers in lft are smaller than soc, and
+       c. all ssn numbers in rgt are larger than soc.
+
+The second and third conditions are different from what we have seen
+in the previous data definitions. They place an additional and unusual
+burden on the construction of BSTs. We must inspect all numbers in
+these trees and ensure that they are smaller (or larger) than soc.
+
+Exercise 14.2.3. Develop the function inorder. It consumes a binary
+tree and produces a list of all the ssn numbers in the tree. The list
+contains the numbers in the left-to-right order we have used above.
+
+Hint: Use the scheme operation append, which concatenates lists:
+      (append (list 1 2 3) (list 4) (list 5 6 7))
+      evaluates to:
+      (list 1 2 3 4 5 6 7)
+
+What does inorder produce for a binary search tree?
+
+inorder produces a sorted, ascending order list of numbers.
+
+Contract:
+;; inorder : binary-search-tree -> list-of-numbers
+;; consumes a binary search tree and produces a ordered list of the
+;; ssn's in the tree.
+(define (inorder bst) ...)
+
+(define bst
+ (make-node 50 'root
+   (make-node 40 'l0
+     (make-node 30 'l1
+       (make-node 20 'l2
+         (make-node 10 'l3 false false)
+	 (make-node 21 'r1 false false))
+       (make-node 31 'r2 false false))
+      (make-node 41 'r3 false false))
+ (make-node 60 'r4
+   (make-node 51 'l4 false false)
+   (make-node 70 'r5
+     (make-node 61 'l5 false false)
+     (make-node 80 'r6
+       (make-node 71 'l6 false false)
+       (make-node 90 'r7
+         (make-node 81 'l7 false false)
+	 (make-node 100 'l8 false false)))))))
+
+Examples:
+(inorder bst)
+"should be"
+(list 10 20 21 30 31 40 41 50 51 60 61 70 71 80 81 90 100)
+(inorder (make-node 50 'root false false))
+"should be"
+(list 50)
+(inorder false)
+"should be"
+empty
+(inorder
+  (make-node 50 'root
+  (make-node 40 'l false false) (make-node 60 'r false false)))
+"should be"
+(list 40 50 60)
+
+Template:
+Although there are data invariants on the bst, it's data-definition
+shape is essentially the same.
+(define (inorder bst)
+  (cond
+    [(false? bst) ...]
+    [else
+      ... (node-ssn bst) ...
+      ... (node-name bst) ...
+      ... (inorder (node-left bst)) ...
+      ... (inorder (node-right bst)) ...]))
+
+For the first question, a quick look at the examples shows that the
+answer ought to be false. We know from the invariants that all numbers
+in the left hand side of the tree are less than the current node - so
+in order to print it inorder, we should add the left hand node to our
+return list first, assuming our function is correct. Since the right
+hand side has nodes all greater than the current node, we should then
+add our right hand side, and finally the result of the left hand
+side. We can accomplish this with append.
+
+(define (inorder bst)
+  (cond
+    [(false? bst) empty]
+    [else
+      (append
+        (inorder (node-left bst))
+	(list (node-ssn bst))
+	(inorder (node-right bst)))]))
+
+
+
+> (inorder bst)
+"should be"
+(list 10 20 21 30 31 40 41 50 51 60 61 70 71 80 81 90 100)
+(inorder (make-node 50 'root false false))
+"should be"
+(list 50)
+(inorder false)
+"should be"
+empty
+(inorder
+  (make-node 50 'root
+  (make-node 40 'l false false) (make-node 60 'r false false)))
+"should be"
+(list 40 50 60)
+
+(cons
+ 10
+ (cons
+  20
+  (cons
+   21
+   (cons 30 (cons 31 (cons 40 (cons 41 (cons 50 (cons 51 (cons 60 (cons 61 (cons 70 (cons 71 (cons 80 (cons 81 (cons 90 (cons 100 '())))))))))))))))))
+"should be"
+(cons
+ 10
+ (cons
+  20
+  (cons
+   21
+   (cons 30 (cons 31 (cons 40 (cons 41 (cons 50 (cons 51 (cons 60 (cons 61 (cons 70 (cons 71 (cons 80 (cons 81 (cons 90 (cons 100 '())))))))))))))))))
+(cons 50 '())
+"should be"
+(cons 50 '())
+'()
+"should be"
+'()
+(cons 40 (cons 50 (cons 60 '())))
+"should be"
+(cons 40 (cons 50 (cons 60 '())))
+>
+
+Looking for a specific node in a BST takes fewer steps than looking
+for the same node in a BT. To find out whether a BT contains a node
+with a specific ssn field, a function may have to look at every node
+of the tree. In contrast, to inspect a binary search tree requires far
+fewer inspections than that. Suppose we are given the BST:
+
+      (make-node 66 'a L R)
+
+
+If we are looking for 66, we have found it. Now suppose we are looking
+for 63. Given the above node, we can focus the search on L because all
+nodes with ssns smaller than 66 are in L. Similarly, if we look for
+99, we ignore L and focus on R because all nodes with ssns larger than
+66 are in R.
+
+Exercise 14.2.4. Develop search-bst. The function consumes a number n
+and a BST. If the tree contains a node structure whose soc field is n,
+the functino produces the value of the pn field in that
+node. Otherwise, the function produces false. The function
+organization must exploit the BST Invariant so that the function
+performs as few computations as necessary. Compare searching in binary
+trees with searching in sorted lists (exercise 12.2.2.)
+
+Contract:
+;; search-bst: binary-search-tree number -> symbol/boolean
+;; given the bst and n search the tree for nodes whose ssn matches
+;; n. If one is found, return the name symbol for that
+;; node. Otherwise, return false.
+(define (search-bst bst n) ...)
+
+Examples:
+(search-bst bst 71)
+"should be"
+'l6
+(search-bst bst 80)
+"should be"
+'r6
+(search-bst false 80)
+"should be"
+false
+(search-bst bst 102)
+"should be"
+false
+(search-bst bst 100)
+"should be"
+'l8
+
+
+Template:
+(define (search-bst bst n)
+  (cond
+    [(false? bst) ...]
+    [else
+      ... (node-name n) ...
+      ... (node-ssn n) ...
+      ... (search-bst (node-left node)) ...
+      ... (search-bst (node-right node)) ...]))
+
+Again,  the answer to the first cond is answered by the contract and
+examples. For the second cond, we know that there are three cases:
+	  1. the node-ssn of the current node is n. or
+	  2. the node with n as its ssn is in the left tree. or
+	  3. the node with n as its ssn is in the right tree.
+
+Additionally, we know that if n is greater than the current node ssn,
+we only have a chance of  finding it in the right BST, but if it is
+less, than we only have a chance of finding it in the left
+one. Therefore, we can re-shape our cases:
+     1. the node-ssn of the current node is n.
+     2. n is greater than the node-ssn of the current node - search
+     right, return that value.
+     3. n is less than the node-ssn of the current node - search left,
+     return that value.
+
+(define (search-bst bst n)
+  (cond
+    [(false? bst) false]
+    [else
+      (cond
+        [(= n (node-ssn bst)) (node-name bst)]
+	[(> n (node-ssn bst))
+	  (search-bst (node-right bst) n)]
+	[(< n (node-ssn bst))
+	  (search-bst (node-left bst) n)])]))
+Tests:
+
+
+> (search-bst bst 71)
+"should be"
+'l6
+(search-bst bst 80)
+"should be"
+'r6
+(search-bst false 80)
+"should be"
+false
+(search-bst bst 102)
+"should be"
+false
+(search-bst bst 100)
+"should be"
+'l8
+
+'l6
+"should be"
+'l6
+'r6
+"should be"
+'r6
+#false
+"should be"
+#false
+#false
+"should be"
+#false
+'l8
+"should be"
+'l8
+> 
+
+Compare searching in binary trees with searching in sorted lists -
+it's similar, you know that certain 'sides' of the data structure are
+simply not going to have the value, so you ignore them, which is how
+searching a sorted list went. The only real difference is that the
+tree has two self-references where the list has one, and those
+self-references have different invariants in a sorted list - i.e. the
+only self-reference in a list will be for items either less or greater
+than the current item, depending on how the list is sorted, whereas
+here we have two invariants - the left node is less while the right
+node is greater. 
+
+Building a binary tree is easy; building a binary search tree is a
+complicated, error-prone affair. TO creeate a BT we combine two BTs,
+an ssn number and a name with make-node. The result is, by definition,
+a BT. To create a BST, this procedure fails because the result would
+typically not be a BST. For example, if one tree contains a 3 and 5,
+and the other one contains a 2 and 6, there is no way we can join
+these two BSTs into a single binary search tree.
+
+We can overcome this problem in (at least) two ways. First, given a
+list of numbers and symbols, we can determine by hand what the
+corresponding BST should look like and then use make-node to build
+it. Second, we can write a function that builds a BST from the list,
+one node after the other.
+
+Exercise 14.2.5. Develop the function create-bst. It consumes a BST B,
+a number N, and a symbol S. It produces a BST that is just like B and
+that in place of one false subtree contains the node structure
+
+  (make-node N S false false)
+
+Test the function with (create-bst false 66 'a); this should create a
+single node. Then show the following holds:
+
+(create-bst (create-bst false 66 'a) 53 'b)
+= (make-node 66
+	     'a
+	     (make-node 53 'b false false)
+	     false)
+
+Finally, create tree A from figure 38 using create-bst.
+
+Contract:
+;; create-bst : binary-search-tree, number, symbol ->
+;; binary-search-tree
+;; creates a binary-search-tree like B but with a node with n and s
+;; inserted in a palce in the BST such that it is still a bst.
+(define (create-bst b n s) ...)
+
+Template:
+This is still a binary-tree processing function:
+(define (create-bst b n s)
+  (cond
+    [(false? b) ...]
+    [else
+      ... (node-name b) ...
+      ... (node-ssn b) ...
+      ... (create-bst (node-left b) n s) ...
+      ... (create-bst (node-right b) n s) ...]))
+
+Examples:
+(create-bst false 66 'a)
+"should be"
+(make-node 66 'a false false)
+(create-bst (create-bst false 66 'a) 53 'b)
+"should be"
+(make-node 66
+	   'a
+	   (make-node 53 'b false false) false)
+
+Fill it out:
+We know from the examples that the answer to the first cond-question
+should be a make-node with n and s as ssn and name, and false and
+false as left and right nodes. For the rest of the function, we know
+that the node will have been inserted into either the left or right
+tree from one of the recursion branches. now, we will need to choose
+which branch to put it in though - it should be the left one if n is
+less than the current node and the right one if it's greater. So all
+we need to do is stitch the bst back together by re-inserting our
+node, after calling the appropriate recursion.
+
+(define (create-bst b n s)
+  (cond
+    [(false? b) (make-node n s false false)]
+    [else
+      (cond
+        [(> n (node-ssn b))
+	  (make-node
+	    (node-ssn b)
+	    (node-name b)
+	    (node-left b)
+	    (create-bst (node-right b) n s))]
+	[(< n (node-ssn b))
+	  (make-node
+	    (node-ssn b)
+	    (node-name b)
+	    (create-bst (node-left b) n s)
+	    (node-right b))]
+	[else b])]))
+Tests:
+> (create-bst false 66 'a)
+"should be"
+(make-node 66 'a false false)
+(create-bst (create-bst false 66 'a) 53 'b)
+"should be"
+(make-node 66
+	   'a
+	   (make-node 53 'b false false) false)
+
+(make-node 66 'a #false #false)
+"should be"
+(make-node 66 'a #false #false)
+(make-node 66 'a (make-node 53 'b #false #false) #false)
+"should be"
+(make-node 66 'a (make-node 53 'b #false #false) #false)
+>
+
+Finaly, create tree A from figure 38 using create-bst.
+
+(create-bst 
+  (create-bst
+    (create-bst
+      (create-bst
+        (create-bst
+	  (create-bst
+	    (create-bst
+	      (create-bst
+	        (create-bst false 63 'a)
+		  29 'b)
+	       89 'c)
+	     15 'd)
+	   77 'e)
+	 95 'f)
+        10 'g)
+      24 'h)
+    99 'i)
+
+
+(make-node
+ 63
+ 'a
+ (make-node 29 'b (make-node 15 'd (make-node 10 'g #false #false) (make-node 24 'h #false #false)) #false)
+ (make-node 89 'c (make-node 77 'e #false #false) (make-node 95 'f #false (make-node 99 'i #false #false))))	  
+			
+Exercise 14.2.6. Develop the function create-bst-from-list. It
+consumes a list of numbers and names; it produces a BST by repeatedly
+applying create-bst.
+
+The data definition for a list of numbers and names is as follows:
+
+A list-of-number/name is either:
+  1. empty or
+  2. (cons (list ssn nom) lonn)
+  where ssn is a number, nom a symbol, and lonn a list-of-number/name
+
+Consider the following examples:
+
+(define sample
+  '((99 o)
+    (77 l)
+    (24 i)
+    (10 j)
+    (95 g)
+    (15 d)
+    (89 c)
+    (29 b)
+    (63 a)))
+
+(define sample
+  (list (list 99 'o)
+    (list 77 'l)
+    (list 24 'i)
+    (list 10 'h)
+    (list 95 'g)
+    (list 15 'd)
+    (list 89 'c)
+    (list 29 'b)
+    (list 63 'a)))
+
+They are equivalent, although the left one is defined with the quote
+abbreviation, the right one using list. The left tree in figure 38 is
+the result of using create-bst-from-list on this list.
+
+Contract:
+;; create-bst-from-list: list-of-number/name -> binary-search-tree
+;; create a binary-search tree from a list-of-number/name
+;; by inserting all of them into a tree.
+(define (create-bst-from-list lon/n) ...)
+
+Example:
+(create-bst-from-list empty)
+"should be"
+false
+(create-bst-from-list '((99 o)))
+"should be"
+(make-node 99 'o false false)
+(create-bst-from-list '((99 o) (62 d)))
+"should be"
+(make-node 62 'd false (make-node 99 'o false false))
+(create-bst-from-list '((99 o) (55 g) (62 d)))
+"should be"
+(make-node
+	62
+	'd
+	(make-node 55 'g false false)
+	(make-node 99 'o false false))
+
+Template:
+This is a list-processing template with a structure-processing flavor,
+i.e. we process a list and select the first item of the list, which
+itself has several items.
+(define (create-bst-from-list lon/n)
+  (cond
+    [(empty? lon/n) ...]
+    [else
+      ... (first (first lon/n)) ...
+      ... (first (rest (first lon/n))) ...
+      ... (create-bst-from-list (rest lon/n)) ...]))
+
+As per the example, an empty list should be the empty node,
+i.e. false. Otherwise, we should insert the current item in the list
+into the bst being created, which is the result of the
+creat-bst-from-list on the (rest lon/n). We do this with make-node
+applied to the elements of the list, and using false as the left and
+right branch arguments.
+
+(define (create-bst-from-list lon/n)
+  (cond
+    [(empty? lon/n) false]
+    [else
+      (create-bst
+        (create-bst-from-lsit (rest lon/n))
+        (first (first lon/n))
+	(first (rest (first lon/n))))]))
+
+
+> (create-bst-from-list empty)
+"should be"
+false
+(create-bst-from-list '((99 o)))
+"should be"
+(make-node 99 'o false false)
+(create-bst-from-list '((99 o) (62 d)))
+"should be"
+(make-node 62 'd false (make-node 99 'o false false))
+(create-bst-from-list '((99 o) (55 g) (62 d)))
+"should be"
+(make-node
+	62
+	'd
+	(make-node 55 'g false false)
+	(make-node 99 'o false false))
+
+#false
+"should be"
+#false
+(make-node 99 'o #false #false)
+"should be"
+(make-node 99 'o #false #false)
+(make-node 62 'd #false (make-node 99 'o #false #false))
+"should be"
+(make-node 62 'd #false (make-node 99 'o #false #false))
+(make-node 62 'd (make-node 55 'g #false #false) (make-node 99 'o #false #false))
+"should be"
+(make-node 62 'd (make-node 55 'g #false #false) (make-node 99 'o #false #false))
+>
+> (create-bst-from-list sample)
+(make-node
+ 63
+ 'a
+ (make-node 29 'b (make-node 15 'd (make-node 10 'j #false #false) (make-node 24 'i #false #false)) #false)
+ (make-node 89 'c (make-node 77 'l #false #false) (make-node 95 'g #false (make-node 99 'o #false #false))))
+> 
+
+14.3 Lists in Lists
+-------------------
+
+The World Wide Web, or just ``The Web'', has become the most
+interesting part of the Internet, a global network of
+computers. Roughly speaking, the Web is a collection of Web
+pages. Each Web page is a sequence of words, pictures, movies, audo
+messages, and many more things. Most important, Web pages also contain
+links to other Web pages.
+
+A web browser enables people to view Web pages. It presents a Web page
+as a sequence of words, images, and so on. Some of the words on a page
+may be underlined. Clicking on underlined words leads to a new Web
+page. Most modern browsers also provide a Web page composer. These are
+tools that help people create collections of Web pages. A composer
+can, among other things, search for words or replace one word with
+another. In short, Web pages are things that we should be able to
+represent on computers, and there are many functions that process Web
+pages.
+
+To simplify our problem, we consider only Web pages of words and
+nested Web pages. One way of understanding such a page is as a
+sequence of words and Web pages. This informal description suggests a
+natural representation of Web pages as lists of symbols, which
+represent words, and Web pages, which represent nested Web
+pages. After all, we have emphasized before that a list may contain
+different kinds of things. Still, when we spell out this idea as a
+data definition, we get something rather unusual:
+
+     A Web-page (short: WP) is either
+       1. empty;
+       2. (cons s wp)
+       	  where s is a symbol and wp is a Web page; or
+       3. (cons ewp wp)
+       	  where both ewp and wp are Web pages.
+
+This data definition differs from that of a list of symbols in that it
+has three clauses instead of two and that it has three self-references
+instead of one. Of these self-references, the one at the beginning of
+a constructed list is the most unusual. We refer to such Web pages as
+immediately embedded Web pages.
+
+Because the data definition is unusual, we construct some examples of
+Web pages before we continue. Here is a plain page:
+
+    '(The TeachScheme! Project aims to improve the problem-solving and
+    organizational skills of high school students. It provides
+    software and lecture notes as well as exercises for teachers.)
+
+It contains nothing but words. Here is a complex page:
+
+   '(The TeachScheme Web Page
+   Here you can find:
+   	(LectureNotes for Teachers)
+	(Guidance for (Dr Scheme: a Scheme programming environment))
+	(Exercise Sets)
+	(Solutions for Exercises)
+    For futher information: write to scheme@cs)
+
+The immediately embedded pages start with parentheses and the symbols
+'LectureNotes, 'Guidance, 'Exercises, and 'Solutions. The second
+embedded Web page contains another embedded page, which starts with
+the word 'DrScheme. We say this page is embedded with respect to the
+entire page.
+
+Let's develop the function size, which consumes a Web page and
+produces the number of words that it and all of its embedded pages
+contain:
+
+;; size : WP -> number
+;; to count the number of symbols that occur in a-wp
+(define (size a-wp) ...)
+
+The two Web pages above suggest two good examples, but they are too
+complex. Here are three examples, one per subclass of data:
+
+(= (size empty) 0)
+
+(= (size (cons 'One empty)) 1)
+
+(= (size (cons (cons 'One empty) empty)) 1)
+
+The first two examples are obvious. The third one deserves a short
+explanation. It is a Web page that contains one immediately embedded
+Web page, and nothing else. The embedded Web page is the one of the
+second example, and it contains the one and only symbol of the third
+example. 
+
+To develop the template for size, let's carefully step through the
+design recipe. The shape of the data definition suggests that we need
+three cond-clauses: one for the empty page, one for a page that starts
+with a symbol, and one for a page that starts with an embedded Web
+page. While the first condition is the familiar test for empty, the
+second and third need closer inspection because both clauses in the
+data definition use cons, and a simple cons? won't distinguish between
+the two forms of data. 
+
+If the page is not empty, it is certainly constructed, and the
+distinguishing feature is the first item on the list. In other words,
+the second condition must use a predicate that tests for the first
+item on a-wp:
+
+;; size : WP -> number
+;; to count the number of symbols that occur in a-wp
+(define (size a-wp)
+  (cond
+    [(empty? a-wp) ...]
+    [(symbol? (first a-wp))
+    	      ... (first a-wp) ...
+	      ... (size (rest a-wp)) ...]
+    [else
+	... (size (first a-wp)) ...
+	... (size (rest a-wp)) ...]))
+
+The rest of the template is as usual.  The second and third
+cond-clauses contain selector expressions for the first item and the
+rest of the list. Because (rest a-wp) is always a Web page and because
+(first a-wp) is one in the third case, we also add a recursive call to
+size for these selector expressions.
+
+Using the examples and the template, we are ready to design size: see
+figure 39. The differences between the definition and the template are
+minimal, which shows again how much of a function we can design by
+merely thinking systematically about the data definition for its
+inputs.
+
+;; size : WP -> number
+;; to count the number of symbols that occr in a-wp
+(define (size a-wp)
+  (cond
+    [(empty? a-wp) 0]
+    [(symbol? (first a-wp)) (+ 1 (size (rest a-wp)))]
+    [else (+ (size (first a-wp)) (size (rest a-wp)))]))
+
+Exercise 14.3.1. Briefly explain how to define size using its template
+and the examples. Test size using the examples from above.
+
+    The template for a Web page is:
+    a WEb page (WP or web-page) is either:
+    1. empty
+    2. (cons s wp)
+       where s is a symbol; or
+    3. (cons ewp wp)
+       where ewp and wp are both web pages.
+
+To construct our function definition from the template, we need to
+construct a cond-clause to handle every case of the data
+definition. One case is that it is empty. Another is that it is a
+(cons s wp) where s is a symbol, and finally it could also be (cons
+ewp wp) where ewp and wp are both symbols. The first test is easy, we
+use the empty? predicate. The second test isn't quite as easy but we
+realize that the first items of the last two clauses are different
+data classes (although they are both cons cells). So then we construct
+a predicate for the first item - which could be a symbol or a web
+page. We have the symbol? predicate so we use it on (first
+a-wp). If it is empty, then there are no words. If it is a symbol,
+then we need to process the first item (giving rise to the selector
+statement (first a-wp) and also thre rest of them, which we can do
+recursively. Finally, if it is a nested web page, we process the first
+of the list with size/a recursive call, since it is also a web page,
+and we process the rest of the web page with size as well. tests:
+
+
+> (size    '(The TeachScheme Web Page
+   Here you can find:
+   	(LectureNotes for Teachers)
+	(Guidance for (Dr Scheme: a Scheme programming environment))
+	(Exercise Sets)
+	(Solutions for Exercises)
+    For futher information: write to scheme@cs)
+)
+30
+> (size    '(The TeachScheme! Project aims to improve the problem-solving and
+    organizational skills of high school students. It provides
+    software and lecture notes as well as exercises for teachers.)
+)
+27
+> 
+
+Exercise 14.3.2. Develop the function occcurs1. The function consumes
+a Web page and a symbol. It produces the number of times the symbol
+occurs in the Web page, ignoring the nested Web pages.
+
+Contract:
+;; occurs1 : WP, symbol -> number
+;; produces the number of times s occurs in a-wp.
+(define (occurs1 a-wp s) ...)
+
+Examples:
+(= (occurs1 '(o o o) 'd) 0)
+(= (occurs1 empty 'd) 0)
+(= (occurs1 '(o o o) 'o) 3)
+(= (occurs1 '(doodle (doodle) doodle) 'doodle) 2)
+(= (occurs1 '(roo rat (roo rat) roo rat roo (roo rat)) 'roo)  3)
+
+Template:
+Use the template we already derived:
+
+(define (occurs1 a-wp s)
+  (cond
+    [(empty? a-wp) ...]
+    [(symbol? (first a-wp))
+    	      ... (first a-wp) ...
+	      ... (occurs1 (rest a-wp)) ...]
+    [else
+	... (occurs1 (rest a-wp)) ...
+	... (occurs1 (first a-wp)) ...]))
+
+Now, we remember that we don't want to actually process the nested web
+pages, so in the second clause, we needn't process the first element,
+which is itself a nested web page. Other than that, processing the
+rest element is good. If the WP is empty, as per the examples, we
+return zero. If it is not, and we have a symbol, then (occurs1 (rest
+a-wp)) returns the number of matches in the rest of the wp, we only
+need to add one if (first a-wp) is equal to s, and zero if not. For
+the third case, we aren't processing the first element but just the
+rest, so we only need to return that value.
+
+(define (occurs1 a-wp s)
+  (cond
+    [(empty? a-wp) 0]
+    [(symbol? (first-awp))
+      (cond
+        [(symbol=? s (first a-wp)) (+ 1 (occurs1 (rest a-wp)))]
+	[else (occurs1 (rest-awp))])]
+    [else (occurs1 (rest a-wp))]))
+
+Tests:
+> (= (occurs1 '(o o o) 'd) 0)
+(= (occurs1 empty 'd) 0)
+(= (occurs1 '(o o o) 'o) 3)
+(= (occurs1 '(doodle (doodle) doodle) 'doodle) 2)
+(= (occurs1 '(roo rat (roo rat) roo rat roo (roo rat)) 'roo)  3)
+
+#true
+#true
+#true
+#true
+#true
+>
+
+Develop the function occurs2. It is like occurs1, but counts all
+occurences of the symbol, including in embedded Web pages.
+
+Contract:
+;; occurs2 : WP, symbol -> number
+;; counts all occurences of s, including in nested pages, in the a-wp.
+(define (occurs2 a-wp s) ...)
+
+Examples:
+(= (occurs2 '(o o o) 'd) 0)
+(= (occurs2 '(o o o) 'o) 3)
+(= (occurs2 '(o (o o) o) 'o) 4)
+(= (occurs2 '(doodle (doodle) doodle (doodle roo)) 'doodle) 4)
+(= (occurs2 '(roo rat (roo rat) roo rat roo (roo rat) roo) 'roo) 6)
+
+Template:
+(define (occurs2 a-wp s)
+  (cond
+    [(empty? a-wp) ...]
+    [(symbol? (first a-wp)) ...
+    	      ... (first a-wp) ...
+	      ... (occurs2 (rest a-wp)) ...]
+    [else
+	... (occurs2 (first a-wp)) ...
+	... (occurs2 (rest a-wp)) ...]))
+
+Definition:
+This time we need to process the other, nested web pages, these occur
+in the first selector statement of the third cond-clause. we assume
+our function definition is correct, and that (occrs2 (first a-wp) s)
+will return the correct count of symbols in the nested web page. all
+there is to do then, is add that count to the count for the rest of
+the current, non-nested web page, and return it. The first clause
+remains the same.
+
+(define (occurs2 a-wp s)
+  (cond
+    [(empty? a-wp) 0]
+    [(symbol? (first a-wp))
+      (cond
+        [(symbol=? (first a-wp) s)
+	  (+ 1 (occurs2 (rest a-wp) s))]
+	[else (occurs2 (rest a-wp) s)])]
+    [else (+ (occurs2 (first a-wp) s) (occurs2 (rest a-wp) s))]))
+    
+	
+>> (= (occurs2 '(o o o) 'd) 0)
+(= (occurs2 '(o o o) 'o) 3)
+(= (occurs2 '(o (o o) o) 'o) 4)
+(= (occurs2 '(doodle (doodle) doodle (doodle roo)) 'doodle) 4)
+(= (occurs2 '(roo rat (roo rat) roo rat roo (roo rat) roo) 'roo) 6)
+
+#true
+#true
+#true
+#true
+#true
+>	
+
+Exercise 14.3.3. Develop the function replace. The function consumes
+two symbols, new and old, and a Web page, a-wp. It produces a page
+that is structurally identical to a-wp but with all occurrences of old
+replaced by new.
+
+Contract:
+;; replace: WP, symbol, symbol -> WP
+;; in a-wp, replace all occurences of old with new. Return the new web
+;; page that is like a-wp but with the replacements.
+(define (replace a-wp old new) ...)
+
+Examples:
+(replace '(o o o) 'o 'd)
+"should be"
+'(d d d)
+(replace '(o (o o) o o (o r o)) 'o 'd)
+"should be"
+'(d (d d) d d (d r d))
+(replace '(x (x x) r r (x x (x x r s))) 's 't)
+"should be"
+'(x (x x) r r (x x (x x r t)))
+(replace empty 'o 'd)
+"should be"
+empty
+(replace '(o) 'r 't)
+"should be"
+'(o)
+(replace '(x (x x s) (x x x)) 'v 's)
+"should be"
+'(x (x x s) (x x x))
+
+Template:
+This is a  standard web-page template.
+(define (replace a-wp old new)
+  (cond
+    [(empty? a-wp) ...]
+    [(symbol? (first a-wp)) ...
+       ... (first a-wp) ...
+       ... (replace (rest a-wp) old new) ...]
+    [else
+       ... (replace (first a-wp) old new) ...
+       ... (replace (rest a-wp) old new) ...]))
+Definition:
+For the first cond-clause, we know the answer should also be empty, as
+per the examples. The only time we actually process a symbol is in
+the second clause.
+
+    If the symbol (first a-wp) is equal to old, then we
+should return a web page just like the one we got, but with that
+replaced with new. We assume the replace function works on (rest
+a-wp), therefore, what we need to do is return a web page with just
+the first element replaced with new. the web page is just a list, and
+the first item is just a symbol, so a cons-statement will work.
+
+    If the symbol is not equal, we still need to process (rest
+a-wp). Assuming this returns the right result, we will simply cons
+back on the unchanged (first a-wp).
+
+    For the final clause, again we assume that (replace (first a-wp)
+old new) has worked as promised, and so has (replace (rest a-wp) old
+new), and they both returned web pages. So, we need to add (first
+a-wp) back onto our returned web page - the processed (rest) of it is
+returned in our second template selector, so again, we return a cons
+of the processed (first a-wp) and processed (rest a-wp).
+
+(define (replace a-wp old new)
+  (cond
+    [(empty? a-wp) empty]
+    [(symbol? (first a-wp))
+      (cond
+        [(symbol=? (first-awp) old)
+	  (cons
+            new
+	    (replace (rest a-wp) old new))]
+	[else
+	  (cons (first a-wp) (replace (rest a-wp) old new))])]
+    [else
+      (cons
+        (replace (first a-wp) old new)
+	(replace (rest a-wp) old new))]))
+
+Tests:
+> (replace '(o o o) 'o 'd)
+"should be"
+'(d d d)
+(replace '(o (o o) o o (o r o)) 'o 'd)
+"should be"
+'(d (d d) d d (d r d))
+(replace '(x (x x) r r (x x (x x r s))) 's 't)
+"should be"
+'(x (x x) r r (x x (x x r t)))
+(replace empty 'o 'd)
+"should be"
+empty
+(replace '(o) 'r 't)
+"should be"
+'(o)
+(replace '(x (x x s) (x x x)) 'v 's)
+"should be"
+'(x (x x s) (x x x))
+
+(list 'd 'd 'd)
+"should be"
+(list 'd 'd 'd)
+(list 'd (list 'd 'd) 'd 'd (list 'd 'r 'd))
+"should be"
+(list 'd (list 'd 'd) 'd 'd (list 'd 'r 'd))
+(list 'x (list 'x 'x) 'r 'r (list 'x 'x (list 'x 'x 'r 't)))
+"should be"
+(list 'x (list 'x 'x) 'r 'r (list 'x 'x (list 'x 'x 'r 't)))
+'()
+"should be"
+'()
+(list 'o)
+"should be"
+(list 'o)
+(list 'x (list 'x 'x 's) (list 'x 'x 'x))
+"should be"
+(list 'x (list 'x 'x 's) (list 'x 'x 'x))
+>
+
+Exercise 14.3.4. People do not like deep Web trees because they
+require too many page switches to reach useful information. For that
+reason a Web page designer may also want to measure the depth of a
+page. A page containing only symbols has depth 0. A page with
+an immediately embedded page has the depth of the embedded page plus
+1. If a page has several immediately embedded Web pages, its depth is
+the maximum of the depths of embedded Web pages plus 1. Develop
+depth, which consumes a Web page and computes its depth.
+
+
+Contract:
+;; depth : WP -> number
+;; compute the depth of the Web Page.
+(define (depth a-wp) ...)
+
+Examples:
+(= (depth empty) 0)
+(= (depth '(o)) 0)
+(= (depth '(o (o))) 1)
+(= (depth '(a (a b (c d)))) 2)
+(= (depth
+   '(a b c
+      (d e (f g h))
+      (x y z (r x y w (w e)))
+      (o (d (d (r (x)))))
+      d e f))
+    5)
+
+Template:
+(define (depth a-wp)
+  (cond
+    [(empty? a-wp) ...]
+    [(symbol? (first a-wp))
+     ... (first a-wp) ...
+     ... (depth (rest a-wp)) ...]
+    [else
+     ... (depth (first a-wp)) ...
+     ... (depth (rest a-wp)) ...]))
+
+Definition:
+For an empty web page, we'll return zero (this is a sort of
+by-definition decision). It will have to be, if we're to return the
+correct results, since 
+
+For a web page which has a symbol as it's first element, we return the
+depth of the rest, since a symbol adds nothing to the depth.
+
+For a web page which has another web page as it's first element, we'll
+have two possible depths to return - (depth (first a-wp)) and (depth
+(rest a-wp)) as per the definition in the problem statement, we should
+return the greater of the two:
+       either (detph (first a-wp)) is greater than (depth (rest a-wp)):
+       	      return (depth (first a-wp))
+       or (depth (rest a-wp)) is greater:
+       	  return (depth (rest a-wp))
+Of course, we don't return that value - we need to add one! otherwise,
+nothing gets added anywhere, and as per the definition, a web-page
+with a nested web page or nested web pages has the depth of the
+deepest page plus one.
+
+(define (depth a-wp)
+  (cond
+    [(empty? a-wp) 0]
+    [(symbol? (first a-wp)) (depth (rest a-wp))]
+    [else
+      (cond
+        [(> (+ 1 (depth (first a-wp))) (depth (rest a-wp)))
+	  (+ 1 (depth (first a-wp)))]
+	[else (depth (rest a-wp))])]))
+
+14.4 Lists in Lists
+-------------------
+DrScheme is itself a program that consists of several parts. One
+function checks whether the definitions and expressions we wrote down
+are grammatical Scheme expressions. Another one evaluates Scheme
+expressions. With what we have learned in this section, we can now
+develop simple versions of these functions. Our first task is to agree
+on a data representation for Scheme programs. In other words, we must
+figure out how to represent a Scheme expression as a piece of Scheme
+data. This sounds unusual, but it is not difficult. Suppose we just
+want to represent numbers, variables, additions, and multiplications
+for a start. Clearly, numbers can stand for numbers and symbols for
+variables. Additions and multiplcations, however, call for a class of
+compound data because they consist of an operator and two
+subexpressions.
+
+A straightforward way to represent additions and multiplications is to
+use two structures: one for additions and another one for
+multiplications. Here are the structure definitions:
+
+(define-struct add (left right))
+(define-struct mul (left right))
+
+Each structure has two components. One represents the left expression
+and the other one the right expression of the operaion.
+
+    Scheme Expression 	    | 	       representation of Scheme expression
+    3	   		    	       3
+    x				       'x
+    (* 3 10)			       (make-mul 3 10)
+    (+ (* 3 3) (* 4 4))		       (make-add (make-mul 3 3) (make-mul 4 4))
+    (+ (* x x) (* y y))		       (make-add (make-mul 'x 'x) (make-mul 'y 'y))
+    (* 1/2 (* 3 3)) 		       (make-mul 1/2 (make-mul 3 3))
+
+Let's look at some examples. These examples cover all cases: numbers,
+variables, simple expressions, and nested expressions.
+
+Exercise 14.4.1. Provide a data definition for the representation of
+Scheme expressions. Then translate the following expressions into
+representations.
+
+A scheme-expression is:
+  1. a number or 
+  2. a symbol or
+  3. (make-mul L R) where L and R are scheme-expressions, or
+  4. (make-add L R) where L and R are scheme-expressions.
+
+1. (make-mul 10 -10)
+2. (make-add (make-mul 20 3) 33)
+3. (make-mul 3.14 (make-mul 'r 'r))
+4. (make-add (make-mul 9/5 'c) 32)
+5. (make-add (make-mul 3.14 (make-mul 'o 'o))
+     (make-mul 3.14 (make-mul 'i 'i)))
+
+A Scheme evaluator is a function that consumes a representation of a
+Scheme expression and produces its value. For example, the expression
+3 has the value 3, (+ 3 5) has the value 8, (+ (* 3 3) (* 4 4)) has
+the value 25, etc. Since we are ignoring definitions for now, an
+expression that contains a variable, for example (+ 3 x), does not
+have a value, after all, we do not know what the variable stands
+for. In other words, our Scheme evaluator should be applied only to
+representations of expressions that do not contain variables. We say
+such expressions are numeric.
+
+Exercise 14.4.2. Develop the function numeric? which consumes (the
+representation of) a Scheme expression and determines whether it is
+numeric.
+
+Contract:
+;; numeric? : scheme-expression -> boolean
+;; returns whether or not the expression, if evaluated is numeric -
+;; e.g. it contains no symbols which stand for unknowns.
+(define (numeric? a-se) ...)
+
+Examples:
+(numeric? 1)
+(false? (numeric? 'o))
+(numeric? (make-mul 1 2))
+(false? (numeric? (make-mul (make-mul 'o 1) 5)))
+(false? (numeric? (make-mul 5 (make-mul (make-mul 2 3) 'o))))
+(numeric? (make-mul (make-add 1 2) (make-add 3 4)))
+(numeric? (make-add (make-mul (make-mul 2 2) 2) 5))
+
+
+
+Template:
+We follow the data definition - include an initial cond-clause for
+each type of data. Since the definition is self-referencing, include
+recursive calls to process self-references.
+
+(define (numeric? a-se)
+  (cond
+    [(number? a-se) ...]
+    [(symbol? a-se) ...]
+    [(mul? a-se)
+       ... (numeric? (mul-left a-se)) ...
+       ... (numeric? (mul-right a-se)) ...]
+    [(add? a-se)
+       ... (numeric? (add-left a-se))
+       ... (numeric? (add-right a-se)) ...]))
+
+To formulate the definition, we can look at the examples for the first
+two - the answers should be true and false respectively. For the
+second clause, a mul expression is numeric when both the left and
+right expressions are numeric, it has no other items which could
+influence this. The same is true of an add.
+
+(define (numeric? a-se)
+  (cond
+    [(number? a-se) true]
+    [(symbol? a-se) false]
+    [(mul? a-se)
+      (and
+        (numeric? (mul-left a-se))
+	(numeric? (mul-right a-se)))]
+    [(add? a-se)
+      (and
+        (numeric? (add-left a-se))
+	(numeric? (add-right a-se)))]))
+
+
+
+
+> (numeric? 1)
+(false? (numeric? 'o))
+(numeric? (make-mul 1 2))
+(false? (numeric? (make-mul (make-mul 'o 1) 5)))
+(false? (numeric? (make-mul 5 (make-mul (make-mul 2 3) 'o))))
+(numeric? (make-mul (make-add 1 2) (make-add 3 4)))
+(numeric? (make-add (make-mul (make-mul 2 2) 2) 5))
+#true
+#true
+#true
+#true
+#true
+#true
+#true
+>   
+
+       
+Exercise 14.4.3. Provide a data definition for numeric
+expressions. Develop the function evaluate-expression. The function
+consumes (the representation of) a numeric Scheme expression and
+computes its value. When the function is tested, modify it so it
+consumes all kinds of Scheme expressions; the revised version raises
+an error when it encounters a variable.
+
+a numeric-expression is:
+  1. a number or
+  2. (make-mul L R) where L and R are both numeric-expressions, or
+  3. (make-add L R) where L and R are both numeric-expressions.
+
+;; Contract:
+;; evaluate-expression : numeric-expression -> number
+;; evaluates the numeric-expression and returns the result.
+(define (evaluate-expression a-ne) ...)
+
+Examples:
+(= (evaluate-expression 5) 5)
+(= (evaluate-expression
+     (make-add 5 5)) 10)
+(= (evaluate-expression (make-mul 5 5)) 25)
+(= (evaluate-expression (make-mul (make-add 2 2) (make-add 3 2))) 20)
+
+Template:
+
+(define (evaluate-expression a-ne)
+  (cond
+    [(number? a-ne) ...]
+    [(mul? a-ne)
+       ... (evaluate-expression (mul-left a-ne)) ...
+       ... (evaluate-expression (mul-right a-ne)) ...]
+    [(add? a-ne)
+       ... (evaluate-expression (add-left a-ne)) ...
+       ... (evaluate-expression (add-right a-ne)) ...]))
+
+Definition:
+For the first cond-question, the answer should be the number, as per
+the examles. For the second, we want to multiply the left and right
+expressions, and finally, for the third add them.
+
+(define (evaluate-expression a-ne)
+  (cond
+    [(number? a-ne) a-ne]
+    [(mul? a-ne) (*
+       (evaluate-expression (mul-left a-ne))
+       (evaluate-expression (mul-right a-ne)))]
+    [(add? a-ne) (+
+       (evaluate-expression (add-left a-ne))
+       (evaluate-expression (add-right a-ne)))]))
+
+Finally, for testing, we'll add a way to signal an error if a symbol
+is found, representing a variable:
+      
+  
+(define (evaluate-expression a-ne)
+  (cond
+    [(number? a-ne) a-ne]
+    [(mul? a-ne) (*
+       (evaluate-expression (mul-left a-ne))
+       (evaluate-expression (mul-right a-ne)))]
+    [(add? a-ne) (+
+       (evaluate-expression (add-left a-ne))
+       (evaluate-expression (add-right a-ne)))]
+    [else (error 'evaluate-expression " not a numeric expression")]))
+
+Tests:
+> (= (evaluate-expression 5) 5)
+(= (evaluate-expression
+     (make-add 5 5)) 10)
+(= (evaluate-expression (make-mul 5 5)) 25)
+(= (evaluate-expression (make-mul (make-add 2 2) (make-add 3 2))) 20)
+#true
+#true
+#true
+#true
+> (evaluate-expression 'o)
+evaluate-expression:  not a numeric expression
+> (evaluate-expression (make-mul (make-add 5 5) (make-mul 5 'o)))
+evaluate-expression:  not a numeric expression
+>
+
+Exercise 14.4.4. When people evaluate an application (f a) they
+substitute a for f's parameter in f's body. More generally, when
+people evaluate expressions with variables, they substitute the
+variables with values.
+
+Develop the function subst. The function consumes (the representation
+of) a variable (V), a number (N), and (the representation of) a Scheme
+expression. It produces a structurally equivalent expression in which
+all occurrences of V are substituted by N.
