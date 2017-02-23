@@ -274,163 +274,1312 @@
 	[else (blue-eyed-children? (rest aloc))])]))
     #+END_SRC
     
-    Exercise 15.1.1. Evaluate (blue-eyed-descendant? Eva) by
-    hand. Then evaluate (blue-eyed-descendant? Bettina). 
-    
-    #+BEGIN_EXAMPLE
-    (blue-eyed-descendant? Eva)
-    = (blue-eyed-descendant? (make-parent Fred&Eva 'Eva 1965 'blue))
-    = (cond
-       [(symbol=? (parent-eyes (make-parent Fred&Eva 'Eva 1965 'blue)) 'blue) true]
-       [else (blue-eyed-children? (parent-children (make-parent Fred&Eva 'Eva 1965 'blue)))])
-    = (cond
-       [(symbol=? 'blue 'blue) true]
-       [...])
-    = (cond
-       [true true]
-       [...])
-    = true
-    #+END_EXAMPLE
+    - Exercise 15.1.1. Evaluate (blue-eyed-descendant? Eva) by
+      hand. Then evaluate (blue-eyed-descendant? Bettina). 
 
-    #+BEGIN_EXAMPLE
-      (blue-eyed-descendant? Bettina)
-    = (blue-eyed-descendant? (make-parent Carl&Bettina 'Bettina 1926 'green))
-    = (cond
-       [(symbol=? (parent-eyes (make-parent Carl&Bettina 'Bettina 1926 'green))) true]
-       [else (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))]
-    = (cond
-        [(symbol=? 'green 'blue) true]
-	[else (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))])
-    = (cond
-       [false true]
-       [else (blue-eyed-children? ...)])
-    = (blue-eyed-children? (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))
-    = (blue-eyed-children? Carl&Bettina)
-    = (blue-eyed-children? (list Adam Dave Eve))
-    = (cond
-        [(empty? (list Adam Dave Eve)) false]
+	#+BEGIN_EXAMPLE
+	(blue-eyed-descendant? Eva)
+	= (blue-eyed-descendant? (make-parent Fred&Eva 'Eva 1965 'blue))
+	= (cond
+	[(symbol=? (parent-eyes (make-parent Fred&Eva 'Eva 1965 'blue)) 'blue) true]
+	[else (blue-eyed-children? (parent-children (make-parent Fred&Eva 'Eva 1965 'blue)))])
+	= (cond
+	[(symbol=? 'blue 'blue) true]
+	[...])
+	= (cond
+	[true true]
+	[...])
+	= true
+	#+END_EXAMPLE
+
+	#+BEGIN_EXAMPLE
+	(blue-eyed-descendant? Bettina)
+	= (blue-eyed-descendant? (make-parent Carl&Bettina 'Bettina 1926 'green))
+	= (cond
+	   [(symbol=? (parent-eyes (make-parent Carl&Bettina 'Bettina 1926 'green))) true]
+	   [else 
+            (blue-eyed-children? 
+             (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))]
+	= (cond
+	    [(symbol=? 'green 'blue) true]
+	    [else 
+             (blue-eyed-children? 
+              (parent-children (make-parent Carl&Bettina 'Bettina 1926 'green)))])
+	= (cond
+	   [false true]
+	   [else (blue-eyed-children? ...)])
+	= (blue-eyed-children? 
+           (parent-children 
+            (make-parent Carl&Bettina 'Bettina 1926 'green)))
+	= (blue-eyed-children? Carl&Bettina)
+	= (blue-eyed-children? (list Adam Dave Eve))
+	= (cond
+	   [(empty? (list Adam Dave Eve)) false]
+	   [else
+	    (cond
+	     [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
+	     [else (blue-eyed-children? (rest (list Adam Dave Eve)))])])
+	= (cond
+	    [false false]
+	    [else ...]
+	= (cond
+	   [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
+	   [else (blue-eyed-children? (rest aloc))])
+	= (cond
+	   [(blue-eyed-descendant? Adam) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(cond
+	     [(symbol=? (parent-eyes (make-parent empty 'Adam 1950 'yellow))) true]
+	     [else (blue-eyed-children? 
+	            (parent-children (make-parent empty 'Adam 1950 'yellow)))]) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(cond
+	    [(symbol=? 'yellow 'blue) true]
+	    [else ...])]
+	   [else ...])
+	= (cond
+	   [(cond
+	    [false true]
+	    [else (blue-eyed-children? 
+                   (parent-children 
+                    (make-parent empty 'Adam 1950 'yellow)))]) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(blue-eyed-children? 
+             (parent-children 
+              (make-parent empty 'Adam 1950 'yellow))) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(blue-eyed-children? empty)]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(cond
+	     [(empty? empty) false]
+	     [else 
+	      (cond
+               [(blue-eyed-descendant? (first empty)) true]
+	       [else (blue-eyed-children? (rest empty))]) true]) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	   [(cond
+	     [true false]
+	     [else (blue-eyed-children? empty)]) true]
+	   [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (cond
+	    [false true]
+	    [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
+	= (blue-eyed-children? (rest (list Adam Dave Eve)))
+	= (blue-eyed-children? (list Dave Eve))
+	= (cond
+	   [(empty? (list Dave Eve)) false]
+	   [else
+	    (cond
+	     [(blue-eyed-descendant? (first (list Dave Eve))) true]
+	     [else (blue-eyed-children? (rest (list Dave Eve)))])])
+	= (cond
+	   [false false]
+	   [else ...])
+	= (cond
+	   [(blue-eyed-descendant? (first (list Dave Eve))) true]
+	   [else (blue-eyed-children? (rest (list Dave Eve)))])
+	= (cond
+	   [(blue-eyed-descendant? (make-parent empty 'Dave 1955 'black)) true]
+	   [else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	   [(cond
+	    [(symbol=? (parent-eyes (make-parent empty 'Dave 1955 'black))) true]
+	    [else (blue-eyed-children? (rest (list Dave Eva)))])])
+	= (cond
+	   [(cond
+	    [(symbol=? 'black 'blue) true]
+	    [else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
+	   [else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	   [(cond
+	    [false true]
+	    [else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
+	[else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	   [(blue-eyed-children? 
+             (parent-children 
+              (make-parent empty 'Dave 1955 'black))) true]
+	   [else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	   [(blue-eyed-children? empty) true]
+	   [else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	[(cond
+	    [(empty? empty) false]
+	    [else 
+	    (cond
+	    [(blue-eyed-descendant? empty) true]
+	    [else (blue-eyed-children? (rest empty))])]) true]
+	[else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	[(cond
+	    [true false]
+	    [else
+	    (cond
+	    [(blue-eyed-descendant? empty) true]
+	    [else (blue-eyed-children? (rest empty))])]) true]
+	[else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (cond
+	[false true]
+	[else (blue-eyed-children? (rest (list Dave Eva)))])
+	= (blue-eyed-children? (rest (list Dave Eva)))
+	= (blue-eyed-children? (list Eva))
+	= (cond
+	[(empty? (list Eva)) false]
 	[else
-	 (cond
-	  [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
-	  [else (blue-eyed-children? (rest aloc))])])
-    = (cond
-        [false false]
+	    (cond
+	    [(blue-eyed-descendant? (first (list Eva))) true]
+	    [else (blue-eyed-children? (rest (list Eva)))])])
+	= (cond
+	[false false]
+	[else 
+	    (cond
+	    [(blue-eyed-descendant? (first (list Eva))) true]
+	    [else (blue-eyed-children? (rest (list Eva)))])])
+	= (cond
+	[(blue-eyed-descendant? (first (list Eva))) true]
+	[else (blue-eyed-children? (rest (list Eva)))])
+	= (cond
+	[true true]
 	[else ...]
-    = (cond
-       [(blue-eyed-descendant? (first (list Adam Dave Eve))) true]
-       [else (blue-eyed-children? (rest aloc))])
-    = (cond
-       [(blue-eyed-descendant? Adam) true]
-       [else ...]
-    = (cond
-       [(cond
-         [(symbol=? (parent-eyes (make-parent empty 'Adam 1950 'yellow))) true]
-	 [else ...])]
-      [else ...])
-    = (cond
-       [(cond
-        [(symbol=? 'yellow 'blue) true]
-        [else ...])]
-       [else ...])
-    = (cond
-       [(cond
-        [false true]
-	[else (blue-eyed-children? (parent-children (make-parent empty 'Adam 1950 'yellow)))])]
-       [else ...])
-    = (cond
-       [(blue-eyed-children? (parent-children (make-parent empty 'Adam 1950 'yellow)))]
-       [else ...])
-    = (cond
-       [(blue-eyed-children? empty)]
-       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
-    = (cond
-       [(cond
-         [(empty? empty) false]
-	 [else (blue-eyed-children? empty)])]
-       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
-    = (cond
-       [(cond
-        [true false]
-	[else (blue-eyed-children? empty)]) true]
-       [else (blue-eyed-children? (rest (list Adam Dave Eve)))])
-    = (cond
-        [false true]
-	[else (blue-eyed-children? (rest (list Adam Dave Eve)))])
-    = (blue-eyed-children? (rest (list Adam Dave Eve)))
-    = (blue-eyed-children? (list Dave Eve))
-    = (cond
-       [(empty? (list Dave Eve)) false]
-       [else
+	= true
+	#+END_EXAMPLE
+
+    - Exercise 15.1.2. Develop the function how-far-removed. It
+      determines how far a blue-eyed descendant, if one exists, is
+      removed from the given parent. If the given parent has blue
+      eyes, the distance is 0; if eyes is not blue but at least one of
+      its children's eyes are the distance is 1; and so on. If no
+      descendant of the given parent has blue eyes the function
+      returns false when it is applied to the corresponding family
+      tree.
+
+      Contract:
+      ;; how-far-removed: parent -> number
+      ;; computes how far removed from a-parent the first blue-eyed
+      ;; descendant of a-parent is. Returns false if there isn't one,
+      ;; 0 if a-parent has blue eyes, 1 if at least one child has blue
+      ;; eyes, and so on.
+      (define (how-far-removed a-parent) ...)
+
+      Examples:
+      (boolean=? (how-far-removed Gustav) false)
+      (= (how-far-removed Eva) 0)
+      (= (how-far-removed Bettina) 1)
+      (boolean=? (how-far-removed Adam) false)
+
+      Template:
+      Follow the shape of the data definition(s):
+
+      #+BEGIN_SRC scheme
+      (define (how-far-removed a-parent)
+         ... (parent-eyes a-parent) ...
+         ... (how-far-removed-children
+              (parent-children a-parent)) ...
+         ... (parent-name a-parent) ...
+         ... (parent-date a-parent) ...) 
+
+      #+END_SRC
+      We have referenced a function that we add to our wish-list. But
+      first let's finish our current definition. We assume that
+      (how-far-removed-children (parent-children a-parent)) processes
+      the list of children - if none of the children have blue-eyed
+      descendants it returns false, if at least one does, it returns
+      how far removed the closest descendant is with blue-eyes from
+      its own parent.
+
+      Contract:
+      ;; how-far-removed-children: list-of-children -> number
+      ;; computes the child with the closest blue-eyed
+      ;; descendant. Returns the distance from that child the
+      ;; descendant is.
+      (define (how-far-removed-children a-loc) ...)
+      
+      Examples:
+      (= (how-far-removed-children (parent-children Bettina)) 0)
+      (boolean=? (how-far-removed-children (parent-children Eva)) false)
+      (boolean=? (how-far-removed-children (parent-children Gustav)) false)
+      (= (how-far-removed-children (parent-children Carl)) 0)
+      
+      Now we should finish up our initial function definition. We care
+      only about the eye-color of the parent - if it is blue,
+      return 0. If not, consider the result of
+      how-far-removed-children on the children. If that is non-false,
+      return 1 + that result. If it is false, return that.
+
+      #+BEGIN_SRC scheme
+      (define (how-far-removed a-parent)
+       (cond
+        [(symbol=? (parent-eyes a-parent) 'blue) 0]
+        [else 
+         (cond
+          [(number? (how-far-removed-children 
+                     (parent-children a-parent)))
+           (+ 1 (how-far-removed-children (parent-children a-parent)))]
+          [else false])]))
+      #+END_SRC
+      
+      Now we should finish up the definition of
+      how-far-removed-children. First we need a template, which
+      follows the definition of teh list of structures template.
+
+      #+BEGIN_SRC scheme
+      (define (how-far-removed-children a-loc)
+       (cond
+        [(empty? a-loc) ...]
+        [else
+         ... (first a-loc)
+         ... (how-far-removed-children (rest a-loc)) ...]))
+      #+END_SRC
+
+      Now to finish it: We assume that (how-far-removed-children (rest
+      a-loc)) returns the correct result -- either the shortest path
+      to a descendant with blue-eyes for the rest of the list or
+      false. So we need to process (first a-loc) and:
+      1. Determine if it has a blue-eyed descendant
+      2. If that blue-eyed descendant is closer (less far-removed)
+         to the parent than any descendant in the rest of the list. 
+      We already have a function that determines whether a parent node
+      has a blue-eyed descendant - how-far-removed. So we'll call that
+      on the first element of the list. Now there are several
+      conditions we must iterate to make sure we get the right
+      shortest-path descendant.
+      1. how-far-removed-children on the rest of the list is not
+         false, and how-far-removed on the first is also not false:
+	 1. how-far-removed-children on the rest is less than
+            how-far-removed on the first: return
+            how-far-removed-children on the rest.
+
+	 2. Otherwise: return how-far-removed on the first.
+      2. how-far-removed-children on the rest of the list is false
+         and how-far-removed on the first is not false, return
+         how-far-removed on the first.
+      3. how-far-removed-children on rest is not false and
+         how-far-removed on first is, return how-far-removed on
+         rest.
+
+      #+BEGIN_SRC scheme
+      (define (how-far-removed-children a-loc)
+      (cond
+      [(empty? a-loc) false]
+      [else
+      (cond
+      [(and
+      (number? (how-far-removed (first a-loc)))
+      (number? (how-far-removed-children (rest a-loc))))
+      (cond
+      [(< (how-far-removed (first a-loc)) 
+      (how-far-removed-children (rest a-loc)))
+      (how-far-removed (first a-loc))]
+      [else (how-far-removed-children (rest a-loc))])]
+      [(number? (how-far-removed (first a-loc)))
+      (how-far-removed (first a-loc))]
+      [else (how-far-removed-children (rest a-loc))])]))
+      #+END_SRC
+
+      Tests:
+      #+BEGIN_EXAMPLE
+      >(= (how-far-removed-children (parent-children Bettina)) 0)
+      (boolean=? (how-far-removed-children (parent-children Eva)) false)
+      (boolean=? (how-far-removed-children (parent-children Gustav)) false)
+      (= (how-far-removed-children (parent-children Carl)) 0)
+      #true
+      #true
+      #true
+      #true
+      #+END_EXAMPLE
+
+      #+BEGIN_EXAMPLE
+      >       (boolean=? (how-far-removed Gustav) false)
+      (= (how-far-removed Eva) 0)
+      (= (how-far-removed Bettina) 1)
+      (boolean=? (how-far-removed Adam) false)
+      #true
+      #true
+      #true
+      #true
+      > 
+      #+END_EXAMPLE
+
+      More testing: I defined a larger family tree and tested it.
+      #+BEGIN_SRC scheme
+      ;; youngest generation:
+      (define Gustav (make-parent empty 'Gustav 1988 'brown))
+      ;; children of Fred and Eva.
+      (define Fred&Eva (list Gustav))
+
+      ;; middle generation
+      (define Adam (make-parent empty 'Adam 1950 'yellow))
+      (define Dave (make-parent empty 'Dave 1955 'black))
+      (define Eva (make-parent Fred&Eva 'Eva 1965 'blue))
+      (define Fred (make-parent Fred&Eva 'Fred 1966 'black))
+
+      (define Jack (make-parent empty 'Jack 2010 'brown))
+      (define Linda (make-parent empty 'Linda 2013 'blue))
+
+      (define Emma&Will (list Jack Linda))
+      (define Emma (make-parent Emma&Will 'Emma 1990 'brown))
+      (define Will (make-parent Emma&Will 'Will 1993 'green))
+      (define Jean (make-parent empty 'Jean 1996 'brown))
+      (define Gene (make-parent empty 'Gene 1995 'green))
+
+      (define Jim&Heather (list Emma Jean Gene))
+      (define Jim (make-parent Jim&Heather 'Jim 1966 'green))
+      (define Heather (make-parent Jim&Heather 'Heather 1955 'brown))
+      (define Dean (make-parent empty 'Dean 1956 'green))
+      (define Alice (make-parent empty 'Alice 1966 'black))
+
+      (define Burt (make-parent empty 'Burt 1999 'green))
+      (define Janet (make-parent empty 'Janet 2000 'brown))
+      (define Heath (make-parent empty 'Heath 2011 'blue))
+      (define Amy&Brian (list Heath Janet Burt))
+      (define Amy (make-parent Amy&Brian 'Amy 1970 'black))
+      (define Brian (make-parent Amy&Brian 'Brian 1977 'green))
+      (define Elanor (make-parent empty 'Elanor 1980 'brown))
+      (define Fritz (make-parent empty 'Fritz 1976 'black))
+
+      (define Carl&Bettina (list Adam Dave Eva))
+      (define Carl (make-parent Carl&Bettina 'Carl 1926 'green))
+      (define Bettina (make-parent Carl&Bettina 'Bettina 1926 'green))
+
+      (define Kurt&Lena (list Amy Fritz Elanor))
+      (define Kurt (make-parent Kurt&Lena 'Kurt 1910 'brown))
+      (define Lena (make-parent Kurt&Lena 'Lena 1911 'brown))
+
+      (define Rodney&Gerda (list Jim Heather Dean Alice))
+      (define Rodney (make-parent Rodney&Gerda 'Rodney 1905 'brown))
+      (define Gerda (make-parent Rodney&Gerda 'Gerda 1906 'green))
+
+      (define Max&Jane (list Carl Kurt Rodney))
+      (define Max (make-parent Max&Jane 'Max 1870 'brown))
+      (define Jane (make-parent Max&Jane 'Jane 1872 'brown))
+      #+END_SRC
+
+      #+BEGIN_EXAMPLE
+      > (how-far-removed Max)
+      2
+      > (how-far-removed Jake)
+      Jake: this variable is not defined
+      > (how-far-removed Kurt)
+      2
+      > (how-far-removed Fritz)
+      #false
+      > (how-far-removed Rodney)
+      3
+      > 
+      #+END_EXAMPLE
+
+    - Exercise 15.1.3. Develop the function count-descendants, which
+      consumes a parent and produces the number of proper descendants,
+      that is, all nodes in the family tree, including the parent.
+      
+      Develop the function count-proper-descendants, which consumes a
+      parent and produces the number of proper descendants, that is,
+      all nodes in the family tree not counting the parent.
+
+      Contract:
+      ;; count-descendants: parent -> number
+      ;; count the number of descendants the parent has in the family
+      ;; tree, including the parent. Count all nodes, in other words.
+      (define (count-descendants a-parent) ...)
+
+      Examples: (using extended tree also)
+      (= (count-descendants Fritz) 1)
+      (= (count-descendants Eva) 2)
+      (= (count-descendants Fred) 2)
+      (= (count-descendants Adam) 1)
+      (= (count-descendants Carl) 5)
+      (= (count-descendants Bettina) 5)
+      (= (count-descendants Rodney) 9)
+
+      Template:
+
+      #+BEGIN_SRC scheme
+      (define (count-descendants a-parent)
+       ... (parent-children a-parent) ...
+       ... (parent-eyes a-parent) ...
+       ... (parent-date a-parent) ...
+       ... (parent-name a-parent) ...)
+      #+END_SRC
+      
+      Now we don't really care about any of the items other than
+      children of the parent. The parent itself counts as a
+      descendant, so what we really want is 1 plust the sum of the
+      descendant counts of the child nodes. For this we need to
+      process the list of children and return that sum. We'll add a
+      function to our wishlists called count-children that does that.
+
+      #+BEGIN_SRC scheme
+      (define (count-descendants a-parent)
+       (+ 1 (count-children (parent-children a-parent))))
+      #+END_SRC
+      
+      Now we'll turn our attention to count-children.
+      Contract:
+      ;; count-children: list-of-parents -> number
+      ;; the sum of the number of descendants for each child.
+      (define (count-children a-lop) ...)
+      
+      Examples:
+      (= (count-children empty) 0)
+      (= (count-children (parent-children Gustav)) 0)
+      (= (count-children (parent-children Eva)) 1)
+      (= (count-children (parent-children Carl)) 4)
+      
+      Template:
+      #+BEGIN_SRC scheme
+      (define (count-children a-lop)
+       (cond
+        [(empty? a-lop) ...]
+        [else 
+          ... (first a-lop) ...
+          ... (count-children (rest a-lop)) ...]))
+      #+END_SRC
+      
+      For the first cond-question, according to the examples, this
+      should result in 0. 
+      We assume that count-children returns the correct result, the
+      sum of the size of each child tree. So we need to add to that
+      the size of (first a-lop). This can be computed with
+      count-descendants.
+
+      #+BEGIN_SRC scheme
+      (define (count-children a-lop)
+       (cond
+        [(empty? a-lop) 0]
+        [else
+         (+ (count-descendants (first a-lop))
+            (count-children (rest a-lop)))]))
+      #+END_SRC
+      
+      Now we can test:
+      #+BEGIN_EXAMPLE
+      >  (= (count-children empty) 0)
+            (= (count-children (parent-children Gustav)) 0)
+            (= (count-children (parent-children Eva)) 1)
+            (= (count-children (parent-children Carl)) 4)
+      
+      #true
+      #true
+      #true
+      #true
+      > 
+      >(= (count-descendants Fritz) 1)
+       (= (count-descendants Eva) 2)
+       (= (count-descendants Fred) 2)
+       (= (count-descendants Adam) 1)
+       (= (count-descendants Carl) 5)
+       (= (count-descendants Bettina) 5)
+       (= (count-descendants Rodney) 9)
+      #true
+      #true
+      #true
+      #true
+      #true
+      #true
+      #true
+      > 
+      #+END_EXAMPLE
+      
+      For count-proper-descendants, we need only to call
+      count-children on the parents' children:
+      (define (count-proper-descendants a-parent)
+       (count-children (parent-children a-parent)))
+
+    - Exercise 15.1.4. Develop eye-colors, which consumes a parent and
+      produces a list of all eye colors in the tree. An eye color may
+      occur more than once in the list.
+      
+      Contract: 
+      ;; eye-colors : parent -> list-of-symbols
+      ;; produce a list of all eye colors in the parent tree.
+      (define (eye-colors a-parent) ...)
+      
+      Examples:
+      (eye-colors Eva)
+      "should be"
+      '(blue brown)
+      (eye-colors Fred)
+      "should be"
+      'pink
+      (eye-colors Carl)
+      "should be"
+      '(green pink blue black yellow brown)
+      
+      Template:
+      (define (eye-colors a-parent)
+       ... (parent-eyes a-parent) ...
+       ... (parent-date a-parent) ...
+       ... (parent-name a-parent) ...
+       ... (parent-children a-parent) ...)
+      
+      Definition:
+      For this case, we don't care about the date or name of the
+      parent node, but we do care about the eye color and the
+      children. We need to return a list containing the eye color of
+      the parent and the eye colors of its children. We need a
+      function to process the child list as well, called
+      eye-colors-children:
+
+      Contract:
+      ;; eye-colors-children : list-of-parents -> list-of-symbols
+      ;; return the eye colors of all the parent nodes and their
+      ;; children.
+      (define (eye-colors-children a-lop) ...)
+
+      With this definition added to our wish list, we can finish this
+      definition:
+      
+      #+BEGIN_SRC scheme
+      (define (eye-colors a-parent)
+       (cons (parent-eyes a-parent)
+             (eye-colors-children (parent-children a-parent))))
+      #+END_SRC
+      
+      Then, we need to define the functions on our wish list, which in
+      this case is eye-colors-children.
+
+      Examples:
+      (eye-colors-children (list Gustav))
+      "should be"
+      '(brown)
+      (eye-colors-children (list Adam))
+      "should be"
+      '(yellow)
+      (eye-colors-children (list Adam Dave Eva))
+      "should be"
+      '(yellow black blue brown)
+      
+      Template:
+      #+BEGIN_SRC scheme
+      (define (eye-colors-children a-lop)
+       (cond
+        [(empty? a-lop) ...]
+        [else ... (first a-lop) ...
+              ... (eye-colors-children (rest a-lop)) ...]))
+      #+END_SRC
+
+      Definition:
+      if the list of parents is empty, then there are no eye colors,
+      so return empty. Otherwise, we need to process the list. The
+      processing takes two steps, one for rest and one for first. If
+      we assume that we have the correct function definition,
+      eye-colors-children on (rest a-lop) returns the eye colors of
+      all the children and their trees. So we need to return the eye
+      colors of the parent tree for (first a-lop). We can do this with
+      eye-colors, which fulfills this contract. Both these operations
+      return lists, so we append them with append.
+
+      #+BEGIN_SRC scheme
+      (define (eye-colors-children a-lop)
+       (cond
+        [(empty? a-lop) empty]
+        [else 
+         (append
+          (eye-colors (first a-lop))
+          (eye-colors-children (rest a-lop)))]))
+      #+END_SRC
+      Tests:
+      for eye-colors-children:
+      #+BEGIN_EXAMPLE
+      >  (eye-colors-children (list Gustav))
+      "should be"
+      '(brown)
+      (eye-colors-children (list Adam))
+      "should be"
+      '(yellow)
+      (eye-colors-children (list Adam Dave Eva))
+      "should be"
+      '(yellow black blue brown)
+
+      (list 'brown)
+      "should be"
+      (list 'brown)
+      (list 'yellow)
+      "should be"
+      (list 'yellow)
+      (list 'yellow 'black 'blue 'brown)
+      "should be"
+      (list 'yellow 'black 'blue 'brown)
+      > 
+      #+END_EXAMPLE
+      
+      for eye-colors:
+      #+BEGIN_EXAMPLE
+      >   (eye-colors Eva)
+      "should be"
+      '(blue brown)
+      (eye-colors Fred)
+      "should be"
+      'pink
+      (eye-colors Carl)
+      "should be"
+      '(green pink blue black yellow brown)
+      (list 'blue 'brown)
+      "should be"
+      (list 'blue 'brown)
+      (list 'black 'brown)
+      "should be"
+      'pink
+      (list 'green 'yellow 'black 'blue 'brown)
+      "should be"
+      (list 'green 'pink 'blue 'black 'yellow 'brown)
+      > 
+      #+END_EXAMPLE
+*** 15.2 Designing Functions for Mutually Referential Definitions
+    The recipe for designing functions on mutually referential data
+    definitions generalizes that for self-referential data. Indeed, it
+    offers only two pieces of additional advice. First we must create
+    _several_ templates simultaneously, one for each data
+    definition. Second we must annotate templates with self-references
+    and CROSS-REFERENCES, that is, references among different
+    templates. Here is a more detailed explanation of the differences:
+
+    - The data analysis and design :: If a problem mentions a number
+         of different classes of information (of arbitrary size), we
+         need a group of data definitions that are self-referential
+         and that refer to each other. In these groups, we identify
+         the self-references and cross-references between two data
+         definitions.
+
+	 In the above example, we needed two interrelated definitions:
+	 [[img:./dd-tree.gif]]
+	 
+	 
+	 The first one concerns parents and another one for list of
+         children. The first (unconditionally) defines a parent in
+         terms of symbols, numbers, and a list of children, that is,
+         it contains a cross-reference to the second definition. This
+         second definition is a conditional definition. Its first
+         clause is simple; its second clause references botht he
+         definition for parents and list-of-children.
+
+    - Contract, Purpose, Header :: To process interrelated classes of
+         data we typically need as many functions as there are class
+         definitions. Hence, we must formulate as many contracts,
+         purpose statements, and headers in parallel as there are data definitions.
+    - Templates :: The templates are created in parallel, following
+                   the advice concerning compound data, mixed data,
+                   and self-referential data. Finally,  we must
+                   determine for each selector expression in each
+                   template whether it corresponds to a
+                   cross-reference to some definition. If so, we
+                   annotate it in the same way we annotate
+                   cross-references. 
+
+		   Here are the templates for our running example:
+
+		   [[img:./fun-tree.gif]]
+
+		   (define (fun-parent a-parent)
+		    ... (parent-name a-parent) ...
+		    ... (parent-date a-parent) ...
+		    ... (parent-eyes a-parent) ...
+		    ... (fun-children (parent-children a-parent)) ...)
+                              |<-- <cross-reference>
+		              V
+		   (define (fun-children aloc)
+		    (cond
+		     [(empty? aloc) ...] 
+		     [else ... (fun-parent (first aloc)) <-- <cross-reference>
+                           ... (fun-children (rest aloc)) ...])) <-- <self-reference>
+		   The fun-parent template is unconditional because
+                   the data definition for parents does not contain
+                   any clauses. It contains a cross-reference to a
+                   second template: to process the children field of a
+                   parent structure. By the same rules, fun-children
+                   is conditional. The second cond-clause contains one
+                   self-reference, for the rest of the list, and one
+                   cross-reference for the first item of the list
+                   which is a parent structure.
+
+		   A comparison of the data definitions and the
+                   templates shows how analogous the two are. To
+                   emphasize the similarity in self-references and
+                   cross-references, the data definitions and
+                   templates have been annotated with arrows. It is
+                   easy to see how corresponding arrows have the same
+                   origin and destination in the two pictures.
+    - The body :: As we proceed to create the final definitions we
+                  start with a template or a cond-clause that does not
+                  contain self-references to the template and
+                  cross-references to other templates. The results are
+                  typically easy to formulate for such templates or
+                  cond-clauses.
+
+		  The rest of this step proceeds as before. WHen we
+                  deal with other clauses or functions we remind
+                  ourselves what each expression in the template
+                  computes, assuming that _all_ functions already work
+                  as specified in the contracts. Then we decide how to
+                  combine these pieces of data into a final answer. As
+                  we do that we must not forget the guildelines
+                  concerning the composition of complex functions.
+		  
+      | Phase         | Goal                                            | Activity                                                                                                                                                                                                                                                                                          |
+      |---------------+-------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+      | Data Analysis | To formuate a group of related data definitions | develop a group of mutually recursive data definitions * at least one definition or one alternative in a definition must refer to basic data * _explicitly identify all references among the data definitions_                                                                                    |
+      | Template      | To formulate a group of function outlines       | develop as many templates as there are data definitions simultaneously * develop each template according to the rules for compound and/or mixed data definitions as appropriate * annotate the templates with recursions or cross-applications to match the (cross-)references in the definitions |
+      | Body          | To define a group of functions                  | formulate a Scheme expression for each template, and for each cond-clause in a template * explain what each expression in each template computes * use additional auxiliary functions where necessary                                                                                             |
+	
+*** 15.3 Extended Exercise: More on Web Pages
+    With mutually referential data definitions we can represent Web
+    pages in a more accurate manner than in section 14.3. Here is the
+    basic structure definition:
+
+    #+BEGIN_SRC scheme
+    (define-struct wp (header body))
+    #+END_SRC
+
+    The two fields contain the two essential pieces of data in a Web
+    page: a header and a body. The data definition specifies that
+    a body is a list of words and web pages:
+
+    A _Web-page_ (short: _WP_) is a structure:
+      (make-wp h p)
+    where h is a symbol and p is (Web) document.
+
+    A (Web) document is either
+      1. empty,
+      2. (cons s p) where s is a symbol and p is a document, or
+      3. (cons w p) where w is a Web page and p is a socument.
+	
+
+     - Exercise 15.3.1. Develop the function size, which consumes a Web
+       page and produces the number of symbols (words) it contains.
+
+       Template development: I already did the annotation on paper, so
+       the templates look like this:
+ 
+       #+BEGIN_SRC scheme
+       (define (fun-for-web-page a-wp)
+        ... (wp-h a-wp) ...
+        ... (fun-for-web-document (wp-p a-wp)) ...) <CROSS-REFERENCE-wd>
+ 
+       (define (fun-for-web-document a-wd)
         (cond
-	 [(blue-eyed-descendant? (first (list Dave Eve))) true]
-	 [else (blue-eyed-children? (rest (list Dave Eve)))])])
-    = (cond
-       [false false]
-       [else ...]
-    = (cond
-       [(blue-eyed-descendant? (first (list Dave Eve))) true]
-       [else (blue-eyed-children? (rest (list Dave Eve)))])
-    = (cond
-       [(blue-eyed-descendant? (make-parent empty 'Dave 1955 'black)) true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(cond
-         [(symbol=? (parent-eyes (make-parent empty 'Dave 1955 'black))) true]
-	 [else (blue-eyed-children? (rest (list Dave Eva)))])])
-    = (cond
-       [(cond
-         [(symbol=? 'black 'blue) true]
-	 [else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(cond
-        [false true]
-	[else (blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black)))])]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(blue-eyed-children? (parent-children (make-parent empty 'Dave 1955 'black))) true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(blue-eyed-children? empty) true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(cond
-         [(empty? empty) false]
-	 [else 
-	  (cond
-	   [(blue-eyed-descendant? empty) true]
-	   [else (blue-eyed-children? (rest empty))])]) true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [(cond
-        [true false]
-	[else
-	 (cond
-	  [(blue-eyed-descendant? empty) true]
-	  [else (blue-eyed-children? (rest empty))])]) true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (cond
-       [false true]
-       [else (blue-eyed-children? (rest (list Dave Eva)))])
-    = (blue-eyed-children? (rest (list Dave Eva)))
-    = (blue-eyed-children? (list Eva))
-    = (cond
-       [(empty? (list Eva)) false]
-       [else
+         [(empty? a-wd) ...]
+         [(symbol? (first a-wd))
+          ... (first a-wd) ...
+          ... (fun-for-web-document (rest a-wd)) ...] <SELF-REFERENCE>
+         [(wp? (first a-wd))
+          ... (fun-for-web-page (first a-wd)) ... <CROSS-REFERENCE-wp>
+          ... (fun-for-web-document (rest a-wd)) ...])) <SELF-REFERENCE>
+       #+END_SRC
+       
+       I annotated with angle brackets because I can't draw
+       arrows. Contracts:
+ 
+       ;; size: WP -> number
+       ;; return the total number of symbols in a web page
+       (define (size a-wp) ...)
+       
+       Example:
+       (= (size (make-wp 'h1 (cons 'hello empty))) 2)
+       (= (size (make-wp 'h1 
+                 (cons 
+                   (make-wp 'h2 
+                    (cons 'news (cons 'world empty)))
+                   (cons 'para (cons 'graph empty))))) 6)
+       (= (size (make-wp 'h1 '(one two three four))) 5)
+       
+       Definition:
+       Here is the template again:
+       (define (size a-wp)
+         ... (wp-h a-wp) ...
+         ... (fun-for-web-document (wp-p a-wp)) ...)
+       If we assume there is a function, size-of-web-document, which
+       computes the size of the web document, all we need to do is add
+       one, since our header must contain at least one word.
+       
+       Contract:
+       ;; size-of-web-document : Web-document -> number
+       ;; compute the total number of symbols in a-wd
+       (define (size-of-web-document a-wd) ...)
+       
+       Examples:
+       (= (size-of-web-document '(one two)) 2)
+       (= (size-of-web-document empty) 0)
+       (= (size-of-web-document (list (make-wp 'h1 '(one two)) 'a 'b)) 5)
+ 
+       #+BEGIN_SRC scheme
+       (define (size a-wp)
+         (+ 1 (size-of-web-document (wp-body a-wp))))
+       #+END_SRC
+ 
+       Now for the web document function.  It's template:
+       #+BEGIN_SRC scheme
+       (define (fun-for-web-document a-wd)
         (cond
-	 [(blue-eyed-descendant? (list Eva)) true]
-	 [else (blue-eyed-children? (rest (list Eva)))])])
-    = (cond
-       [false false]
-       [else 
+         [(empty? a-wd) ...]
+ 	[(symbol? (first a-wd)) 
+ 	 ... (first a-wd) ...
+ 	 ... (fun-for-web-document (rest a-wd)) ...]
+ 	[(wp? (first a-wd))
+ 	 ... (fun-for-wp (first a-wd)) ...
+ 	 ... (fun-for-web-document (rest a-wd)) ...]))
+       #+END_SRC
+       
+       From the examples we know that if the web document is empty we
+       should just return a size of 0. If the first item is a symbol,
+       then we know from the template we'll self-reference to get the
+       size of the rest, which we assume is correct. So all we do is
+       add one to the total size. Finally, if the first element is a
+       web page, there are two components to our cons cell: The first
+       is a web page, and the rest is a web document. We have defined
+       this function as the one that computes the size of a web
+       document so that's covered. What we need then is to compute the
+       size of the web page, for which we have the function size.
+ 
+       #+BEGIN_SRC scheme
+       (define (size-of-web-document a-wd)
         (cond
-	 [(blue-eyed-descendant? (list Eva)) true]
-	 [else (blue-eyed-children? (rest (list Eva)))])])
-    = (cond
-       [(blue-eyed-descendant? (list Eva)) true]
-       [else (blue-eyed-children? (rest (list Eva)))])
-    = (cond
-       [true true]
-       [else ...]
-    = true
-    #+END_EXAMPLE
+         [(empty? a-wd) 0]
+ 	[(symbol? (first a-wd))
+ 	 (+ 1 (size-of-web-document (rest a-wd)))]
+ 	[(wp? (first a-wd))
+ 	 (+ (size (first a-wd))
+ 	    (size-of-web-document (rest a-wd)))]))
+       #+END_SRC
+       
+       Tests:
+       #+BEGIN_EXAMPLE
+       >       (= (size-of-web-document '(one two)) 2)
+       (= (size-of-web-document empty) 0)
+       (= (size-of-web-document (list (make-wp 'h1 '(one two)) 'a 'b)) 5)
+ 
+       #true
+       #true
+       #true
+       >       (= (size (make-wp 'h1 (cons 'hello empty))) 2)
+             (= (size (make-wp 'h1 
+                       (cons 
+                         (make-wp 'h2 
+                          (cons 'news (cons 'world empty)))
+                         (cons 'para (cons 'graph empty))))) 6)
+             (= (size (make-wp 'h1 '(one two three four))) 5)
+       
+       #true
+       #true
+       #true
+       > 
+       #+END_EXAMPLE
+     - Exercise 15.3.2. Develop the function wp-to-file. The function
+       consumes a Web page and produces a list of symbols. The list
+       contains all the words in a body and all the headers of
+       embedded Web pages. The bodies of immediately embedded Web
+       pages are ignored.
+       
+       Contract:
+       ;; wp-to-file : wp -> list-of-symbols
+       ;; produce a list of symbols, which contains all the words in
+       ;; the body of a-wp and all the headers of embedded web
+       ;; pages. Bodies are ignored.
+       (define (wp-to-file a-wp) ...)
+
+       Examples:
+       (define wp-one (make-wp 'h1 '(one two three four)))
+       (define wp-two (make-wp 'h2 (list wp-one 'five 'six)))
+       (define wp-three (make-wp 'h3 '(a b c d e)))
+       (define wp-four (make-wp 'h4 (list wp-three wp-two)))
+
+       (wp-to-file (make-wp 'one '(two three four)))
+       "should be"
+       '(one two three four)
+       (wp-to-file wp-two)
+       "should be"
+       '(h2 h1 five six)
+       (wp-to-file wp-three)
+       "should be"
+       '(h3 a b c d e)
+       (wp-to-file wp-four)
+       "should be"
+       '(h4 h3 h2)
+
+       Templates:
+       (define (fun-for-wp a-wp)
+        ... (wp-header a-wp) ...
+        ... (fun-for-document (wp-body a-wp)) ...)
+       
+       (define (fun-for-document a-wd)
+        (cond
+         [(empty? a-wd) ...]
+         [(symbol? (first a-wd))
+           ... (first a-wd) ...
+           ... (fun-for-document (rest a-wd)) ...]
+         [(wp? (first a-wd))
+           ... (fun-for-wp (first a-wd)) ...
+           ... (fun-for-document (rest a-wd)) ...]))
+       
+       Definitions: To fill out wp-to-file, let's first fill out the
+       unconditional template for fun-for-wp as wp-to-file. According
+       to our definition, the result should be a list of symbols,
+       which is the web page's header, any body symbols, and the
+       headers of all other embedded web pages but not their
+       bodys. The header symbol is easy, return a list with that as
+       the first element. The rest should be the result of processing
+       the body, which needs to happen in wp-body, another auxiliary function.
+
+       Contract:
+       ;; wd-to-file : document -> list-of-symbols
+       ;; return a list of symbols -- it will contain the 
+       ;; headers of immediately embedded web pages, and the body of
+       ;; the document.
+       (define (wd-to-file a-wd) ...)
+
+       Examples:
+       (wd-to-file '(one two three))
+       "should be"
+       '(one two three)
+       (wd-to-file empty)
+       "should be"
+       empty
+       (wd-to-file (wp-body (wp-one)))
+       "should be"
+       '(h2 h1 five six)
+       (wd-to-file empty)
+       "should be"
+       empty
+
+       (define (wp-to-file a-wp)
+        (cons (wp-header a-wp)
+              (wd-to-file (wp-body a-wp))))
+
+       Template:
+       (define (wd-to-file a-wd)
+        (cond
+         [(empty? a-wd) ...]
+         [(symbol? (first a-wd))
+          ... (first a-wd) ...
+          ... (wd-to-file (rest a-wd)) ...]
+         [(wp? (first a-wd))
+          ... (fun-for-wp (first a-wd)) ...
+          ... (wd-to-file (rest a-wd)) ...]))
+       Definition:
+       If the web page is empty, we return an empty list, as per the
+       example. We should include the body of the top web-page, but
+       not the inner web-pages - we only add their headers. If it is a
+       symbol, then we can add it to the list with a cons statement --
+       assuming that wd-to-file works for the rest. Finally, if it is
+       a web-page, include the header but leave out the rest, and add
+       that to the list returned by wd-to-file
+
+       (define (wd-to-file a-wd)
+        (cond
+         [(empty? a-wd) empty]
+         [(symbol? (first a-wd))
+          (cons (first a-wd)
+                (wd-to-file (rest a-wd)))]
+         [(wp? (first a-wd))
+          (cons (wp-header (first a-wd))
+                (wd-to-file (rest a-wd)))]))
+
+       I misread the initial problem statement, the header shouldn't
+       be included for the top level page:
+       (define (wp-to-file a-wp)
+        (wd-to-file (wp-body a-wp))) 
+       But the rest of the definition is correct.
+
+       Tests:
+       #+BEGIN_EXAMPLE
+       >        (wp-to-file (make-wp 'one '(two three four)))
+       "should be"
+       '(one two three four)
+       (wp-to-file wp-two)
+       "should be"
+       '(h2 h1 five six)
+       (wp-to-file wp-three)
+       "should be"
+       '(h3 a b c d e)
+       (wp-to-file wp-four)
+       "should be"
+       '(h4 h3 h2)
+       (list 'one 'two 'three 'four)
+       "should be"
+       (list 'one 'two 'three 'four)
+       (list 'h2 'h1 'five 'six)
+       "should be"
+       (list 'h2 'h1 'five 'six)
+       (list 'h3 'a 'b 'c 'd 'e)
+       "should be"
+       (list 'h3 'a 'b 'c 'd 'e)
+       (list 'h4 'h3 'h2)
+       "should be"
+       (list 'h4 'h3 'h2)
+       > 
+       #+END_EXAMPLE
+     - Exercise 15.3.3. Develop the function occurs. It consumes a
+       symbol and a Web page and determines whether the former occurs
+       anywhere in the latter, including the embedded Web pages.
+       
+       (define-struct wp (header body))
+       A web-page or WP is a structure:
+         (make-web-page h b)
+       where header is a symbol and body is a (Web) document. <CROSS-REFERENCE>
+       
+       A (Web) document is:
+       1. empty; or
+       2. (cons p wd) where p is a web-page and wd is a document. <CROSS-REFERENCE>
+       3. (cons s wd) where s is a symbol and wd is a document.
+
+       Templates:
+       (define (fun-for-wp a-wp)
+       ... (wp-header a-wp) ...
+       ... (fun-for-document (wp-body a-wp)) ...)
+
+       (define (fun-for-document a-doc)
+       (cond
+       [(empty? a-doc) ...]
+       [(symbol? (first a-doc))
+       ... (first a-doc) ...
+       ... (fun-for-document (rest a-doc)) ...]
+       [(wp? (first a-doc))
+       ... (fun-for-wp (first a-doc)) ...
+       ... (fun-for-document (rest a-doc)) ...]))
+       Contracts:
+       ;; occurs : symbol, web-page -> boolean
+       ;; determines wheter s occurs in a-wp, including embedded
+       ;; pages.
+       (define (occurs s a-wp) ...)
+
+       Examples:
+       (boolean=? (occurs 'one (make-wp 'h1 '(two three))) false)
+       (boolean=? (occurs 'one (make-wp 'h1 empty)) false)
+       (boolean=? (occurs 'h1  (make-wp 'h1 empty)) true)
+       (boolean=? (occurs 'one 
+       (make-wp 'h1 
+       (list (make-wp 'h2 '(one two three))))) true)
+       (boolean=? (occurs 'two
+       (make-wp 'h1 (list 'one 'three
+       (make-wp 'h2 (list 'four (make-wp 'two empty)))))) true)
+       
+       Definitions:
+       For the definition, we know for the selector statement for
+       header, that if the header is equal to s, we should return
+       true. Otherwise, we need to determine whether it is in the
+       page body. This involves processing a complex peice of data so
+       we'll call another function, occurs-in-document.
+
+       #+BEGIN_SRC scheme
+       (define (occurs s a-wp)
+        (cond
+         [(symbol=? s (wp-header a-wp)) true]
+         [else
+          (occurs-in-document s (wp-body a-wp))]))
+       #+END_SRC
+
+       ;; occurs-in-document: symbol, document -> boolean
+       ;; determines whether s occurs anywhere in a-doc, any of the 
+       ;; top-level symbols or nested web pages.
+       (define (occurs-in-document s a-doc))
+       
+       Examples:
+       (boolean=? (occurs-in-document 'one empty) false)
+       (boolean=? (occurs-in-document 'one '(one)) true)
+       (boolean=? (occurs-in-document 'h1
+       (list 'one 'two (make-wp 'h1 '(three four)))) true)
+       (boolean=? (occurs-in-document 'four
+       (list 'zero 'one
+       (make-wp 'h1
+       (list 'two (make-wp 'h2 '(three four)))))) true)
+       (boolean=? (occurs-in-document 'five
+       (list 'zero 'one (make-wp 'h1 empty))) false)
+       Definition: 
+       to fill in the definition, we consult each cond-line one by
+       one. For the first cond-line, if the document is empty, the
+       symbol does not occur, return false as in the examples. If the
+       first element is a symbol, return true if that symbol is equal
+       to the one we are searching for, or if processing the rest of
+       the list returns true. Finally, if the first is a web page, we
+       need to know if the symbol occurs in the web-page, or, if it
+       occured in the rest.
+
+       #+BEGIN_SRC scheme
+       (define (occurs-in-document s a-doc)
+        (cond
+         [(empty? a-doc) false]
+         [(symbol? (first a-doc))
+          (or (symbol=? s (first a-doc))
+              (occurs-in-document s (rest a-doc)))]
+         [(wp? (first a-doc))
+          (or (occurs (first a-doc))
+              (occurs-in-document s (rest a-doc)))]))
+       #+END_SRC
+
+       Tests:
+
+       #+BEGIN_EXAMPLE
+       > (boolean=? (occurs-in-document 'one empty) false)
+       (boolean=? (occurs-in-document 'one '(one)) true)
+       (boolean=? (occurs-in-document 'h1
+       (list 'one 'two (make-wp 'h1 '(three four)))) true)
+       (boolean=? (occurs-in-document 'four
+       (list 'zero 'one
+       (make-wp 'h1
+       (list 'two (make-wp 'h2 '(three four)))))) true)
+       (boolean=? (occurs-in-document 'five
+       (list 'zero 'one (make-wp 'h1 empty))) false)
+       
+       #true
+       #true
+       #true
+       #true
+       #true
+       > 
+       #+END_EXAMPLE
+
+       #+BEGIN_EXAMPLE
+       > (boolean=? (occurs 'one (make-wp 'h1 '(two three))) false)
+       (boolean=? (occurs 'one (make-wp 'h1 empty)) false)
+       (boolean=? (occurs 'h1  (make-wp 'h1 empty)) true)
+       (boolean=? (occurs 'one 
+       (make-wp 'h1 
+       (list (make-wp 'h2 '(one two three))))) true)
+       (boolean=? (occurs 'two
+       (make-wp 'h1 (list 'one 'three
+       (make-wp 'h2 (list 'four (make-wp 'two empty)))))) true)
+       #true
+       #true
+       #true
+       #true
+       #true
+       > 
+       #+END_EXAMPLE
+     - Exercise 15.3.4. Develop the program find. The function
+       consumes a Web page and a symbol. It produces false, if the
+       symbol does not occur in the body of the page or its embedded
+       Web pages. If the symbol occurs at least once, it produces a
+       list of headers that are encountered on the way to the symbol. 
+      
+       Contract:
+       ;; find : symbol, web-page -> list-of-headers
+       ;; find a symbol in a web-page and its nested pages. If it is
+       ;; found, return a list of headers found on the way to it. If
+       ;; it isn't found, return false.
+       (define (find s a-wp) ...)
+
+       Examples:
+       (find 'one (make-wp 'h1 
+                   (list 'zero 'four (make-wp 'h2 (list 'one)))))
+       "should be"
+       '(h1 h2)
+       (find 'one (make-wp 'h1 empty))
+       "should be"
+       false
+       (find 'two (make-wp 'h1 
+                   (list (make-wp 'h2 '(one four five))
+                         (make-wp 'h3 '(three two)))))
+       "should be"
+       '(h1 h2 h3)
+ 
+       Templates:
+       #+BEGIN_SRC scheme
+       (define (fun-for-wp a-wp)
+        ... (wp-header a-wp) ...
+        ... (wp-body a-wp) ...)
+       #+END_SRC
+
+       #+BEGIN_SRC scheme
+       (define (fun-for-doc a-doc)
+        (cond
+         [(empty? a-wp) ...]
+         [(symbol? (first a-wp))
+          ... (first a-wp) ...
+          ... (fun-for-doc (rest a-wp)) ...]
+         [(wp? (first a-wp))
+          ... (fun-for-wp (first a-wp)) ...
+          ... (fun-for-doc (rest a-wp)) ...]))
+       #+END_SRC
+       
+       Definition:
+       find may look at the header, but only if the symbol was found
+       in the body. Since the body is a complicated peice of data, it
+       should be processed seperately. We will assume it returns
+       either false, or a list of symbols -- headers it found in
+       embedded web pages in the body on the way to the symbol. If it
+       found no headers, it returns false. We'll call the function
+       find-document.
+       
+       Contract:
+       ;; find-document symbol, document -> list-of-symbols or false.
+       ;; find a symbol in the document, returning a list of embedded
+       ;; headers found on the way, or empty, if not found, return false.
+       (define (find-document s a-doc) ...)
+
+       Examples:
+       (find-document 'h '(l o h))
+       "should be"
+       empty
+       (find-document 'h '(l l l))
+       "should be"
+       false
+       (find-document 'cat (list 'one (make-wp 'h2 '(dog cat)) 'two))
+       "should be"
+       '(h2)
+       (find-document 'cat empty)
+       "should be"
+       false
+
+       #+BEGIN_SRC scheme
+       (define (find s a-wp)
+        (find-document s (wp-body a-wp)))
+       #+END_SRC
+       
+       Definition:
+       if the list is empty, return false. If the first symbol is
+       equal, we should return empty, as the beginning of the
+       list. If the first of the list is a document, then we have some
+       decision making to do - if further searching turns up a
+       non-false value, we need to add the header of the current page
+       to the list. Otherwise, return false.
+
+       #+BEGIN_SRC scheme
+       (define (find-document s a-doc)
+        (cond
+         [(empty? a-doc) false]
+         [(symbol? (first a-doc))
+          (cond
+           [(symbol=? s (first a-doc)) empty]
+           [else (find-document s (rest a-doc))])]
+         [(wp? (first a-doc))
+          (cond
+           [(boolean? (find s (first a-doc))) 
+            (find-document s (rest a-doc))]
+           [else (cons (wp-header (first a-doc))
+                  (find s (first a-doc)))])]))
+       #+END_SRC
+       
+       Tests:
+       #+BEGIN_EXAMPLE
+       >        (find-document 'h '(l o h))
+       "should be"
+       empty
+       (find-document 'h '(l l l))
+       "should be"
+       false
+       (find-document 'cat (list 'one (make-wp 'h2 '(dog cat)) 'two))
+       "should be"
+       '(h2)
+       (find-document 'cat empty)
+       "should be"
+       false
+       '()
+       "should be"
+       '()
+       #false
+       "should be"
+       #false
+       (list 'h2)
+       "should be"
+       (list 'h2)
+       #false
+       "should be"
+       #false
+       > 
+       #+END_EXAMPLE
