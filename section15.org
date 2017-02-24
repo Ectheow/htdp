@@ -324,7 +324,7 @@
        [else ...]
     = (cond
        [(cond
-         [(symbol=? (parent-eyes (make-parent empty 'Adam 1950 'yellow))) true]
+         [(symbol=? (parent-eyes (make-parent empty 'Adam 1950 'yellow)) 'blue) true]
 	 [else ...])]
       [else ...])
     = (cond
