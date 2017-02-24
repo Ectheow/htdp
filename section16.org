@@ -1,0 +1,747 @@
+* Section 16
+** Development through Iterative Refinement
+   When we develop real functions we are often confronted with the
+   task of designing a data representation for complicated forms of
+   information. The best strategy to approach this  task is apply a
+   well-known scientific technique: ITERATIVE REFINEMENT. A
+   scientist's problem is to represent a part of the real world using
+   mathematics. The result of the effort is called a MODEL. The
+   scientist then tests the model in many ways, in particular by
+   predicting certain properties of events. If the model truly
+   captured the essential elements of the real world, the prediction
+   will be accurate; otherwise, there will be discrepancies between
+   the predictions and the actual outcomes. For example, a physicist
+   may start by representing a jet plane as a point and by predicting
+   its movement in a straight line using Newton's equations. Later if
+   there is a need to understand the plane's friction, the physicist
+   may add certain aspects of the jet plane's contour to the model. In
+   general, a scientist refines a model and retests its usefulness
+   until it is sufficiently accurate.
+
+   A programmer or a computing scientist should proceed like a
+   scientist. Since the representation of data plays a central role in
+   the work of a programmer, the key is to find an accurate data
+   representation of the real-world information. The best way to get
+   there in complicated situations is to develop the representation in
+   an iterative manner, starting with the essential elements and
+   adding more attributes when the current model is fully understood.
+
+   In this book we have encountered iterative refinement in many of
+   our extended exercises. For example, the exercise on moving
+   pictures started with simple circles and rectangles; later on we
+   developed programs for moving entire lists of shapes. Similarly, we
+   first introduced Web pages as a list of words and embedded Web
+   pages; in section 15.3 we refined the representation of embedded
+   Web pages. For all of these exercises, however, the refinement was
+   built into the presentation.
+
+   This section illustrates iterative refinement as a principle of
+   program development. The goal is to model a file system. A file
+   system is that part of the computer that remembers programs and
+   data when the computer is turned off. We first discuss files in
+   more detail and then iteratively develop three data
+   representations. The last part of the section suggests some
+   programming exercises for the final model. We will use iterative
+   refinement again in later sections.
+*** 16.1 Data Analysis
+    When we turn a computer off, it should remember the functions and
+    the data we worked on. Otherwise we have to reenter everything
+    when we turn it on again. Things that a computer is to remember
+    for a long time are put into _files_. A file is a sequence of
+    small pieces of data. For our purposes, a file resembles a list;
+    we ignore why and how a computer stores a file in a permanent
+    manner.
+
+    [[./fig44.gif]]
+    
+    It is important to us that, on most computer systems, the
+    collection of files is organized in _directories_. Roughly
+    speaking, a directory contains some files, and some more
+    directories. The latter are called subdirectories and may contain
+    yet more subdirectories and files and so on. The entire collection
+    is collectively called a _file system_ or a _directory tree_. 
+
+    Figure44 contains a graphical sketch of a small directory
+    tree. The tree's _root directory_ is TS. It contains one file,
+    called read!, and two subdirectories, called Text and Libs. The
+    first subdirectory, Text, contains only three files; the latter,
+    Libs, contains only two subdirectories, each of which contains at
+    least one file. Each box has one of two annotations. A directory
+    is annotated with DIR, and a file is annotated with a number,
+    which signifies the file's size. Altogether TS contains seven
+    files and consists of five (sub)directories.
+
+    - Exercise 16.1.1. How many times does a file named read! occur in
+      the directory tree TS? What is the total size of all the files
+      in the tree? How deep is the tree (how many levels does it
+      contain)?
+      * read! occurs twice in the tree
+      * All files total (+ 99 52 17 8 2 19 10) = 207
+      * The tree has four levels.
+*** 16.2 Defining Data Classes and Refining Them
+    Let's develop a data representation for file systems using the
+    method of iterative refinement. The first decision we need to make
+    is what to focus on and what to ignore.
+
+    Consider the directory tree in figure 44 and let's imagine how it
+    is created. When a user first creates a directory, it is empty. As
+    time goes by, the user adds files and directories. In general, the
+    user refers to files by names but thinks of directories as
+    containers of other things.
+
+    - Model 1 :: Our thought experiment suggests that our first and
+                 most primitive model should focus on files as atomic
+                 entities, say, a symbol that represents a file's
+                 name, and on the directories' nature as
+                 containers. More concretely, we should think of a
+                 directory as just a list that contains files and
+                 directories. 
+		 
+		 All of this suggests the following two data
+                 definitions:
+
+		 A _file_ is a symbol.
+
+		 A _directory_ (short: _dir_) is either
+      1. empty;
+      2. (cons f d) where f is a file and d is a dir; or
+      3. (cons d1 d2) where d1 and d2 are dirs.
+      The first data definition says that files are
+      represented by their names. The second one captures
+      how a directory is gradually cons-tructed by adding
+      files and directories.
+
+    - Exercise 16.2.1. Translate the file system in figure 44 into a
+      Scheme representation according to model 1. 
+
+      (list 'read! 
+       (list 'part1 'part2 'part3) 
+       (list (list 'hang 'draw) (list 'read!)))
+
+    - Exercise 16.2.2. Develop the function how-many, which consumes a
+      dir and produces the number of files in the dir tree.
+      
+      We already developed this function in section 14.3, it was
+      called size. I'll re-develop it since it wasn't an exercise. 
+      
+      Data definition:
+      A _file_ is a symbol.
+      A _directory_ (short: _dir_) is either
+      1. empty;
+      2. (cons f d) where f is a file and d is a dir or
+      3. (cons d1 d2) where d1 and d2 are bot dirs.
+
+      Template:
+      #+BEGIN_SRC scheme
+      (define (fun-for-dir a-dir)
+       (cond
+        [(empty? a-dir) ...]
+	[(symbol? (first a-dir)) ...
+         ... (first a-dir) ...
+         ... (fun-for-dir (rest a-dir)) ...]
+	[(cons? (first a-dir))
+         ... (fun-for-dir (first a-dir)) ...
+	 ... (fun-for-dir (rest a-dir)) ...]))
+      #+END_SRC
+	 
+      Contract:
+      #+BEGIN_SRC scheme
+      ;; how-many : directory -> number
+      ;; computes the total number of files in the directory tree of
+      ;; a-dir
+      (define (how-many a-dir) ...)
+      #+END_SRC
+
+      Examples:
+      #+BEGIN_SRC scheme
+      (= (how-many empty) 0)
+      (= (how-many '(one)) 1)
+      (= (how-many '(one (two))) 2)
+      (= (how-many '(one two (three four))) 4)
+      #+END_SRC
+
+      Template:
+      #+BEGIN_SRC scheme
+      (define (how-many a-dir)
+       (cond
+        [(empty? a-dir) ...]
+	[(symbol? (first a-dir))
+	 ... (first a-dir) ...
+	 ... (how-many (rest a-dir)) ...]
+	[(cons? (first a-dir))
+	 ... (how-many (first a-dir)) ...
+	 ... (how-many (rest a-dir)) ...]))
+      #+END_SRC
+      Definition:
+      For the first cond-question, we refer to the examples. The
+      answer should be 0. For the second, assuming the how-many
+      function works correctly, we should add one to however many
+      'files' are in the rest of the directory tree. For the third,
+      again assuming both function calls work correctly, we just add
+      the results.
+
+      #+BEGIN_SRC scheme
+      (define (how-many a-dir)
+       (cond
+        [(empty? a-dir) 0]
+        [(symbol? (first a-dir))
+	 (+ 1 (how-many (rest a-dir)))]
+	[(cons? (first a-dir))
+	 (+ (how-many (first a-dir))
+	    (how-many (rest a-dir)))]))
+      #+END_SRC
+	    
+      Tests:
+      #+BEGIN_SRC scheme
+       > (= (how-many empty) 0)
+      (= (how-many '(one)) 1)
+      (= (how-many '(one (two))) 2)
+      (= (how-many '(one two (three four))) 4)
+      #true
+      #true
+      #true
+      #true
+      > 
+      #+END_SRC
+
+    - Model 2 ::  While the first data definition is familiar to us
+                 and easy to use, it obscures the nature of
+                 directories. In particular, it hides the fact that a
+                 directory is not a collection of files and
+                 directories but has several interesting
+                 attributes. To model directories in a more faithful
+                 manner, we must introduce a structure that collects
+                 all relevant properties of a directory. Here is a
+                 minimal structure definition:
+		 
+		 #+BEGIN_SRC scheme
+		 (define-struct dir (name content))
+		 #+END_SRC
+		 
+		 It suggests that a directory has a name and a
+                 content; other attributes can now be added as needed.
+
+		 The intention of the new definition is that a
+                 directory has two attributes: a name, which is a
+                 symbol, and a content, which is a list of files and
+                 directories. This, in turn, suggests the following
+                 data definitions:
+
+		 A _directory_ (short: dir) is a structure:
+		   (make-dir n c)
+		 Where n is a symbol and c is a list of files and
+                 directories.
+
+		 A _list-of-files-and-directories_ (short: LOFD) is
+                 either
+      1. empty; 
+      2. (cons f d) where f is a file and d is a LOFD; or
+      3. (cons d1 d2) where d1 is a dir and d2 is a LOFD.
+
+      Since the data definition for dir refers to the
+      definition for LOFDS, and the definition for LOFDS
+      refers back to that of dirs, the two are mutually
+      recursive definitions and must be introduced
+      together.
+
+      Roughly speaking, the two definitions are related
+      like those of parent and list-of-children in section
+      15.1. This, in turn, means that the design recipe for
+      programming from section 15.2. directly applies to
+      dirs and LOFDS. More concretely, to design a function
+      that processes dirs, we must develop templates for
+      dir-processing functions and LOFD-processing
+      functions *in parallel*.
+
+    - Exercise 16.2.3. Show how to model a directory with two more
+      attributes: a size and a systems attribute. The former measures
+      how much space the directory itself (as opposed to its files and
+      subdirectories) consumes, the latter specifies whether the
+      directory is recognized by the operating system.
+      
+      The structure for files changes:
+      #+BEGIN_SRC
+      (define-struct dir (name content size systems))
+      #+END_SRC
+
+      a _directory_ (short: _dir_) is a structure:
+        (make-dir n s b c)
+      where: n is a symbol, c is a list of files and directories, s is
+      a number, and b is a boolean.
+      
+      a _list-of-files-and-directories_ (LOFD) is the same.
+
+    - Exercise 16.2.4. Translate the file system in figure 44 into a
+      Scheme representation according to model 2.
+      
+      #+BEGIN_SRC scheme
+      (make-dir 'TS 
+       (list 'read! 
+        (make-dir 'Text 
+         (list 'part1 'part2 'part3))
+        (make-dir 'Libs 
+	 (list 
+          (make-dir 'Code (list 'hang 'draw))
+          (make-dir 'Docs (list 'read!))))))
+      #+END_SRC
+
+    - Exercise 16.2.5. Develop the function how-many, which consumes a
+      dir according to model 2 and produces the number of files in the
+      dir tree.
+
+      Data definition (revisited): 
+      A _file_ is a symbol
+      A _directory_ (short: _dir_) is a structure:
+        (make-dir n c)
+      where n is a symbol and c is a list of files and directories. <CROSS-REFERENCE>
+
+      a list-of-files-and-directories, or LOFD is:
+      1. empty; or
+      2. (cons f  lofd) where f is a file and lofd is a LOFD. <SELF-REFERENCE>
+      3. (cons d lofd) where d is a directory and lofd is a
+         LOFD. <CROSS-REFERENCE:directory>,<SELF-REFERENCE>
+    
+      We must make the templates in parallel. 
+
+      #+BEGIN_SRC scheme
+      (define (fun-for-dir a-dir)
+       ... (dir-name a-dir) ...
+       ... (fun-for-lofd (dir-contents a-dir)) ...)
+       
+       (define (fun-for-lofd a-lofd)
+        (cond
+         [(empty? a-lofd) ...]
+	 [(symbol? (first a-lofd)) 
+	  ... (first a-lofd) ...
+	  ... (fun-for-lofd (rest a-lofd)) ...]
+	 [(dir? (first a-lofd)) 
+	  ... (fun-for-dir (first a-lofd)) ...
+	  ... (fun-for-lofd (rest a-lofd)) ...]))
+      #+END_SRC
+	  
+      Then, we need to make the contracts for the specific
+      functions. First comes the contract for how-many.
+
+      ;; how-many : directory -> number
+      ;; return the number of files in the directory tree.
+      (define (how-many a-dir) ...)
+
+      Examples:
+      (= (how-many (make-dir 'TS empty))  0)
+      (= (how-many (make-dir 'TS '(one))) 1)
+      (= (how-many (make-dir 'TS
+                    (list 'one
+		          'two
+			  (make-dir 'Lib
+			   (list 'three
+			         'four
+				 (make-dir 'Cats
+				  (list 'five
+				        'six))
+			        (make-dir 'Dogs empty)))
+			  (make-dir 'Seven
+			   (list 'eight 'nine))))) 8)
+				
+      Then, when we go to define it by filling in the template, we
+      notice we need a function for processing the contents. The
+      function for processing contents should return the total number
+      of all the files that are the contents of that directory and its
+      subdirectories. We don't care about the directory name.
+
+      #+BEGIN_SRC scheme
+      (define (how-many a-dir)
+       (how-many-contents (dir-contents a-dir)))
+      #+END_SRC
+      
+      ;; how-many-contents : list-of-files-and-directories -> number
+      ;; computes how many files are in a-lofd, including the files in 
+      ;; subdirectories.
+      (define (how-many-contents a-lofd) ...)
+
+      Examples:
+      (= (how-many-contents empty) 0)
+      (= (how-many-contents '(one)) 1)
+      (= (how-many-contents 
+          (list (make-dir 'TS (list 'one 'two 'three)))) 3)
+      (= (how-many-contents
+          (list 'one 
+           (make-dir 'Libs (list 'two)) 
+           (make-dir 'Src (list 'three)))) 3)
+      We refer back to the data-definition template for our
+      definition. If there are no contents, we should return 0. That
+      answers the first cond-line. For the second, if
+      how-many-contents returns the correct result for the rest of the
+      list, we should simply add one to that count. For the third, we
+      should add the number of files in the subdirectory that is
+      first, and the rest of the list-of-files-and-directories. So we
+      just add the two.
+
+      #+BEGIN_SRC
+      (define (how-many-contents a-lofd)
+       (cond
+        [(empty? a-lofd) 0]
+        [(symbol? (first a-lofd))
+	 (+ 1 (how-many-contents (rest a-lofd)))]
+	[(dir? (first a-lofd))
+	 (+ (how-many (first a-lofd))
+	    (how-many-contents (rest a-lofd)))]))
+      #+END_SRC
+
+      Tests:
+      #+BEGIN_SRC scheme
+      > (= (how-many-contents empty) 0)
+        (= (how-many-contents '(one)) 1)
+        (= (how-many-contents 
+            (list (make-dir 'TS (list 'one 'two 'three)))) 3)
+        (= (how-many-contents
+            (list 'one 
+                  (make-dir 'Libs (list 'two)) 
+                  (make-dir 'Src (list 'three)))) 3)
+        
+      #true
+      #true
+      #true
+      #true
+      >       (= (how-many (make-dir 'TS empty))  0)
+            (= (how-many (make-dir 'TS '(one))) 1)
+            (= (how-many (make-dir 'TS
+                          (list 'one
+      		          'two
+      			  (make-dir 'Lib
+      			   (list 'three
+      			         'four
+      				 (make-dir 'Cats
+      				  (list 'five
+      				        'six))
+      			        (make-dir 'Dogs empty)))
+      			  (make-dir 'Seven
+      			   (list 'eight 'nine))))) 8)
+      #true
+      #true
+      #true
+      #+END_SRC
+
+    - Model 3 :: The second data definition refined the first one with
+                 the introduction of attributes for directories. Files
+                 also have attributes. To model those, we proceed just
+                 as above. First, we define a structure for files:
+
+		 (define-struct file (name size content))
+
+		 Second, we provide a data definition:
+     
+		 A _file_ is a structure:
+		  (make-file n s x)
+		 where n is a symbol, s is a number, and x is some
+                 Scheme value.
+		 
+		 For now, we think of the content field of a file as
+                 set to empty. Later, we will discuss how to get
+                 access to the data in a file.
+
+		 Finally, let's split the content field of dirs into
+                 two pieces: one for a list of files and one for a
+                 list of subdirectories. The data definition for a
+                 list of files is straightforward and relies on
+                 nothing but the definition for files:
+
+		 A _list-of-files_ is either
+		 1. empty, or
+		 2. (cons s lof) where s is a file and lof is a list
+                    of files.
+
+		 In contrast, the data definitions for dirs and its
+                 list of subdirectories still refer to each other and
+                 must therefore be introduced together. Of course, we
+                 first need to define a structure for dirs that has a
+                 field for files and another one for subdirectories:
+
+		 (define-struct dir (name dirs files))
+
+		 Here are the data definitions:
+		 A _dir_ is a structure:
+		   (make-dir n ds fs)
+		 where n is a symbol, ds is a list of directories, and
+                 fs is a list of files.
+
+		 A list-of-directories is either:
+		 1. empty or
+		 2. (cons s lod) where s is a dir and lod is a list of
+                    directories.
+
+		 This third model (or data representation) of a
+                 directory hierarchy captures the nature of a file
+                 system as a user typically percieves it. With two
+                 structure definitions and four data definitions, it
+                 is, however, far more complicated than the first
+                 model. But, by starting with a simple representation
+                 of the first model and refining it step by step, we
+                 have gained a good understanding of how to work with
+                 this complex web of classes. It is now our job to use
+                 the design recipe from section 15.2 for developing
+                 functions on this set of data definitions. Otherwise,
+                 we cannot hope to understand our functions at all.
+*** 16.3 Refining Functions and Programs
+    The goal of the following sequence of exercises is to develop
+    several common utility functions for directory and file systems,
+    using our third and most refined model. Even though these
+    functions process Scheme-based representations of files and
+    directories, they give us a good idea how such real-world programs
+    work.
+
+    - Exercise 16.3.1. Translate the file system in figure 44 into a
+      Scheme representation. Remember to use empty for the content of
+      the files.
+      (make-dir 'TS
+       (list (make-dir 'Text 
+              empty 
+              (list (make-file 'part1 99 empty)
+                    (make-file 'part2 52 empty)
+	            (make-file 'part3 17 empty)))
+	     (make-dir 'Libs 
+              (list (make-dir 'Code
+	             empty
+	             (list (make-file 'hang 8 empty)
+	                   (make-file 'draw 2 empty)))
+	            (make-dir 'Docs
+                     empty
+		     (list (make-file 'read! 19 empty))))
+              empty)
+       (list (make-file 'read! 10 empty))))
+
+    To make the exercise more realistic, DrScheme supports the
+    teachpack dir.ss. It introduces two necessary structure
+    definitions and a function to create representations of
+    directories according to our third model:
+
+    ;; create-dir : string -> dir
+    ;; to create a representation of the directory that a-path
+    ;; specifies:
+    ;; 1. Windows: (create-dir "C:\\windows")
+    ;; 2. Mac: (create-dir "My Disk:")
+    ;; 3. Unix: (create-dir "/home/scheme")
+    (define (create-dir a-path) ...)
+    
+    Use the function to create some small and large examples based on
+    the directories in a real computer.
+
+    - Exercise 16.3.2. Develop the function how-many, which consumes a
+      dir (according to model 3) and produces the number of files in
+      the dir tree. Test the function on the directories created in
+      exercise 16.3.1. Why are we confident that the function produces
+      correct results?
+      
+      Data Definition (revisited):
+      A _directory_ (short _dir_) is a structure:
+        (make-dir n ds fs) 
+      where n is a symbol, ds is a list of directories, and fs is a
+      list of files. <CROSS-REFERENCE:list-of-files> <CROSS-REFERENCE:list-of-directories>
+
+      A _list-of-files_ is:
+      1. empty or
+      2. (cons s lof) where s is a file and lof is a
+         list-of-files. <SELF-REFERENCE> <CROSS-REFERENCE:file>
+
+      A _file_ is a structure:
+        (make-file n s c)
+      where n is a name, s is a number, and c is the contents.
+
+      A _list-of-directories_ is:
+      1. empty or
+      2. (cons d lod) where d is a directory and lod is a
+         list-of-directories. <SELF-REFERENCE> <CROSS-REFERENCE:directory>
+	
+      The directory and list-of-directories structures are mutually
+      recursive. The directory and list-of-files structures are not,
+      nor are the file and list-of-files structures.
+
+      Contract:
+      ;; how-many : directory -> number
+      ;; returns the total number of files in the directory tree of
+      ;; a-dir.
+      (define (how-many a-dir) ...)
+
+      Examples:
+      (define parts (list (make-file 'part1 99 empty)
+                          (make-file 'part2 52 empty)
+			  (make-file 'part3 17 empty)))
+      (define code-files (list (make-file 'hang 8 empty)
+                               (make-file 'draw 2 empty)))
+      (define docs-files (list (make-file 'read! 9 empty)))
+      (define ts-files (list (make-file 'read! 10 empty)))
+      (define code (make-dir 'Code empty code-files))
+      (define docs (make-dir 'Docs empty docs-files))
+      (define libs-dirs (list code docs))
+      (define libs (make-dir 'Libs libs-dirs empty))
+      (define text (make-dir 'Text empty parts))
+      (define ts-dirs (list libs text))
+      (define ts (make-dir 'TS ts-dirs ts-files))
+
+      (= (how-many (make-dir 'TS empty empty)) 0)
+      (= (how-many libs) 3)
+      (= (how-many docs) 1)
+      (= (how-many ts) 7)
+
+      Templates:
+
+      #+BEGIN_SRC scheme
+      (define (fun-for-a-dir a-dir)
+       ... (dir-name a-dir) ...
+       ... (fun-for-dirs (dir-dirs a-dir)) ...
+       ... (fun-for-files (dir-files a-dir)) ...)
+       
+      (define (fun-for-files files)
+       (cond
+        [(empty? files) ...]
+        [else
+         ... (fun-for-file (first files)) ...
+         ... (fun-for-files (rest files)) ...]))
+        	
+      (define (fun-for-dirs dirs)
+       (cond
+        [(empty? dirs) ...]
+        [else
+         ... (fun-for-a-dir (first dirs)) ...
+         ... (fun-for-dirs (rest dirs)) ...]))
+	  
+      (define (fun-for-file a-file)
+       ... (file-name a-file) ...
+       ... (file-size a-file) ...
+       ... (file-contents a-file) ...)
+      #+END_SRC
+	
+      Definition: to fill out how-many, we look at the selectors. We
+      don't care about the directory name. We do care about the
+      subdirectories and the files. Namely, we want the number of
+      files in the directory, and the number of files in it's
+      subdirectories, for which we will define two functions for these
+      complex pieces of data.
+     
+      #+BEGIN_SRC scheme
+      (define (how-many a-dir)
+       (+ (how-many-files (dir-files a-dir))
+          (how-many-files-list-of-dir (dir-dirs a-dir))))
+      #+END_SRC
+
+      ;; how-many-files:  list-of-files -> number
+      ;; compute the total number of files in a-lof.
+      (define (how-many-files a-lof) ...)
+      Examples:
+      (= (how-many-files parts) 3)
+      (= (how-many-files empty) 0)
+      (= (how-many-files ts-files) 1)
+      (= (how-many-files docs-files) 1)
+
+      ;; how-many-files-list-of-dir: list-of-directories -> number
+      ;; compute the number of files in the directory trees of each
+      ;; directory.
+      (define (how-many-files-list-of-dir a-lod) ...)
+      Examples:
+      (= (how-many-files-list-of-dir ts-dirs) 6)
+      (= (how-many-files-list-of-dir empty) 0)
+      (= (how-many-files-list-of-dir libs-dirs) 3)
+
+      First we inspect the files function. It is a generic
+      list-processing function. The files themselves are structures,
+      but we don't care about the contents and so don't need a
+      specific function for them. We only need to know that they are
+      there, we want to count them in as being there.
+
+      #+BEGIN_SRC scheme
+      (define (how-many-files a-lof)
+       (cond
+        [(empty? a-lof) 0]
+        [else
+	 (+ 1 (how-many-files (rest a-lof)))]))
+      #+END_SRC
+	 
+      Then we define how-many-files-list-of-dir. The empty? case is 0,
+      as per the examples. For any other case, the directory itself is
+      a complicated piece of data that we must process to get the
+      correct result - so we must call how-many on it, which is
+      defined to return the number of files in a directory. If we do
+      this, we then need to compute the total number of files in
+      rest. We call ourselves and add the result.
+
+      #+BEGIN_SRC scheme
+      (define (how-may-files-list-of-dir a-lofd)
+       (cond
+        [(empty? a-lofd) 0]
+        [else
+	 (+ (how-many (first a-lofd))
+	    (how-many-files-list-of-dir (rest a-lofd)))]))
+      #+END_SRC
+	    
+      Tests:
+      #+BEGIN_SRC scheme
+      >       (= (how-many-files parts) 3)
+            (= (how-many-files empty) 0)
+            (= (how-many-files ts-files) 1)
+            (= (how-many-files docs-files) 1)
+      
+      #true
+      #true
+      #true
+      #true
+      >       (= (how-many-files-list-of-dir ts-dirs) 6)
+            (= (how-many-files-list-of-dir empty) 0)
+            (= (how-many-files-list-of-dir libs-dirs) 3)
+      
+      #true
+      #true
+      #true
+      >       (= (how-many (make-dir 'TS empty empty)) 0)
+            (= (how-many libs) 3)
+            (= (how-many docs) 1)
+            (= (how-many ts) 7)
+      
+      #true
+      #true
+      #true
+      #true
+      #+END_SRC
+
+    - Exercise 16.3.3. Develop the function du-dir. The function
+      consumes a directory and computes the total size of all files in
+      the entire directory tree. This function approximates a true
+      disk-usage meter in that it assumes that directories don't
+      require storage. 
+
+      Contract:
+      ;; du-dir : directory -> number
+      ;; compute the total size of all files in the directory.
+      (define (du-dir a-dir) ...)
+
+      Examples:
+      (= (du-dir code) 10)
+      (= (du-dir docs) 19)
+      (= (du-dir libs) 29)
+      (= (du-dir text) (+ 99 52 17))
+      
+      Templates:
+      The overall template structure is the same as 16.3.2. du-dir is
+      a directory, 
+
+      Refine the function to compute approximate sizes for
+      subdirectories. Let's assume that storing a file and a directory
+      in a dir structure costs 1 storage unit.
+
+	 
+
+	
+      
+
+	 
+
+
+      
+
+       
+
+      
+      
+    
+      
+
+      
+       
