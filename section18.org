@@ -1,0 +1,42 @@
+**** Pragmatics of local, Part 2
+     Suppose we need a function that produces the last occurrence of
+     some item in a list. To be precise, assume we have lists of
+     records of rock stars. For simplicity, each star is represented
+     as a pair of values:
+
+     #+BEGIN_SRC scheme
+     (define-struct star (name instrument))
+     #+END_SRC
+     
+     A _star_ (record) is a structure:
+     (make-star s t) 
+     where s and t are symbols.
+
+     Here is an example:
+
+     #+BEGIN_SRC scheme
+     (define alos
+       (list (make-star 'Chris 'saxophone)
+             (make-star 'Robby 'trumpet)
+	     (make-star 'Matt 'violin)
+	     (make-star 'Wen 'guitar)
+	     (make-star 'Matt 'radio)))
+     #+END_SRC
+     
+     This list contains two occurrences of 'Matt. So, if we wanted to
+     determine the instrument that goes with the last occurrence of
+     'Matt, we would want 'radio. For 'Wen, on the other hand, our
+     function would produce 'guitar. Of course, looking for the
+     instrument of 'Kate should yield false to indicate that there is
+     no record for 'Kate.
+
+     Let's write down a contract, a purpose statement, and a header:
+
+     #+BEGIN_SRC scheme
+     ;; last-occurrence : symbol list-of-star -> star or false
+     ;; to find the last star record in alostars that contains s in
+     ;; name field.
+     (define (last-occurrence s alostars) ...)
+     #+END_SRC
+     
+     The real problem with this function, of course, shows up

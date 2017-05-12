@@ -1,0 +1,266 @@
+* Section 20
+** Syntax and Semantics
+   The abstract functions of section 19 violate Scheme's basic grammar
+   in two ways. First, the names of functions and primitive operations
+   are used as arguments in applications. An argument, though, is an
+   expression, and the class of expressions does not contain primitive
+   operations and function names. It does contain variables, but we
+   agreed that they are only those variables mentioned in variable
+   definitions and as function parameters. Second, parameters are used
+   as if they were functions, that is, the first position of
+   applications. But the grammar of section 8 allows only the names of
+   functions and primitive operations in this place.
+
+   Spelling out the problem suggests the necessary changes. First, we
+   should include the names of functions and primitive operations in
+   the definition of <exp>. Second, the first position in an
+   application should allow things other than function names and
+   primitive operations; at a minimum it must allow variables that
+   play the role of function parameters. In anticipation of other uses
+   of functions we agree on allowing expressions in that position.
+
+   Here is a summary of these changes:
+
+   #+BEGIN_EXAMPLE
+   <exp> = <var>
+          | <prm> 
+          | (<exp><exp>...<exp>)
+   #+END_EXAMPLE
+   
+   Here is the entire new grammar:
+
+   #+BEGIN_EXAMPLE
+   <def> = (define (<var><var>...<var>) <exp>)
+          | (define <var><exp>) 
+          | (define-struct <var> (<var><var>...<var>))
+   <exp> =   <var>
+           | <boo>                               
+           | <sym>                               
+           | <prm>                               
+           | empty                               
+           | (<exp><exp>...<exp>)                
+           | (cond (<exp><exp>) ...(else <exp>)) 
+           | (local (<def>...<def>)<exp>)        
+   <var> = x|area-of-disk|circumference|...
+   <boo> = true|false
+   <sym> = 'a|'doll|'sum|...
+   <num> = 1|-1|3/5|1.22|....
+   <prm> = +|-|cons|first|rest|...
+   #+END_EXAMPLE
+
+   Evaluation rules do not change. What does change is the set of
+   Scheme values. To accomodate functions as arguments of functions,
+   the simplest change is to say that the set of values includes the
+   names of functions and primitive operations:
+
+   #+BEGIN_EXAMPLE
+   <val> = <boo>|<sym>|<num>|empty|<lst>
+          | <var>(names of defined functions) 
+          | <prm>                             
+   <list> = empty|(cons<val><lst>) 
+   #+END_EXAMPLE
+
+   Put differently, if we now wish to decide whether we can apply the
+   substitution rule for functions we must still ensure that all
+   arguments are values but we must recognize that function names and
+   primitive operations count as values too.
+
+   
+- Exercise 20.1.1. Assume the definitions window in DrScheme contains
+  (define (f x) x). Identify the values among the following expressions:
+  1. (cons f empty) - f is a value, (cons f empty) is a value, the
+     whole thing is a value:
+     (cons f empty) matches (cons <val><lst>)
+     where f is a <val> and empty is an <lst>.
+  2. (f f) the second instance of f is a value, the first an
+     expression.
+     (f f) matches <exp>:
+     (<exp><exp>).
+     If we wanted to evaluate the exp, we'd evaluate f which is
+     already a value and pass it to f which we view as an expression:
+     (<var><val>)
+  3. (cons f (cons 10 (cons (f 10) empty))) The first value of f is a
+     value, the second is an expression in a function application.
+     It matches
+     <lst> = empty|(cons <val><lst>)
+     (cons f ==> (cons <val>
+     (cons 10 ==> (cons <val>
+     (cons (f 10) empty) ==> (cons (<exp><exp>) empty)
+     the whole thing then is not a <lst> but an <exp> that needs to be
+     evaluated in order to become a value. The first instance of f is
+     a value, the last is not, it is an expression.
+- Exercise 20.1.2. Argue why the following sentences are legal
+  definitions:
+  1. (define (f x) (x 10))
+     The form of a definition is:
+     (define (<var><var>...<var>) <exp>)
+     (define (f       x) (x 10))
+              <var><var> <exp>
+     x is a var, which fits our grammar for definitions. The form
+     (x 10) is a valid expression of the form
+     (<exp><exp>), since x is a <var> which is an <exp> ->
+     (x 10) -> matches
+     (<var><val>) -> matches
+     (<exp><exp>) -> is a valid expression.
+  2. (define (f x) f)
+     immediate, easiest matches:
+     (define (<var> <var>) <var>) =>
+     (define (<var><var>) <exp>)
+     This matches our basic definition for definitions:
+     (define (<var>...<var>) <exp>)
+  3. (define (f x y) (x 'a y 'b)) => (according to basic grammar)
+     (define (<var><var><var>) (<var><sym><var><sym>)) => (according
+     to definition of <exp>)
+     (define (<var><var><var>) (<exp><exp><exp><exp>)) => (according
+     to the definition of an <exp>)
+     (define (<var><var><var>) <exp>) MATCHES >
+     (define (<var>...<var>) <exp>)
+- Exercise 20.1.3. Develop a-function=?. The function determines
+  whether two functions from numbers to numbers produce the  same
+  results for 1.2, 3, and -5.7.
+
+  #+BEGIN_SRC scheme
+  (define (a-function=? f g)
+    (and (equal? (f 1.2) (g 1.2)) 
+     (and (equal? (f 3) (g 3))
+      (and (equal? (f -5.7) (g -5.7))))))
+  #+END_SRC
+
+  Can we hope to define function=?, which determines whether functions
+  (from numbers to numbers) are equal? 
+  For integers you sort of can *define* a function that will never
+  return and will exhaust the resources of your computer, and it will
+  have no condition for exiting so no.
+** Contracts for Abstract and Polymorphic Functions
+   When we first abstracted below and above into filter1, we did not
+   formulate a contract. Unlike the functions we had defined before,
+   filter1 consumed a type of values that we never before used as
+   data: primitive operations and other functions. Still, we
+   eventually agreed in plain English writing that filter1's first
+   argument, rel-op, would always be a function that consumes two
+   numbers and produces a boolean value.
+
+   If, in the past, we had been asked to write a contract for rel-op,
+   we would have written
+
+   ;; re-lop : number number -> boolean
+
+   Considering that functions and primitive operations are values,
+   this contract says that an arrow symbol, ->, describes a class of
+   values: functions and primitive operations. The names on the left
+   of -> specify what each value in the class of functions must be
+   applied to; the name to the right says what each value is going to
+   produce if it is applied to proper values. In general, we say that
+
+   (A B -> C)
+
+   means the class of all functions and primitives that consume an
+   element in A and an element in B and produce an element in C. Or
+   more succinctly, they are functions ``from A and B to C.''. 
+
+   The arrow notation is like the (listof ...) notation from the
+   previous section. Both specify a class of data via a combination of
+   other classes. For listof, we used data definitions to agree on
+   what they mean. Others can follow the example and introduce their
+   own abbreviations based on data definitions. For arrows, we just
+   made an agreement, and it stays with us for good.
+
+   Using the arrow notation, we can formulate a first contract and a
+   proper purpose statement for filter1:
+
+   #+BEGIN_SRC scheme
+   ;; filter1 : (number number -> boolean) lon number -> lon
+   ;; to construct the list of those numbers n on alon for which
+   ;; (rel-op n t) evaluates to true.
+   (define (filter1 rel-op alon t) ...)
+   #+END_SRC
+
+   The unusual part of the contract is that it specifies the class to
+   which the first argument must belong not with a name introduced by
+   a data definition but with a direct data definition, using the
+   arrow notation. More concretely, it specifies that the first
+   argument must be a function or a primitive operation and, as
+   discussed, what kind of arguments it consumes and what kind of
+   value it produces.
+
+   - Exercise 20.2.1. Explain the following classes of functions:
+     1. (number -> boolean)
+	All functions that consume a single number and produce a
+        boolean value.
+     2. (boolean symbol -> boolean)
+	All functions that consume a boolean and a symbol, and produce
+        a boolean.
+     3. (number number number -> number)
+	Any function that takes three numbers and produces a number.
+     4. (number -> (listof number))
+	Any function that takes a single number and produces a list of numbers.
+     5. ((listof number) -> boolean) 
+        Any function that consumes a list of numbers and produces a
+        boolean.
+   - Exercise 20.2.2. Formulate contracts for the following functions:
+     1. sort, which consumes a list of numbers and a function that
+        consumes two numbers (from the list) and produces a boolean;
+        sort produces a list of numbers.
+	#+BEGIN_SRC scheme
+	;; sort : (listof number) (number number -> boolean) -> (listof number)
+	#+END_SRC
+     2. map, which consumes a function from numbers to numbers and a
+        list of numbers; it also produces a list of numbers.
+	#+BEGIN_SRC scheme
+	;; map : (number -> number) (listof number) -> (listof number)
+	#+END_SRC
+     3. project, which consumes a list of lists of symbols and a
+        function from lists of symbols to symbols; it produces a list
+        of symbols.
+	#+BEGIN_SRC scheme
+	;; project : (listof (listof symbol)) ((listof symbol) -> symbol) -> (listof symbol)
+	#+END_SRC
+   The second version of filter1 was the result of abstracting below
+   and below-ir. Its definition did not differ from the first version,
+   but the process of abstracting from below-ir clarified that filter1
+   could be applied to all kinds of lists, not just lists of numbers.
+
+   To describe all kinds of lists, we use (listof X). Here is a first
+   attempt at a contract for filter1:
+
+   #+BEGIN_SRC scheme
+   ;; filter1 : ... (listof X) number -> (listof X)
+   #+END_SRC
+
+   The key to using filter1 with different classes of lists is to use
+   a comparison function that can compare the items on the list with
+   the second argument, which is a number. That is, the first argument
+   is a function in the class
+
+   (X number -> boolean)
+   
+   which means it consumes an element of X and a number, and produces
+   a boolean. Put together we get the following contract:
+
+   ;; filter1 : (X number -> boolean) (listof X) number -> (listof X)
+   
+   As in our contract for length, X here stands for an arbitrary
+   collection of Scheme data. We can replace it with anything, as long
+   as all three occurrences are replaced by the same thing. Hence, by
+   using X in the description of the first parameter, the second
+   parameter, and the result, we specify that rel-op consumes elements
+   of class X, that the second argument is a list of XS, and that the
+   result of filter1 is also a list of XS.
+
+   When we wish to apply filter1, we must check that the arguments
+   make sense. Suppose we wish to evaluate
+
+   (filter1 < (list 3 8 10) 2)
+
+   
+
+   
+	
+
+
+   
+
+     
+    
+     
+     

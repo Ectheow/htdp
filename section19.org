@@ -1,0 +1,437 @@
+* Section 19
+** Similarities in Definitions
+
+   Many of our data definitions and function definitions look alike. For
+   example, the definition for a list of symbols differs from that of a
+   list of numbers in only two regards: the name of the class of data and
+   the words ``symbol'' and ``number''. Similarly, a function that looks
+   for a specific symbol in a list of symbols is nearly indistinguishable
+   from one that looks for a specific number in a list of numbers. 
+   
+   Repetitions are the source of many programming mistakes. Therefore
+   good programmers try to avoid repetitions as much as possible. As
+   we develop a set of functions, especially functions derived from
+   the same template, we soon learn to spot similarities. It is then
+   time to revise the functions so as to eliminate the repetitions as
+   much as possible. Put differently, a set of functions is just like
+   an essay or a memo or a novel or some other piece of writing: the
+   first draft is just a draft. Unless we edit the essay several
+   times, it does not express our ideas clearly and concisely. It is a
+   pain for others to read it. Because functions are read by many
+   other people and because real functions are modified after reading,
+   we must learn to ``edit'' functions.
+
+   The elimination of repetitions is the most important step in the
+   (program) editing process. In this section, we discuss similarities
+   in function definitions and in data definitions and how to avoid
+   them. Our means of avoiding similarities are specific to Scheme and
+   functional programming languages; still, other languages, in
+   particular object-oriented ones, support similar mechanisms for
+   factoring out similarities -- or (code) patterns as they are
+   sometimes called.
+
+*** Similarities in Functions
+    The use of our design recipes entirely determines a function's
+    template -- or basic organization -- from the data definition for
+    the input. Indeed, the template is an alternative method of
+    expressing what we know about the input data. Not surprisingly,
+    functions that consume the same kind of data look alike. 
+
+    #+BEGIN_SRC scheme
+    ;; contains-doll? : los -> boolean  |  ;; contains-car? : los-> boolean
+    ;; to determine whether alos        |  ;; to determine whether alos contains
+    ;; contains the symbol 'doll        |  ;; the symbol 'car
+    (define (contains-doll? alos)       |  (define (contains-car? alos)
+      (cond                             |    (cond
+        [(empty? alos) false]           |      [(empty? alos) false]
+        [else                           |      [else
+          (cond                         |        (cond
+            [(symbol=? (first alos)     |          [(symbol=? (first alos)
+                       'doll))          |                      'car))
+             true]                      |           true]
+            [else                       |          [else
+             (contains-doll?            |           (contains-car? 
+              (rest alos))])]))         |            (rest alos)))]))
+    #+END_SRC
+
+    Take a look at the functions above, which consume lists of symbols
+    (names of toys) and look for specific toys. The function on the
+    left looks for 'doll, and the one on the right for 'car in a list
+    of symbols (los). The two functions are nearly
+    indistinguishable. Each consumes lists of symbols; each function
+    body consists of a cond-expression with two clauses. Each produces
+    false if the input is empty; each uses a second, nested
+    *cond*-expression to determine whether the first item is the
+    desired item. The only difference is the symbol that is used in
+    the comparison of the nested *cond*-expression : contains-doll?
+    uses 'doll and contains-car? uses 'car, of course. 
+
+    Good programmers are too lazy to define several closely related
+    functions. Instead they define a single function that can look for
+    both a 'doll and a 'car in a list of toys. This more general
+    function consumes  an additional piece of data, the symbol that we
+    are looking for, but is otherwise like the two original functions:
+
+    #+BEGIN_SRC scheme
+    ;; contains? : symbol los -> boolean
+    ;; to determine whether alos contains the symbol s
+    (define (contains? s alos)
+      (cond
+        [(empty? alos) false]
+	[else (cond
+	        [(symbol=? (first alos) s) true]
+		[else (contains? s (rest alos))])]))
+     #+END_SRC
+     
+     We can now look for 'doll by applying contains? to 'doll and a
+     list of symbols. But contains? works for any other symbol
+     too. Defining the single version has solved many related problems
+     at once. 
+
+     The process of combining two related functions into a single
+     definition is called FUNCTIONAL ABSTRACTION. Defining abstract
+     versions of functions is highly beneficial. The first benefit is
+     that a single function can perform many different tasks. In our
+     first example, contains? can search for many different symbols
+     instead of just one concrete symbol. 
+
+     In the case of contains-doll? and contains-car?, abstraction is
+     uninteresting. There are, however, more interesting cases:
+
+     #+BEGIN_SRC scheme
+     ;; below : lon number -> lon
+     ;; to construct a list of those numbers in alon that are below
+     ;; t. 
+     (define (below alon t)
+       (cond
+         [(empty? alon) empty]
+	 [else
+	   (cond
+	     [(*<* (first alon t))
+	      (cons (first alon)
+	        (below (rest alon) t))]
+             [else
+	      (below (rest alon) t)])]))
+
+     ;; above : lon number -> lon
+     ;; to construct a list of those numbers in alon that are above
+     ;; t. 
+     (define (above alon t)
+       (cond
+         [(empty? alon) empty]
+	 [else
+	   (cond
+	     [(*>* (first alon t))
+	      (cons (first alon)
+	        (above (rest alon) t))]
+             [else
+	      (above (rest alon) t)])]))
+     #+END_SRC
+
+     The function above consumes a list of numbers and a threshold and
+     produces a list of all those numbers below the threshold, the one
+     on the right produces all those that are above.
+
+     The difference between the two functions is the comparison
+     operator. The top uses <, the bottom uses >. Following the first
+     example, we abstract over the two functions with an additional
+     parameter that stands for the concrete relational operator in
+     below and above:
+
+     #+BEGIN_SRC scheme
+     (define (filter1 rel-op alon t)
+       (cond
+         [(empty? alon) empty]
+	 [else (cond
+	         [(rel-op (first alon) t)
+		  (cons (first alon)
+		        (filter1 rel-op (rest alon) t))]
+		[else
+		 (filter1 rel-op (rest alon) t)])]))
+     #+END_SRC
+
+     To apply this new function, we must supply three arguments: a
+     relational operator R that compares the two numbers, a list L of
+     numbers, and a number N. The function then extracts all those
+     items i in L for which (R i N) evaluates to true. Since we do not
+     know how to write down contracts for functions like filter1, we
+     omit the contract for now. We will discuss the problem of
+     contracts later.
+
+     Let us see how filter1 works with an example. Clearly, as long as
+     the input list is empty, the result is empty, too, no matter what
+     the other arguments are:
+
+       (filter1 < empty 5)
+     = empty
+
+     So next we look at a slightly more complicated case:
+
+     (filter1 < (cons 4 empty) 5)
+     
+     The result should be (cons 4 empty) because the only item in this
+     list is 4 and (< 4 5) is true. 
+
+     The first step of the evaluation is based on the rule of
+     application:
+
+     #+BEGIN_SRC scheme
+     (filter1 < (cons 4 empty) 5)
+     
+     = (cond
+         [(empty? (cons 4 empty)) empty]
+	 [else (cond
+	         [(< (first (cons 4 empty)) 5)
+		  (cons (first (cons 4 empty))
+		        (filter1 < (rest (cons 4 empty)) 5))]
+		 [else (filter1 < (rest (cons 4 empty)) 5)])])
+     #+END_SRC
+
+     That is, it is the body of filter1 with all occurrences of rel-op
+     replaced by <, t replaced by 5, and alon replaced by (cons 4
+     empty). 
+
+     The rest of the evaluation is straightforward:
+
+     #+BEGIN_SRC scheme
+     = (cond
+         [(empty? (cons 4 empty)) empty]
+         [else (cond
+                 [(< (first (cons 4 empty)) 5)
+         	        (cons (first (cons 4 empty))
+         		      (filter1 < (rest (cons 4 empty)) 5))]
+         	       [else (filter1 < (rest (cons 4 empty)) 5)])])
+     = (cond
+         [(< (first (cons 4 empty)) 5)
+	  (cons (first (cons 4 empty))
+	        (filter1 < (rest (cons 4 empty)) 5))]
+         [else (filter1 < (rest (cons 4 empty)) 5)])
+     = (cond
+         [(< 4 5) (cons (first (cons 4 empty))
+                        (filter1 < (rest (cons 4 empty)) 5))]
+	 [else (filter1 < (rest (cons 4 empty)) 5)])
+     = (cond 
+         [true (cons (first (cons 4 empty))
+                     (filter1 < (rest (cons 4 empty)) 5))]
+         [else (filter1 < (rest (cons 4 empty)) 5)])
+     = (cons 4 (filter1 < (rest (cons 4 empty)) 5))
+     = (cons 4 (filter1 < empty 5))
+     = (cons 4 empty)
+     #+END_SRC
+     
+     The last step is the equation we discussed as our first case.
+
+     Our final example is an application of filter1 to a list of two
+     items:
+
+     #+BEGIN_SRC scheme
+       (filter1 < (cons 6 (cons 4 empty)) 5)
+     = (filter1 < (cons 4 empty) 5)
+     = (filter1 < (cons 4 empty) 5)
+     #+END_SRC
+
+     The only new step is the first one. It says that filter1
+     determines that the first item on the list is not less than the
+     threshold, and that it is therefore not added to the result of
+     the natural recursion.
+
+     - Exercise 19.1.1. Verify the equation
+       #+BEGIN_SRC scheme
+         (filter1 < (cons 6 (cons 4 empty)) 5)
+       = (filter1 < (cons 4 empty) 5)
+       #+END_SRC
+
+       with a hand-evaluation that shows every step.
+
+       #+BEGIN_SRC scheme
+         (filter1 < (cons 6 (cons 4 empty)) 5)
+       = (cond
+	   [(empty? (cons 6 (cons 4 empty))) empty]
+           [else (cond
+	           [(< (first (cons 6 (cons 4 empty))) 5)
+	            (cons (first (cons 6 (cons 4 empty)))
+		          (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+		   [else 
+                    (filter1 < (rest (cons 6 (cons 4 empty))) 5)])])
+       = (cond
+           [false empty]
+           [else (cond
+	          [(< (first (cons 6 (cons 4 empty))) 5)
+	           (cons (first (cons 6 (cons 4 empty)))
+	          (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+	         [else 
+                   (filter1 < (rest (cons 6 (cons 4 empty))) 5)])])      
+       = (cond [else (cond
+	          [(< (first (cons 6 (cons 4 empty))) 5)
+	           (cons (first (cons 6 (cons 4 empty)))
+	          (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+	         [else 
+                   (filter1 < (rest (cons 6 (cons 4 empty))) 5)])])      
+
+       = (cond
+           [(< (first (cons 6 (cons 4 empty))) 5)
+            (cons (first (cons 6 (cons 4 empty)))
+                  (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+           [else 
+            (filter1 < (rest (cons 6 (cons 4 empty))) 5)])
+    
+       = (cond
+           [(< 6 5)
+            (cons (first (cons 6 (cons 4 empty)))
+                  (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+           [else 
+            (filter1 < (rest (cons 6 (cons 4 empty))) 5)])
+
+       = (cond
+           [false
+            (cons (first (cons 6 (cons 4 empty)))
+                  (filter1 < (rest (cons 6 (cons 4 empty))) 5))]
+           [else 
+            (filter1 < (rest (cons 6 (cons 4 empty))) 5)])
+
+       = (cond
+           [else 
+            (filter1 < (rest (cons 6 (cons 4 empty))) 5)])
+   
+       = (filter1 < (rest (cons 6 (cons 4 empty))) 5)
+       = (filter1 < (cons 4 empty) 5)
+       = (cons 4 empty) ;; (per our earlier evaluation)
+       #+END_SRC scheme
+
+     - Evaluate the expression 
+       #+BEGIN_SRC scheme
+       (filter1 > (cons 8 (cons 6 (cons 4 empty))) 5)
+       #+END_SRC
+
+       by hand. Show only the essential steps.
+       #+BEGIN_SRC scheme
+         (filter1 > (cons 8 (cons 6 (cons 4 empty))) 5)
+       = (cond
+	   [(empty? (cons 8 (cons 6 (cons 4 empty)))) empty]
+           [else (cond
+	           [(< (first (cons 8 (cons 6 (cons 4 empty)))) 5)
+	            (cons (first (cons 8 (cons 6 (cons 4 empty))))
+		          (filter1 < 
+                                  (rest (cons 8 (cons 6 (cons 4 empty)))) 
+                                  5))]
+                   [else (filter1 < 
+                                  (rest (cons 8 (cons 6 (cons 4 empty)))))])])
+       = (cond
+           [(< (first (cons 8 (cons 6 (cons 4 empty)))) 5)
+            (cons (first (cons 8 (cons 6 (cons 4 empty))))
+	          (filter1 < (rest (cons 8 (cons 6 (cons 4 empty))))
+                             5))]
+	   [else (filter1 < 
+                          (rest (cons 8 (cons 6 (cons 4 empty)))))])
+       = (cond
+           [(< 8 5) (cons (first (cons 8(cons 6 (cons 4 empty))))
+                          (filter1 < (rest (cons 8 (cons 6 (cons 4 empty))))
+                                     5))]
+	   [else (filter1
+                  < (rest (cons 8 (cons 6 (cons 4 empty)))))])
+       = (filter1 < (cons 6 (cons 4 empty)))
+       #+END_SRC
+       
+       The calculations show that (filter1 < alon t) computes the same
+       result as (below alon t) which is what we expected. Similar
+       reasoning shows that (filter1 > alon t) produces the same
+       output as (above alon t). So suppose we define the following:
+
+       #+BEGIN_SRC scheme
+       ;; below1 : lon number -> lon
+       (define (below1 alon t)
+         (filter1 < alon t))
+       ;; above1 : lon number -> lon
+       (define (above1 alon t)
+         (filter1 > alon t))
+       #+END_SRC
+
+       Clearly, below1 produces the same results as below when given
+       the same inputs, and above1 is related to above in the same
+       manner. In short, we have defined below and above as
+       one-liners using filter1.
+
+       Better yet: once we have an abstract function like filter1, we
+       can put it to other uses too. Here are three of them:
+       1. (filter1 = alon t): this expression extracts all those
+          numbers in alon equal to t.
+       2. (filter1 <= alon t): this one produces the list of numbers
+          in alon that are less than or equal to t.
+       3. (filter1 >= alon t): this last expression computes the list
+          of numbers that are greater than or equal to the threshold.
+       In general, filter1's first argument need not even be one of
+       Scheme's predefined operations; it can be any function that
+       consumes two numbers and produces a boolean value. Consider the
+       following example:
+
+       #+BEGIN_SRC scheme
+       ;; squared>? : number number -> boolean
+       (define (squared>? x c)
+         (> (* x x) c))
+       #+END_SRC
+
+       The function produces true whenever the area of a square with
+       side x is larger than some threshold c, that is, the function
+       tests whether the claim x**2 > c holds. We now apply filter1 to
+       this function and a list of numbers:
+
+       #+BEGIN_SRC scheme
+       (filter1 squared>? (list 1 2 3 4 5) 10)
+       #+END_SRC
+
+       This particular application extracts those numbers in (list 1 2
+       3 4 5) whose square is larger than 10.
+
+       Here is the beginning of a simple hand-evaluation:
+
+       #+BEGIN_SRC scheme
+         (filter1 squared>? (list 1 2 3 4 5) 10)
+       = (cond
+	   [(empty? (list 1 2 3 4 5)) empty]
+           [else (cond
+	   [(squared>? (first (list 1 2 3 4 5)) 10)
+                    (cons (first (list 1 2 3 4 5))
+		          (filter1 squared>? 
+                                   (rest (list 1 2 3 4 5)) 10))]
+                   [else (filter1 squared>?
+				  (rest (list 1 2 3 4 5)) 10)])])
+       = (cond
+           [(squared>? (first (list 1 2 3 4 5)) 10)
+            (cons (first (list 1 2 3 4 5))
+                  (filter1 squared>?
+                           (rest (list 1 2 3 4 5)) 10))]
+           [else (filter1 squared>?
+                          (rest (list 1 2 3 4 5)) 10)])
+       = (cond
+           [(squared>? 1 10)
+            (cons (first (list 1 2 3 4 5))
+                  (filter1 squared>? 
+                           (rest (list 1 2 3 4 5)) 10))]
+	   [else (filter1 squared>?
+			  (rest (list 1 2 3 4 5)) 10)])
+       = (cond
+           [false (cons (first (list 1 2 3 4 5))
+                        (filter1 squared>? 
+                                 (rest (list 1 2 3 4 5))))]
+	   [else (filter1 squared>?
+                          (rest (list 1 2 3 4 5)) 10)])
+       = (cond
+	   [else (filter1 squared>?
+			  (rest (list 1 2 3 4 5)) 10)])
+       = (cond
+	   [else (filter1 squared>?
+			  (rest (list 1 2 3 4 5)) 10)])
+       = (filter1 squared>? (rest (list 1 2 3 4 5)) 10)
+       = (filter1 squared>? (list 2 3 4 5) 10)
+       #+END_SRC
+                  
+                
+
+			  
+	            
+	   
+
+	 
+			  
+	   
+	    

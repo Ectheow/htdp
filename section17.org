@@ -1,0 +1,2088 @@
+*** 17.3 Processing Two Lists Simultaneously: Case 3
+    Here is a third problem statement, given as in the form of a
+    function contract, purpose statement, and header:
+
+    #+BEGIN_SRC scheme
+    ;; list-pick : list-of-symbols N[>=1] -> symbol
+    ;; to determine the nth symbol from alos, counting from 1;
+    ;; signals an error if there is no nth item.
+    (define (list-pick alos n) ...)
+    #+END_SRC
+
+    That is, the problem is to develop a function that consumes a
+    natural number and a list of symbols. Both belong to classes with
+    complex data definitions, though, unlike for the previous two
+    problems, the classes are distinct. Figure 47 recalls the two
+    definitions.
+
+    The data definitions:
+    #+BEGIN_EXAMPLE
+    A natural number [>=1] (N[>=1]) is either
+    1. 1 or
+    2. (add1 n) if n is a N[>=1]
+
+    A list-of-symbols is either
+    1. the empty list, empty, or
+    2. (cons s lof) where s is a symbol and lof is a list-of-symbols.
+    #+END_EXAMPLE
+    
+    Because the problem is non-standard, we should ensure that our
+    examples cover all important cases. We usually accomplish this
+    goal by picking one item per clause in the definition and choosing
+    elements from basic forms of data on a random basis. In this
+    example, this procedure implies that we pick at least two elements
+    from list-of-symbols and two from N[>=1]. Let's choose empty and
+    (cons 'a empty) for the former, 1 and 3 for the latter. But two
+    choices per argument means four examples total; after all, there
+    is no immediately obvious connection between the two arguments and
+    no restriction in the contract:
+
+    #+BEGIN_SRC scheme
+    (list-pick empty 1)
+    ;; expected behavior:
+    (error 'list-pick "...")
+    
+    (list-pick (cons 'a empty) 1)
+    ;; expected value:
+    'a
+
+    (list-pick empty 3)
+    ;; expected behavior:
+    (error 'list-pick "...")
+
+    (list-pick (cons 'a empty) 3)
+    ;; expected behavior:
+    (error 'list-pick "...")
+    #+END_SRC
+    
+    Only one of the four results is a symbol; in the other cases, we
+    see an error, indicating that the list doesn't contain enough
+    items.
+
+    The discussion on examples indicates that there are indeed four
+    possible, independent cases that we must consider for the design
+    of the function. We can discover the four cases by arranging the
+    necessary conditions in a table format:
+
+    |         | (empty? alos) | (cons? alos) |
+    |---------+---------------+--------------|
+    | (= n 1) |               |              |
+    | (> n 1) |               |              |
+    
+    The horizontal dimension of the table lists those questions that
+    list-pick must ask about the list argument; the vertical dimension
+    lists the questions about the natural number. Furthermore, the
+    partitioning of the table yields four squares. Each square
+    represents the case when both the condition on the horizontal and
+    the one on the vertical are true. We can express this fact with
+    and-expressions in the squares:
+
+    |         | (empty? alos)               | (cons? alos)               |
+    |---------+-----------------------------+----------------------------|
+    | (= n 1) | (and (= n 1) (empty? alos)) | (and (= n 1) (cons? alos)) |
+    | (> n 1) | (and (> n 1) (empty? alos)) | (and (> n 1) (cons? alos)) |
+    
+    It is straightforward to check that for any given pair of
+    arguments exactly one of the four composite claims must evaluate
+    to true.
+
+    Using our case analysis, we can now design the first part of the
+    template, the conditional expression:
+
+    #+BEGIN_SRC scheme
+    (define (list-pick alos n)
+     (cond
+      [(and (= n 1) (empty? alos)) ...]
+      [(and (> n 1) (empty? alos)) ...]
+      [(and (= n 1) (cons? alos)) ...]
+      [(and (= n 1) (cons? alos)) ...]))
+    #+END_SRC
+    
+    The cond-expression asks all four questions, thus distinguishing
+    all possibilities. Next we must add selector expressions to each
+    cond-clause if possible:
+
+    #+BEGIN_SRC scheme
+    (define (list-pick alos n)
+     (cond
+      [(and (= n 1) (empty? alos))
+       ...]
+      [(and (> n 1) (empty? alos))
+       ... (sub1 n) ...]
+      [(and (= n 1) (cons? alos))
+       ... (first alos) ... (rest alos) ...]
+      [(and (> n 1) (cons? alos))
+       ... (sub1 n) ... (first alos) ... (rest alos) ...]))
+    #+END_SRC
+
+    For n, a natural number, the template contains at most one
+    selector expression, which determines the predecessor of n. For
+    alos, it might contain two. In those cases where either (= n 1) or
+    (empty? alos) holds, one of the two arguments is atomic and there
+    is no need for a corresponding selector expression.
+
+    The final step of the template construction demands that we
+    annotate the template with recursions where the results of
+    selector expressions belong to the same class as the inputs. In
+    the template for list-pick, this makes sense only in the last
+    cond-clause, which contains both a selector expression for N[>=1]
+    and one for list-of-symbols. All other clauses contain at most one
+    relevant selector expression. It is, however, unclear how to form
+    the natural recursions. If we disregard the purpose of the
+    function, and the template construction step asks us to do just
+    that, there are three possible recursions:
+
+    1. (list-pick (rest alos) (sub1 n))
+    2. (list-pick alos (sub1 n))
+    3. (list-pick (rest alos) n)
+       
+    Since we cannot know which one matters or whether all three
+    matter, we move on to the next development stage.
+
+    Following the design recipe, let us analyze each cond-clause in
+    the template and decide what a proper answer is:
+
+    1. If (and (= n 1) (empty? alos)) holds, list-pick was asked to
+       pick the first item from an empty list, which is
+       impossible. The answer must be an application of error.
+    2. If (and (> n 1) (empty? alos)) holds, list-pick was again asked
+       to pick an item from an empty list. The answer is also an error.
+    3. If (and (= n 1) (cons? alos)) holds, list-pick is supposed to
+       produce the first item from some list. The selector expression
+       (first alos) reminds us how to get this item. It is the answer.
+    4. For the final clause, if (and (> n 1) (cons? alos)) holds, we
+       must analyze what the selector expressions compute:
+       a. (first alos) selects the first item from the list of symbols;
+       b. (rest alos) is the rest of the list; and
+       c. (sub1 n) is one less than the original given list index.
+    Let us consider an example to illustrate the meaning of these
+    expressions. Suppose list-pick is applied to (cons 'a (cons 'b
+    empty)) and 2:
+
+    (list-pick (cons 'a (cons 'b empty)) 2)
+
+    The answer must be 'b, (first alos) is 'a, and (sub1 n) is 1. Here
+    is what the three natural recursions would compute with these
+    values:
+    a. (list-pick (cons 'b empty) 1) produces 'b, the desired answer.
+    b. (list-pick (cons 'a (cons 'b empty)) 1) evaluates to 'a, which
+    is a symbol, but the wrong answer for the original problem; and
+    c. (list-pick (cons 'b empty) 2) signals an error because the
+    index is larger than the length of the list.
+
+    This suggests that we use (list-pick (rest alos) (sub1 n)) as the
+    answer in the last cond-clause. But, example-based reasoning is
+    often treacherous, so we should try to understand why the
+    expression works in general.
+
+    Recall that, according to the purpose statement,
+
+    (list-pick (rest alos) (sub1 n))
+
+    picks the (n - 1)st item from (rest alos). In other words, for the
+    second application, we have decreased the index by 1, shorted the
+    list by _one_ item, and now look for an item. Clearly, the second
+    application always produces the first answer as the first one,
+    assuming alos and n are ``compound'' values. Hence our choice for
+    the last clause is truly justified.
+    
+    - Exercise 17.3.1. Develop list-pick0, which picks items from a
+      list like list-pick but starts counting at 0.
+
+      #+BEGIN_EXAMPLE
+      A natural-number >= 0 [N>=0] is:
+      1. 0 or
+      2. (add1 n) where n is a [N>=0].
+     
+      A list-of-symbols is:
+      1. empty or
+      2. (cons s los) where s is a symbol and los is a list-of-symbols.
+      #+END_EXAMPLE
+      
+      Contract:
+      ;; list-pick0 : list-of-symbols, [N>=0] -> symbol
+      ;; get n-th symbol from a-los, where a-los is indexed from 0.
+      (define (list-pick0 n a-los) ...)
+
+      Examples:
+      Again, since we have two complex pieces of data, we'll pick four
+      examples: 0 and a non-empty list, 0 and an empty list, >0 and a
+      non-empty list, and >0 and an empty list.
+
+      #+BEGIN_EXAMPLE
+      (symbol=? (list-pick0 0 (cons 'a empty)) 'a)
+      (list-pick0 0 empty)
+      ;; expected behavior:
+      (error 'list-pick0 "...")
+      (list-pick0 1 (cons 'a empty)) 
+      ;; expected behavior:
+      (error 'list-pick0 "...")
+      (list-pick0 1 empty)
+      ;; expected behavior:
+      (error 'list-pick0 "...")
+      #+END_EXAMPLE
+      
+      From our examples, we see there are four cases:
+      |                | (= n 0)                      | (> n 0)                      |
+      |----------------+------------------------------+------------------------------|
+      | (empty? a-los) | (and (= n 0) (empty? a-los)) | (and (> n 0) (empty? a-los)) |
+      | (cons? a-los)  | (and (= n 0) (cons? a-los))  | (and (> n 0) (cons? a-los))  |
+      
+      These are all the possible cases for input values. So we can
+      then define a template.
+
+      #+BEGIN_SRC scheme
+      (define (list-pick0 n a-los)
+       (cond
+        [(and (empty? a-los) (= n 0))
+         ...]
+	[(and (empty? a-los) (> n 0))
+	 ...]
+	[(and (cons? a-los) (= n 0))
+	 ...]
+	[(and (cons? a-los) (> n 0)) 
+	 ...]))
+      #+END_SRC 
+	 
+      Now, we add possible selector expressions. The first
+      cond-question doesn't have a possible selector expression. The
+      second one does - (sub1 n). The third one does only for the list
+      (first a-los) and (rest a-los), and the fourth one does for both
+      n and the cons list.
+
+      #+BEGIN_SRC scheme
+      (define (list-pick0 n a-los)
+       (cond
+        [(and (empty? a-los) (= n 0))
+         ...]
+	[(and (empty? a-los) (> n 0))
+	 ... (sub1 n) ...]
+	[(and (cons? a-los) (= n 0))
+	 ... (first a-los) ... (rest a-los) ...]
+	[(and (cons? a-los) (> n 0))
+	 ... (sub1 n) ...
+	 ... (first a-los) ... (rest a-los) ...]))
+      #+END_SRC
+	 
+      Next, we need an analysis of possible recursions. Each
+      cond-question except for the first has selector expressions
+      applied and therefore is a potential candidate for meaningful
+      recursions. These are the possible recursions:
+      
+      (list-pick0 n (rest a-los))
+      (list-pick0 (sub1 n) a-los)
+      (list-pick0 (sub1 n) (rest a-los))
+      
+      Now, we must analyize the cond-questions and see which we can
+      eliminate or resolve easily. For the first, if the list is empty
+      and n is 0, there is no 0th element and we signal an error. For
+      the second, the same is true, we don't need (sub1 n) either. For
+      the third, n is 0, which means we have the 0th element of the
+      list as the first element, which we can return. For the third,
+      we should consider a few example applications of recursions.
+      
+      #+BEGIN_SRC scheme
+      (list-pick0 1 (cons 'a (cons 'b empty)))
+      #+END_SRC
+
+      Here, n is > 0 and a-los is a cons. So the fourth cond question
+      is the one that holds. We want to produce 'b. Therefore, we
+      should consider each potential recursive application:
+
+      #+BEGIN_SRC scheme
+      (list-pick0 1 (cons 'b empty))
+      This will hit the same fourth cond-question and produce:
+      (list-pick0 1 empty)
+      which is an error. This is not what we want.
+      (list-pick0 0 (cons 'a (cons 'b empty)))
+      Will hit the third cond-clause we filled out and return
+      'a
+      which is not what we want.
+      (list-pick0 0 (cons 'b empty))
+      Will hit the third cond and produce 
+      'b
+      which is what we want.
+      #+END_SRC
+
+      So:
+
+      #+BEGIN_SRC scheme
+      (define (list-pick0 n a-los)
+       (cond
+        [(and (= n 0) (empty? a-los))
+         (error 'list-pick0 "list is not long enough (one short)")]
+	[(and (> n 0) (empty? a-los))
+	 (error 'list-pick0 "list is not long enough")]
+	[(and (= n 0) (cons? a-los))
+	 (first a-los)]
+	[(and (> n 0) (cons? a-los))
+	 (list-pick0 (sub1 n) (rest a-los))]))
+      #+END_SRC
+
+      Tests:
+      #+BEGIN_EXAMPLE
+      > (list-pick0 0 '(cats dogs))
+      'cats
+      > (list-pick0 1 '(cats dogs))
+      'dogs
+      > (list-pick0 2 '(cats dogs))
+      list-pick0: list is not long enough (one short)
+      > (list-pick0 0 '())
+      list-pick0: list is not long enough (one short)
+      > (list-pick0 3 '(cats))
+      list-pick0: list is not long enough
+      > (list-pick0 4 '(cats dogs mice rats doodles))
+      'doodles
+      > 
+      #+END_EXAMPLE
+      
+*** 17.4 Function Simplification
+    The list-pick function in figure 48 is more complicated than
+    necessary. Both the first and the second cond-clause produce the
+    same answer: an error. In other words, if either 
+    (and (= n 1) (empty? alos))
+    or
+    (and (> n 1) (empty? alos)) 
+    evaluates to true, the answer is an error. We can translate this
+    observation into a simpler cond-expression:
+
+    #+BEGIN_SRC scheme
+    (define (list-pick alos n)
+     (cond
+      [(or (and (= n 1) (empty? alos))
+           (and (> n 1) (empty? alos))) 
+       (error 'list-pick "list too short")]
+      [(and (= n 1) (cons? alos)) (first alos)]
+      [(and (> n 1) (cons? alos)) (list-pick (rest alos) (sub1 n))]))
+    #+END_SRC
+    
+    The new expression is a direct transliteration of our English
+    observation.
+
+    To simplify this function even more we need to get acquainted with
+    an algebraic law concerning booleans:
+
+    #+BEGIN_EXAMPLE
+    (or (and condition1 a-condition)
+        (and condition2 a-condition))
+	
+    is
+    (and (or condition1 condition2) a-condition)
+    akin to
+    a*b + c*b
+    is 
+    b*(a + b)
+    #+END_EXAMPLE
+    
+    The law is called de Morgan's law of distributivity. Applying it
+    to our function yields the following:
+
+    #+BEGIN_EXAMPLE
+    (define (list-pick n alos)
+     (cond
+      [(and (or (= n 1) (> n 1)) (empty? alos))
+       (error 'list-pick "list too short")]
+      [(and (= n 1) (cons? alos)) (first alos)]
+      [(and (> n 1) (cons? alos)) (list-pick (rest alos) (sub1 n))]))
+    #+END_EXAMPLE
+    
+    Now consider teh following condition: (or (= n 1) (> n
+    1)). Because n belongs to N[>=1], the condition is always
+    true. But, if we replace it with true we get
+    
+    #+BEGIN_EXAMPLE
+    (and true (empty? alos))
+    #+END_EXAMPLE
+
+    which is clearly equivalent to (empty? alos). In other words, the
+    function can be again re-written as
+
+    #+BEGIN_EXAMPLE
+    (define (list-pick alos n)
+     (cond
+      [(empty? alos) (error 'list-pick "list too short")]
+      [(and (= n 1) (cons? alos)) (first alos)]
+      [(and (> n 1) (cons? alos)) (list-pick (rest alos) (sub1 n))]))
+    #+END_EXAMPLE
+    
+    Still, we can do even better than that. The first condition in the
+    latest version of list-pick filters out all those cases where alos
+    is empty. Hence (cons? alos) in the next two clauses is always
+    going to evaluate to true. If we replace the condition with true
+    and simplify the and-expressions, we get the simplest possible
+    version of list-pick, which is displayed in figure 49. While this
+    last function is simpler than the original, it is important to
+    understand that we designed both the original and the simplified
+    version in a systematic manner and that we can therefore trust
+    both. If we try to find the simple versions directly, we sooner or
+    later fail to consider a case and produce flawed functions.
+
+    #+BEGIN_SRC scheme
+    (define (list-pick alos n)
+     (cond
+      [(empty? alos) (error 'list-pick "list too short")]
+      [(= n 1) (first alos)]
+      [(> n 1) (list-pick (rest alos) (sub1 n))]))
+    #+END_SRC
+    
+    - Exercise 17.4.1. Develop the function replace-eol-with following
+      the strategy from section 17.2. Then simplify it systematically.
+      
+      Contract:
+      ;; replace-eol-with : list-of-nums, list-of-nums -> list-of-nums
+      ;; replace the empty (the last rest) of L1 with L2.
+      (define (replace-eol-with l1 l2) ...)
+      
+      Examples:
+      (replace-eol-with empty empty)
+      empty
+      (replace-eol-with '(1) '(2))
+      '(1 2)
+      (replace-eol-with '(1) empty)
+      '(1)
+      (replace-eol-with empty '(1))
+      '(1)
+
+      We treat l2 as a strictly atomic piece of data. l1 is what we're
+      interested in. So, given the traditional list data-definition
+      for list-of-nums, we have this template:
+
+      #+BEGIN_SRC scheme
+      (define (replace-eol-with l1 l2)
+       (cond
+        [(empty? l1) ...]
+        [else
+	 ... (first l1) ...
+	 ... (replace-eol-with (rest l1) l2) ...]))
+      #+END_SRC
+
+      According to the examples, if l1 is empty, we should return
+      l2. Otherwise, we should cons the first of l1 onto the result of
+      (replace-eol-with (rest l1) l2) in order to get the correct
+      result.
+
+      Definition:
+      #+BEGIN_SRC scheme
+      (define (replace-eol-with l1 l2)
+       (cond
+        [(empty? l1) l2]
+        [else
+	 (cons (first l1)
+	       (replace-eol-with (rest l1) l2))]))
+      #+END_SRC
+
+	       
+ 
+*** 17.6 Exercises on Processing Two Complex Inputs
+    Exercise 17.6.1. Develop the function merge. It consumes two lists
+    of numbers, sorted in ascending order. It produces a single sorted
+    list of numbers that contains all the numbers on both input lists
+    (and nothing else). A number occurs in the output as many times as
+    it occurs in the two input lists together.
+
+    Examples:
+    (merge (list 1 3 5 7 9) (list 0 2 4 6 8))
+    ;; expected value:
+    (list 0 1 2 3 4 5 6 7 8 9)
+
+    (merge (list 1 8 8 11 12) (list 2 3 4 8 13 14))
+    ;; expected value:
+    (list 1 2 3 4 8 8 8 11 12 13 14)
+
+    Contract:
+    ;; merge : list-of-numbers, list-of-numbers -> list-of-numbers
+    ;; given two sorted lists of numbers, merge them so that they are
+    ;; still in order.
+    (define (merge alon1 alon2) ...)
+    
+
+    Here, we see no obvious connection between the two lists. We will
+    use the previous (17.3) recipe for unrelated complex inputs. Data
+    definitions:
+
+    A list-of-numbers is:
+    1. empty
+    2. (cons n lon) where n is a number and lon is a list-of-numbers.
+
+    We have two lists, therefore, we will have four possible
+    conditions. Simple examples will be for 
+    1. empty, non-empty.
+    2. non-empty, empty.
+    3. empty, empty
+    4. non-empty, non-empty.
+
+    (merge empty empty)
+    "should be"
+    empty
+    (merge empty (list 1))
+    "should be"
+    (list 1)
+    (merge (list 1) empty)
+    "should be"
+    (list 1)
+    (merge (list 1) (list 2))
+    "should be"
+    (list 1 2)
+    (merge (list 1) (list 2 3))
+    "should be"
+    (list 1 2 3)
+
+    We design a condition table:
+    |                | (empty? alon1)                      | (cons? alon1)                      |
+    |----------------+-------------------------------------+------------------------------------|
+    | (empty? alon2) | (and (empty? alon1) (empty? alon2)) | (and (cons? alon1) (empty? alon2)) |
+    | (cons? alon2)  | (and (empty? alon1) (cons? alon2))  | (and (cons? alon1) (cons? alon2))  |
+    
+    We can outline a template based on the condition table.
+    (define (merge alon1 alon2)
+     (cond
+      ((and (empty? alon1) (empty? alon2))
+       ...)
+      ((and (cons? alon1) (empty? alon2))
+       ...)
+      ((and (empty? alon1) (cons? alon2))
+       ...)
+      ((and (cons? alon1) (cons? alon2))
+       ...)))
+      
+    Satisfied with this, we can then look for possible selector
+    expressions. These are only present if the input is a cons,
+    whatever it is.
+
+    (define (merge alon1 alon2)
+     (cond
+      ((and (empty? alon1) (empty? alon2))
+       ...)
+      ((and (cons? alon1) (empty? alon2))
+       ... (first alon1) ... (rest alon1))
+      ((and (empty? alon1) (cons? alon2))
+       ... (first alon2) ... (rest alon2) ...)
+      ((and (cons? alon1) (cons? alon2))
+       ... (first alon1) ... (rest alon1) ...
+       ... (first alon2) ... (rest alon2) ...)))
+
+    Next, we need to design the recursion. Meaningful recursion is
+    only had with two lists,  and there is only the final clause where
+    this works. And of that, there is only one possible recursion
+    where the datatypes work:
+
+    (define (merge alon1 alon2)
+     (cond
+      ((and (empty? alon1) (empty? alon2))
+       ...)
+      ((and (cons? alon1) (empty? alon2))
+       ... (first alon1) ... (rest alon1))
+      ((and (empty? alon1) (cons? alon2))
+       ... (first alon2) ... (rest alon2) ...)
+      ((and (cons? alon1) (cons? alon2))
+       ... (first alon1) ... 
+       ... (first alon2) ... 
+       (merge (rest alon1) (rest alon2)))))       
+       
+    To fill out the definition, we look at the examples, which answer
+    the first three lines for us. If they are both empty, we return
+    empty. If one is empty, return the other. Finally, if we assume
+    that our recursive step (the only possible one) works, then we
+    need to find the proper place for the two possible elements of the
+    list, (first alon1) and (first alon2). This will involve
+    processing a complex list; we need a function that inserts a
+    number into the correct place in the list which we will call
+    insert.
+
+    (define (merge alon1 alon2)
+     (cond
+      ((and (empty? alon1) (empty? alon2)) empty)
+      ((and (cons? alon1) (empty? alon2)) alon1)
+      ((and (empty? alon1) (cons? alon2)) alon2)
+      ((and (cons? alon1) (cons? alon2))
+       (insert (first alon1)
+        (insert (first alon2)
+	 (merge (rest alon1) (rest alon2)))))))
+
+    ;; insert: number, list-of-numbers -> list-of-numbers
+    ;; insert n into alon, alon is a sorted list and n will go into
+    ;; the correct place in the sorted list, e.g. the list will remain
+    ;; sorted.
+    (define (insert n alon) ...)
+    
+    Examples:
+    (insert 1 empty)
+    (list 1)
+    (insert 1 (list 2 3))
+    (list 1 2 3)
+    (insert 2 (list 0 1))
+    (list 0 1 2)
+
+    template:
+    (define (insert n alon)
+     (cond
+      ((empty? alon) ...)
+      (else
+       ... (first alon) ...
+       ... (rest alon) ...)))
+    To fill out the template,  we look at the example. If the list is
+    empty we should return (cons n empty). If it is not, we need to do
+    the real work. if (first alon) is greater than n, n should go
+    before it. If it is less than or equal, n should/can go after. If
+    n goes first, the work is done, and we can return (cons n
+    alon). If not, we need to insert it and return (cons (first alon)
+    (insert n (rest alon)).
+
+    (define (insert n alon)
+     (cond
+      ((empty? alon) (cons n empty))
+      (else
+       (cond
+        ((> (first alon) n) (cons n alon))
+	(else (cons (first alon) (insert n (rest alon))))))))
+
+    Tests:
+
+    #+BEGIN_EXAMPLE
+    > (insert 1 empty)
+    (list 1)
+    > (insert 1 (list 2))
+    (list 1 2)
+    > (insert 1 (list 0 1))
+    (list 0 1 1)
+    > (insert 3 (list 0 1))
+    (list 0 1 3)
+    >     (merge empty empty)
+    "should be"
+    empty
+    (merge empty (list 1))
+    "should be"
+    (list 1)
+    (merge (list 1) empty)
+    "should be"
+    (list 1)
+    (merge (list 1) (list 2))
+    "should be"
+    (list 1 2)
+    (merge (list 1) (list 2 3))
+    "should be"
+    (list 1 2 3)
+    '()
+    "should be"
+    '()
+    (list 1)
+    "should be"
+    (list 1)
+    (list 1)
+    "should be"
+    (list 1)
+    (list 1 2)
+    "should be"
+    (list 1 2)
+    (list 1 2 3)
+    "should be"
+    (list 1 2 3)
+    > (merge (list 1 3 5 7 9) (list 0 2 4 6 8))
+    (list 0 1 2 3 4 5 6 7 8 9)
+    > (merge (list 1 8 8 11 12) (list 2 3 4 8 13 14))
+    (list 1 2 3 4 8 8 8 11 12 13 14)
+    > 
+    #+END_EXAMPLE
+    
+    That's not the right answer, or at least we can do it without
+    using insert. A correct list of possible recursions is:
+
+    1. (merge alon1 (rest alon2))
+    2. (merge (rest alon1) alon2)
+    3. (merge (rest alon1) (rest alon2))
+    
+    We can do the insertion by (resting) until we get to a smaller
+    first number list. In other words, if (first alon1) greater than
+    (rest alon2)
+    
+    There are three cases.
+    (list 1) (list 2 3) -- first element in alon1 is less than the
+    first element in alon2.
+    (list 2) (list 0 1) -- first element in alon1 is greater than the
+    first element in alon2.
+    (list 1) (list 1 2) -- first element in alon1 is equal to the
+    first element of alon2.
+
+    case 1:
+    (merge (list 1) (list 2 3))
+    correct recursion should produce (list 1 2 3). We can do this
+    with:
+    (cons (first alon1) 
+          (merge (rest alon1) alon2))
+    case 2:
+    (merge (list 2) (list 0 1))
+    correct recursion should produce (list 0 1 2).  Although we  don't
+    have a case for this, we know we need to do something like:
+    (cons (first alon2) (merge alon1 (rest alon2)))
+    until we get to case (1), or one of the earlier cond questions.
+    case 3:
+    (merge (list 2) (list 2 3))
+    In this case we can take the first two off:
+    (cons (first alon1) (cons (first alon2) (merge (rest alon1) (rest
+    alon2)). This results in the cond:
+
+    (cond
+     ((< (first alon1) (first alon2))
+      (cons (first alon1) (merge (rest alon1) alon2)))
+     ((> (first alon1) (first alon2))
+      (cons (first alon2) (merge alon1 (rest alon2))))
+     ((= (first alon1) (first alon2))
+      (cons (first alon1) 
+       (cons (first alon2)
+        (merge (rest alon1) (rest alon2))))))
+    
+    The problem was that I didn't identify the possible recursions in
+    the first place as three, not one.   
+
+    Exercise 17.6.2. The goal of this exercise is to develop a version
+    of the Hangman game of section 6.7 for words of arbitrary
+    length. 
+    Provide a data definition for representing words of arbitrary
+    length with lists. A _letter_ is represented with the symbols 'a
+    through 'z plus '_.
+
+    A letter is:
+    the symbols 'a through 'z and '_.
+
+    A word is:
+    1. empty or
+    2. (cons s w) where s is a letter and w is a word.
+
+    Develop the function reveal-list. It consumes three arguments:
+    1. The _chosen_ word, which is the word that we have to guess;
+    2. The _status_ word, which states how much of the word we have
+       guessed so far; and
+    3. a letter, which is our current _guess_.
+
+    It produces a new status word, that is, a word that contains
+    ordinary letters and '_. The fields in the new status word are
+    determined by comparing the guess with each pair of letters from
+    the status word and the chosen word:
+    
+    1. If the guess is equal to the letter in the chosen word, the
+       guess is the corresponding letter in the new status word.
+    2. Otherwise, the new letter is the corresponding letter from the
+       status word.
+
+    Test the function with the following examples:
+    1. (reveal-list (list 't 'e 'a) (list '_ 'e '_) 'u)
+    2. (reveal-list (list 'a 'l 'e) (list 'a '_ '_) 'e)
+    3. (reveal-list (list 'a 'l 'l) (list '_ '_ '_) 'l)
+ 
+    First determine what the result should be.
+    (reveal-list (list 't 'e 'a) (list '_ 'e '_) 'u)
+    "should be"
+    (list '_ 'e '_)
+    (reveal-list (list 'a 'l 'e) (list 'a '_ '_) 'e)
+    "should be"
+    (list 'a '_ 'e)
+    (reveal-list (list 'a 'l 'l) (list '_ '_ '_) 'l)
+    "should be"
+    (list '_ 'l 'l)
+
+    Use the teachpack hangman.ss and the functions draw-next-part
+    (from exercise 6.7.1) and reveal-list to play the Hangman
+    game. Evaluate the following expression:
+
+    (hangman-list reveal-list draw-next-part)
+
+    The function hangman-list chooses a word randomly and pops up a
+    window with a choice menu for letters. Choose letters and, when
+    ready, click on the Check button to see whether your guess is
+    correct.
+
+    Contract
+    ;; reveal-list list-of-letters, list-of-letters, symbol -> list-of-letters
+    ;; given alot1 and alot2, if s matches any element of alot1,
+    ;; replace the corresponding element in alot2 with that letter, if
+    ;; the element in alot2 is '_.
+    ;; ASSUMPTION: there is a letter in alot1 for every letter in
+    ;; alot2 and vice versa, i.e. they are the exact same length.
+    (define (reveal-list alot1 alot2 s) ...)
+
+    simpler examples:
+
+    #+BEGIN_EXAMPLE
+    (reveal-list empty empty 's)
+    empty
+    (reveal-list '(t c) '(_ _) 'z)
+    '(_ _)
+    (reveal-list '(c) '(_) 'x)
+    '(_)
+    (reveal-list '(c) '(_) 'c)
+    '(c)
+    #+END_EXAMPLE
+    
+    We assume alot1 and alot2 are of the exact same length.
+    
+    This informs our template, where we use alot1 to represent the
+    length of alot2:
+    #+BEGIN_EXAMPLE
+    (define (reveal-list alot1 alot2 s)
+     (cond
+      ((empty? alot1) ...)
+      (else
+       ... (first alot1) ... (rest alot1) ...
+       ... (first alot2) ... (rest alot2) ...)))
+    #+END_EXAMPLE
+
+    Next, we list all possible valid recursions:
+    (reveal-list alot1 (rest alot2) s)
+    (reveal-list (rest alot1) alot2 s)
+    (reveal-list (rest alot1) (rest alot2) s)
+    
+    However, only one of these preserves our decision to assume the
+    same length for each function, the third. We will therefore assume
+    that that is the function that we call and that, furthermore, it
+    works. If it does, then we need to decide if (first alot2) is '_,
+    and (first alot1) is equal to s:
+
+    #+BEGIN_EXAMPLE
+    (cond
+     ((and (symbol=? (first alot2) '_)
+           (symbol=? (first alot1) s))
+      (cons s (reveal-list (rest alot1) (rest alot2) s)))
+     (else (cons (first alot2) (reveal-list (rest alot1) (rest alot2)
+     s))))
+    #+END_EXAMPLE
+    Final definition:
+
+    #+BEGIN_SRC scheme
+    (define (reveal-list alot1 alot2 s)
+     (cond
+      ((empty? alot1) empty)
+      (else
+       (cond
+        ((and (symbol=? (first alot2) '_)
+	      (symbol=? (first alot1) s))
+	 (cons s (reveal-list (rest alot1) (rest alot2) s)))
+	(else (cons (first alot2) 
+	            (reveal-list (rest alot1) (rest alot2))))))))
+    #+END_SRC
+    
+    tests:
+
+    Exercise 17.6.3. 
+    In a factory, employees punch time cards as they arrive in the
+    morning and leave in the evening. In the modern age of electronic
+    punch cards, a punch card contains an employee number and the
+    number of hours worked. Also, employee records contain the name of
+    the employee, an employee number, and a pay rate. 
+
+    Develop the function hours->wages2. The function consumes a list
+    of employee records and a list of (electronic) punch cards. It
+    computes the weekly wage for each employee by matching the
+    employee record with a punch card based on employee numbers. If a
+    pair is missing or if a pair's employee numbers are mismatched,
+    the function stops with an appropriate error message. Assume that
+    there is at most one card per employee and employee number.
+
+    Hint: An accountant would sort the two lists by employee number
+    first.
+    
+    Contract:
+    ;; hours->wages2 : list-of-employee-records, list-of-electronic-punchcards ->  list-of-numbers    
+    ;; compute the wages of each employee, based on the employee
+    ;; record list aerl and the punchcard list apl.
+    ;; ASSUMPTION: the lists are of the exact same length.
+    (define (hours->wages2 aerl apl) ...)
+
+
+    Data definitions:
+    employee-record:
+    (define-struct (employee-record ssn wage))
+    An employee-record is a structure:
+    (make-employee-record n w) 
+    where n and w are both numbers.
+    
+    electronic-punchcard:
+    (define-struct (electronic-punchcard ssn hours))
+    An electronic-punchcard is a structure:
+    (make-electronic-punchcard n h)
+    where n and h are both numbers.
+
+    A list-of-employee-records is:
+    1. empty or
+    2. (cons er loer) where er is an employee-record and loer is a
+       list-of-employee-records.
+
+    A list-of-electronic-punchcards is:
+    1. empty or
+    2. (cons ep loep) where ep is an electronic-punchcard and loep is
+       a list of electronic punchcards.
+
+    The first thing we do is develop examples. We know that the lists
+    are of the exact same length but they aren't guaranteed to be in
+    sorted order. Based on the assumption that if aerl is empty, then
+    so is apl, we'll develop a template.
+
+    Examples:
+    (hours->wages2 empty empty)
+    "should be"
+    empty
+    (hours->wages2 (list (make-employee-record 200 2)) (list
+    (make-electronic-punchcard 200 3)))
+    "should be"
+    (list 6.0)
+    (hours->wages2 (list (make-employee-record 300 2) 
+			 (make-employee-record 200 4)
+                         (make-employee-record 400 3))
+	           (list (make-electronic-punchcard 200 2)
+		         (make-electronic-punchcard 400 5)
+			 (make-electronic-punchcard 300 6))
+    "should be"
+    (list 20 12 15)
+    (hours->wages2 (list (make-employee-record 200 2)) empty)
+    "should be"
+    (error 'hours->wages2 "...")
+    (hours->wages2 empty (list (make-electronic-punchcard 300 5)))
+    "should be"
+    (error 'hours->wages2 "...")
+
+    #+BEGIN_SRC scheme
+    (define (hours->wages2 aerl apl)
+     (cond
+      ((empty? aerl) ...)
+      (else
+       ... (first aerl) ... (rest apl) ...
+       ... (first aerl) ... (rest apl) ...)))
+    #+END_SRC scheme
+
+    However, this can't work. No matter what recursion we use, the
+    list won't be sorted. So we need to first sort the list:
+
+    #+BEGIN_SRC scheme
+    (define (hours->wages2 aerl apl)
+     (do-hours->wages2
+      (ssn-sorted-list-of-records aerl)
+      (ssn-sorted-list-of-punchcards aerl)))
+    #+END_SRC
+
+    first, we'll define sorted-list-of-records. It takes a single list
+    of employee-records and returns the list of employee-records
+    sorted by ssn. It process only a single complex piece of
+    data. We'll do an insertion sort.
+
+    ;; sorted-list-of-records: list-of-records -> list-of-records
+    ;; sort a list of records by ssn.
+    (define (ssn-sorted-list-of-records alor) ...)
+    
+    Examples:
+    #+BEGIN_SRC scheme
+    (ssn-sorted-list-of-records 
+     (list (make-employee-record 200 3)
+           (make-employee-record 100 4)
+	   (make-employee-record 103 1)))
+    "should be"
+    (list (make-employee-record 100 4)
+          (make-employee-record 103 1)
+	  (make-employee-record 200 3))
+    (ssn-sorted-list-of-records empty)
+    "should be"
+    empty
+    (ssn-sorted-list-of-records
+     (list (make-electronic-punchcard 200 3)
+           (make-electronic-punchcard 050 5)
+	   (make-electronic-punchcard 400 1)
+	   (make-electronic-punchcard 100 5)))
+    "should be"
+    (list (make-electronic-punchcard 050 5)
+          (make-electronic-punchcard 100 5)
+	  (make-electronic-punchcard 200 3)
+	  (make-electronic-punchcard 400 1))
+    #+END_SRC
+                                 
+    We know though that both the records and punchcards are being
+    sorted by the same criteria. It would be useful to define a single
+    unifying data type and query which data type it is during the
+    sort.
+
+    A struct-with-ssn is:
+    1. an employee-record or
+    2. an electronic-punchcard.
+       
+    We'll re-frame the contract accordingly:
+    
+    ;; ssn-sorted-list-of-structs : list-of-struct-with-ssn -> list-of-struct-with-ssn
+    ;; sort a list of struct-with-ssn by the ssn in each struct.
+    (define (snn-sorted-list-of-structs aloss) ...)
+     
+    #+BEGIN_SRC scheme
+    (define (fun-for-struct-with-ssn a-ss)
+     (cond
+      ((employee-record? a-ss) ... (fun-for-employee-record a-ss))
+      ((electronic-punchcard? a-ss) ... (fun-for-electronic-punchcard a-ss))))
+   
+    (define (ssn-sorted-list-of-records alos)
+     (cond
+      ((empty? alor) ...)
+      (else
+       ... (fun-for-struct-with-ssn (first alor)) ...
+       ... (ssn-sorted-list-of-records (rest alor)) ...)))
+    #+END_SRC
+    
+    Now we have a contract, examples, and template, it's time to come
+    up with the definition for ssn-sorted-list-of-records. As per the
+    examples the first answer should be empty. Next, if we assume the
+    recursive call works, we only need to insert the element into the
+    correct position into the list. This is a complex operation, so we
+    need to define a function called insert-ssn-struct.
+    
+    #+BEGIN_SRC scheme
+    (define (ssn-sorted-list-of-records alos)
+     (cond
+      ((empty? alor) empty)
+      (else
+       (insert-ssn-struct (first alos)
+                          (ssn-sorted-list-of-records (rest alos))))))
+    #+END_SRC
+    
+    ;; insert-ssn-struct struct-with-ssn, list-of-struct-with-ssn -> list-of-struct-with-ssn
+    ;; insert a-ss into aloss in sorted order.
+    (define (insert-ssn-struct a-ss alos) ...)
+    
+    Examples:
+    #+BEGIN_SRC scheme
+    (insert-ssn-struct (make-employee-record 100 4)
+                       (list (make-employee-record 050 5)
+		             (make-employee-record 070 5)
+			     (make-employee-record 150 5)))
+    "should be"
+    (list (make-employee-record 050 5)
+          (make-employee-record 070 5)
+          (make-employee-record 100 5)
+	  (make-employee-record 150 5))
+    (insert-ssn-struct (make-employee-record 100 4) empty)
+    "should be"
+    (list (make-employee-record 100 4))
+    #+END_SRC
+
+    #+BEGIN_SRC scheme
+    (define (insert-ssn-struct a-ss alos)
+     (cond 
+      ((empty? alos) ...)
+      (else
+       ... (fun-for-ssn-struct (first alos)) ...
+       ... (insert-ssn-struct a-ss (rest alos)) ...)))
+    #+END_SRC
+    
+    According to our examples, empty should return a list with only
+    a-ss in it. Next, assuming that teh recursive definition is
+    correct, (insert-ssn-struct a-ss (rest alos)) returns a sorted
+    list, but it may or may not have a-ss in it. Now, either:
+    1. the ssn of (first alos) is less than alos
+    2. the ssn of (first alos) is greater or equal to alos.
+   
+    This condition affects our decision making, there should be two
+    different results. We can then make a template expression:
+
+    #+BEGIN_SRC scheme
+    (cond
+     ((ssn-of-structs-<? (first alos) a-ss) ... (first alos) ... (rest alos) ...)
+     (else ... (first alos) ... (rest alos) ...))
+    #+END_SRC
+    
+    #+BEGIN_SRC scheme
+    (define (insert-ssn-struct a-ss alos)
+     (cond
+      ((empty? alos) (list a-ss))
+      (else
+       (cond
+        ((ssn-of-structs-<? (first alos) a-ss)
+         (cons (first alos) (insert-ssn-struct a-ss (rest alos))))
+	(else (cons a-ss alos))))))
+    #+END_SRC
+    We realized we needed ssn-of-struct-<?, which takes two
+    struct-with-ssn's and compares the ssn to the two ssns.
+    
+    ;; ssn-of-structs-<? struct-with-ssn, struct-with-ssn -> boolean
+    ;; compares the ssn of ss1 with ss2, and returns true if the ssn
+    ;; of ss1 is less than ss2.
+    ;; ASSUMPTION: ss1 is the same type as ss2.
+    (define (ssn-of-structs-<? ss1 ss2) ...)
+
+    Examples:
+    #+BEGIN_SRC scheme
+    (boolean=?
+     (ssn-of-structs-<? (make-employee-record 500 1)
+                        (make-employee-record 200 4)) false)
+    (boolean=?
+     (ssn-of-structs-<? (make-employee-record 200 1)
+                        (make-employee-record 500 1)) true)
+    (boolean=?
+     (ssn-of-structs-<? (make-electronic-punchcard 200 1)
+                        (make-electronic-punchcard 500 1)) true)    
+    #+END_SRC
+    
+    Template:
+    The data definition has multiple clauses, so we'll have a
+    cond-clause for each. Since it makes no sense to pass ss1 and ss2
+    as different structures, we'll cut down on cond-questions by
+    assuming ss1 is the same type as ss2.
+
+    #+BEGIN_SRC scheme
+    (define (ssn-of-structs-<? ss1 ss2)
+     (cond
+      ((employee-record? ss1) 
+       ... (employee-record-ssn ss1) ...
+       ... (employee-record-ssn ss2) ...
+       ... (employee-record-rate ss1) ...
+       ... (employee-record-rate ss2) ...)
+      ((electronic-punchcard? ss2)
+       ... (electronic-punchcard-hours ss1) ...
+       ... (electronic-punchcard-hours ss2) ...
+       ... (electronic-punchcard-ssn ss2) ...
+       ... (electronic-punchcard-ssn ss1) ...)))
+    #+END_SRC
+    
+    So, we can flesh out the definition of this function based on the
+    template. We want to return true in either case if the ssn of ss1
+    is less than the ssn of ss2, whatever type they are.
+
+    #+BEGIN_SRC scheme
+    (define (ssn-of-structs-<? ss1 ss2)
+     (cond
+      ((employee-record? ss1)
+       (cond
+        ((< (employee-record-ssn ss1) (employee-record-ssn ss2)) true)
+	(else false)))
+      ((electronic-punchcard? ss1)
+       (cond
+        ((< (electronic-punchcard-ssn ss1)
+	    (electronic-punchcard-ssn ss2)) true)
+	(else false)))))
+    #+END_SRC
+ 
+    Tests:
+    #+BEGIN_SRC scheme
+    >     (boolean=?
+           (ssn-of-structs-<? (make-employee-record 500 1)
+                              (make-employee-record 200 4)) false)
+    (boolean=?
+     (ssn-of-structs-<? (make-employee-record 200 1)
+                        (make-employee-record 500 1)) true)
+    (boolean=?
+     (ssn-of-structs-<? (make-electronic-punchcard 200 1)
+                        (make-electronic-punchcard 500 1)) true)  
+    #true
+    #true
+    #true
+    >     (insert-ssn-struct (make-employee-record 100 4)
+                             (list (make-employee-record 050 5)
+                                   (make-employee-record 070 5)
+                                   (make-employee-record 150 5)))
+    "should be"
+    (list (make-employee-record 050 5)
+          (make-employee-record 070 5)
+          (make-employee-record 100 5)
+          (make-employee-record 150 5))
+    (insert-ssn-struct (make-employee-record 100 4) empty)
+    "should be"
+    (list (make-employee-record 100 4))
+    (list
+     (make-employee-record 50 5)
+     (make-employee-record 70 5)
+     (make-employee-record 100 4)
+     (make-employee-record 150 5))
+    "should be"
+    (list
+     (make-employee-record 50 5)
+     (make-employee-record 70 5)
+     (make-employee-record 100 5)
+     (make-employee-record 150 5))
+    (list (make-employee-record 100 4))
+    "should be"
+    (list (make-employee-record 100 4))
+    >     (ssn-sorted-list-of-records 
+           (list (make-employee-record 200 3)
+                 (make-employee-record 100 4)
+                 (make-employee-record 103 1)))
+    "should be"
+    (list (make-employee-record 100 4)
+          (make-employee-record 103 1)
+          (make-employee-record 200 3))
+    (ssn-sorted-list-of-records empty)
+    "should be"
+    empty
+    (ssn-sorted-list-of-records
+     (list (make-electronic-punchcard 200 3)
+           (make-electronic-punchcard 050 5)
+           (make-electronic-punchcard 400 1)
+           (make-electronic-punchcard 100 5)))
+    "should be"
+    (list (make-electronic-punchcard 050 5)
+          (make-electronic-punchcard 100 5)
+          (make-electronic-punchcard 200 3)
+          (make-electronic-punchcard 400 1))
+    (list
+     (make-employee-record 100 4)
+     (make-employee-record 103 1)
+     (make-employee-record 200 3))
+    "should be"
+    (list
+     (make-employee-record 100 4)
+     (make-employee-record 103 1)
+     (make-employee-record 200 3))
+    '()
+    "should be"
+    '()
+    (list
+     (make-electronic-punchcard 50 5)
+     (make-electronic-punchcard 100 5)
+     (make-electronic-punchcard 200 3)
+     (make-electronic-punchcard 400 1))
+    "should be"
+    (list
+     (make-electronic-punchcard 50 5)
+     (make-electronic-punchcard 100 5)
+     (make-electronic-punchcard 200 3)
+     (make-electronic-punchcard 400 1))
+    > 
+    #+END_SRC
+
+    So now we can sort the lists by SSN. What remains to do is iterate
+    the list, throw an error if the ssn's for the first of the lists
+    aren't the same, and otherwise return a wage for that employee. We
+    called this function do-hours->wages2.
+
+    ;; do-hours->wages2 list-of-employee-records, list-of-electronic-punchcards -> list-of-numbers
+    ;; compute the wages of the ssn-sorted list of employees with
+    ;; their electronic punchcards.
+    ;; ASSUMPTION: the lists are sorted by SSN.
+    ;; ASSUMPTION: the list are the same length.
+    (define (do-hours->wages2 aloer aloep) ...)
+    
+    #+BEGIN_SRC scheme
+    (define
+    
+
+    Exercise 17.6.4. A _linear combination_ is the sum of many linear
+    terms, that is, products of variables and numbers. The latter are
+    called coefficients in this context. Here are some examples:
+
+    #+BEGIN_EXAMPLE
+    5*x
+    5*x + 17*y
+    5*x + 17*y + 3*z
+    #+END_EXAMPLE
+
+    In all three examples, the coefficient of x is 5, that of y is 17,
+    and the one for z is 3. 
+
+    If we are given values for variables we can determine the value of
+    a polynomial. For example, if x = 10, the value of 5*x is 50, if x
+    = 10 and y = 1, the value of 5 * x + 17 * y is 67; and if x = 10,
+    y = 1, and z = 2, the value of 5 * x + 17*y + 3 * z is 73. 
+    
+    In the past, we would have developed functions to compute the
+    values of linear combinations for specific values. An alternative
+    representation is a list of coefficients. The above combinations
+    would be represented as:
+
+    (list 5)
+    (list 5 17)
+    (list 5 17 3)
+
+    Develop the function value. It consumes the representation of a
+    linear combination and a list of numbers. The lists are of equal
+    length. It produces the value of the combination for these values.
+
+    Contract:
+    ;; value : list-of-numbers, list-of-numbers -> number
+    ;; given the representation of a linear combination rep, and the
+    ;; set of values for variables vals, produce the value of the
+    ;; combination.
+    ;; ASSUMPTION: rep and vals are the same length.
+    (define (value rep vals) ...)
+
+    Examples:
+    (= (value (list 1 2) (list 2 3)) 8)
+    (= (value (list 1) (list 2)) 2)
+    (= (value (list 2 3 2 5) (list 2 2 5 2))
+       30)
+    (= (value empty empty) 0)
+    
+    Template:
+
+    We assume that rep and vals are the same length, so we can process
+    in lockstep, and test only one for emptiness. We put in the
+    recursive step as (value (rest rep) (rest vals)) because if it was
+    any other thing, our assumption would be violated.
+
+    #+BEGIN_SRC scheme
+    (define (value rep vals)
+     (cond
+      ((empty? rep) ...)
+      (else
+       ... (first rep) ... (first vals) ...
+       ... (value (rest rep) (rest vals)) ...)))
+    #+END_SRC
+    
+    To define the function, we first realize that it is impractical to
+    produce an error like I had planned for two empty lists. Instead,
+    we should define empty linear combinations to produce a value
+    of 0. Next, we need to understand what the value should be for a
+    single list.
+    (value empty empty) 
+    produces 0, so for a singe list, we should return (* (first rep)
+    (first vals)). For two or more rep/vals, we need to add the result
+    of the current with the rest of the linear combination.
+
+    #+BEGIN_SRC scheme
+    (define (value rep vals)
+     (cond
+      ((empty? rep) 0)
+      (else
+       (+ (* (first rep) (first vals))
+          (value (rest rep) (rest vals))))))
+    #+END_SRC
+    
+    Tests:
+
+    #+BEGIN_EXAMPLE
+     >     (= (value (list 1 2) (list 2 3)) 8)
+    (= (value (list 1) (list 2)) 2)
+    (= (value (list 2 3 2 5) (list 2 2 5 2))
+       30)
+    (= (value empty empty) 0)
+    #true
+    #true
+    #true
+    #true
+    > 
+    #+END_EXAMPLE
+
+    Exercise 17.6.5. Louise, Jane, Laura, Dana, and Mary are sisters
+    who would like to save money and work spent on Christmas gifts. So
+    they decide to hold a lottery that assigns each of them a single
+    gift recipient. Since Jane is a computer programmer, they ask her
+    to write a program that performs the lottery in an impartial
+    manner. Of course, the program must not assign any sister to
+    herself.
+
+    Here is the definition of gift-pick. It consumes a list of
+    distinct names (symbols) and randomly picks one of those
+    arrangements of the list that do not agree with the original list
+    at any position:
+    
+    #+BEGIN_SRC scheme
+    (define (gift-pick names)
+     (random-pick
+      (non-same names (arrangements names))))
+    #+END_SRC
+
+    Recall that arrangements (see exercise 12.4.2) consumes a list of
+    symbols and produces the list of all rearrangements of the items
+    in the list.
+
+    Develop the auxiliary functions
+    1. random-pick : list-of-list-of-names -> list-of-names, which
+       consumes a list of items and randomly picks one of them as a result;
+    2. non-same : list-of-names, list-of-list-of-names ->
+       list-of-list-of-names, which consumes a list of names L and a
+       list of arrangements and produces the list of those that do not
+       agree with L at any position.
+
+       Two permutations agree at some position if we can extract the
+       same name from both lists by applying first and the same number
+       of rest operations to both. For example, (list 'a 'b 'c) and
+       (list 'c 'a 'b) do not agree, but (list 'a 'b 'c) and (list 'c
+       'b 'a) agree at the second position. We can prove that by
+       applying rest followed by first to both lists. 
+       
+       Follow the appropriate recipe in each case carefully.
+
+    Data definitions:
+    a list-of-names is:
+    1. empty or
+    2. (cons n alon) where n is a name and alon is a list-of-names.
+
+    a list-of-list-of-names is:
+    1. empty or
+    2. (cons alon alolon) where alon is a list-of-names and alolon is
+       a list-of-list-of-names.
+
+    I'll start with the innermost function, non-same.
+    Examples:
+
+    #+BEGIN_SRC scheme
+   (non-same '(becky sue jane)
+   	 '((jane becky sue)))
+   "should be"
+   '((jane becky sue))
+   (non-same '(becky sue jane)
+   		 '((jane sue becky)))
+   "should be"
+   empty
+
+   (non-same '(becky jane mary sue)
+   	 '((jane becky sue mary)))
+   '((jane becky sue mary))
+
+   (non-same empty empty)
+   "should be"
+   empty
+
+   (non-same '(becky jane mary sue)
+   	 '((jane becky sue mary)
+   	   (mary sue becky jane)))
+    "should be"
+    '((jane becky sue mary)
+      (mary sue becky jane))
+    (non-same '(becky jane mary sue)
+	 '((jane becky sue mary)
+	   (mary sue becky jane)
+	   (becky sue jane mary)))
+    "should be"
+    '((jane becky sue mary)
+      (mary sue becky jane))
+    #+END_SRC
+       
+    Contract:
+    ;; non-same : list-of-names, list-of-list-of-names -> list-of-list-of-names
+    ;; Given alon and alolon, remove elements of alolon that have any
+    ;; positions in them that are equal to the positions in alon.
+    ;; ASSUMPTION: elements of alolon are the same length as the list alon.
+    (define (non-same alon alolon) ...)
+
+    In this function it seems that it would be easiest to view alon as
+    an atomic element which will be processed separately. alolon is
+    the list we will process. We design a template to reflect the two
+    clauses of a list-of-list-of-names:
+
+    #+BEGIN_SRC scheme
+    (define (non-same alon alolon)
+     (cond
+      ((empty? alolon) ...)
+      (else
+       ... (first alolon) ...
+       ... (non-same (rest alolon)) ...)))
+    #+END_SRC
+
+    To define the function, we first look at the examples. An empty
+    alolon should produce an empty result. For the second clause,
+    assuming that non-same returns the correct result, we need to
+    decide if this particulare element of the list - a list itself -
+    has any elements in the same position of alon. For this we will
+    need a function, elements-in-same-position?, which takes two lists
+    of names and returns true if there are any elements in the lists
+    at the same position. If it is not true, then we should add this
+    element to our return list. If it is, we should not add it but
+    simply return the result of non-same on the rest of the list.
+
+    #+BEGIN_SRC scheme
+    (define (non-same alon alolon)
+     (cond
+      ((empty? alolon) empty)
+      (else
+       (cond
+        ((false? (elements-in-same-position? 
+                  (first alolon)
+                  alon))
+         (cons (first alolon) 
+               (non-same alon (rest alolon))))
+        (else (non-same alon (rest alolon)))))))
+    #+END_SRC
+
+    ;; elements-in-same-position? : list-of-names, list-of-names -> boolean
+    ;; returns true of alon1 has any element in the same position as
+    ;; alon2. That is, the lists are processed in parallel and if any
+    ;; first is the same for both lists, we return true, otherwise
+    ;; false.
+    ;; ASSUMPTION: the lists are the same length.
+    (define (elements-in-same-position? alon1 alon2) ...)
+
+    Examples:
+    #+BEGIN_EXAMPLE
+    (not (elements-in-same-position? empty empty))
+    (elements-in-same-position? '(becky) '(becky))
+    (not (elements-in-same-position? '(sue becky) '(becky sue)))
+    (not (elements-in-same-position? '(becky jane mary) '(mary becky jane)))
+    (elements-in-same-position? '(becky sue jane) '(sue becky jane))
+    #+END_EXAMPLE
+
+    We already have lots of clues that this should be a lockstep
+    processing function. We assume alon1 and alon2 are the same length
+    so we can test only one for empty?.
+
+    #+BEGIN_SRC scheme
+    (define (elements-in-same-position? alon1 alon2)
+     (cond
+      ((empty? alon1) ...)
+      (else
+       ... (first alon1) ... (first alon2) ...
+       ... (elements-in-same-position? (rest alon1) (rest alon2)) ...)))
+    #+END_SRC
+
+    Next, we examine the examples. If both lists are empty, we by
+    definition return false (it doesn't make sense to apply this on
+    empty lists, so it is by definition). Next, we move to the second
+    cond. If first alon1 and first alon2 are the same, we should
+    return false immediately. Otherwise, we should return whatever the
+    result of applying elements-in-same-position? on the rest of the
+    list. We can actually do this with an or:
+
+    #+BEGIN_SRC scheme
+    (or (symbol=? (first alon1) (first alon2))
+        (elements-in-same-position? (rest alon1) (rest alon2)))
+    #+END_SRC
+    
+    #+BEGIN_SRC scheme
+    (define (elements-in-same-position? alon1 alon2)
+     (cond
+      ((empty? alon1) false)
+      (else
+       (or (symbol=? (first alon1) (first alon2))
+           (elements-in-same-position? (rest alon1) (rest alon2))))))
+    #+END_SRC
+
+    Tests:
+    #+BEGIN_EXAMPLE
+     >     (not (elements-in-same-position? empty empty))
+    (elements-in-same-position? '(becky) '(becky))
+    (not (elements-in-same-position? '(sue becky) '(becky sue)))
+    (not (elements-in-same-position? '(becky jane mary) '(mary becky jane)))
+    (elements-in-same-position? '(becky sue jane) '(sue becky jane))
+    #true
+    #true
+    #true
+    #true
+    #true
+    > 
+    (non-same '(becky sue jane)
+          '((jane becky sue)))
+    "should be"
+    '((jane becky sue))
+    (non-same '(becky sue jane)
+              '((jane sue becky)))
+    "should be"
+    empty
+    
+    (non-same '(becky jane mary sue)
+              '((jane becky sue mary)))
+    '((jane becky sue mary))
+    
+    (non-same empty empty)
+    "should be"
+    empty
+    
+    (non-same '(becky jane mary sue)
+              '((jane becky sue mary)
+                (mary sue becky jane)))
+    "should be"
+    '((jane becky sue mary)
+      (mary sue becky jane))
+    (non-same '(becky jane mary sue)
+              '((jane becky sue mary)
+                (mary sue becky jane)
+                (becky sue jane mary)))
+    "should be"
+    '((jane becky sue mary)
+      (mary sue becky jane))
+    (list (list 'jane 'becky 'sue))
+    "should be"
+    (list (list 'jane 'becky 'sue))
+    '()
+    "should be"
+    '()
+    (list (list 'jane 'becky 'sue 'mary))
+    (list (list 'jane 'becky 'sue 'mary))
+    '()
+    "should be"
+    '()
+    (list (list 'jane 'becky 'sue 'mary) (list 'mary 'sue 'becky 'jane))
+    "should be"
+    (list (list 'jane 'becky 'sue 'mary) (list 'mary 'sue 'becky 'jane))
+    (list (list 'jane 'becky 'sue 'mary) (list 'mary 'sue 'becky 'jane))
+    "should be"
+    (list (list 'jane 'becky 'sue 'mary) (list 'mary 'sue 'becky 'jane))
+    > 
+    #+END_EXAMPLE
+
+    Next we define random-pick. We've already defined list-pick0 and
+    we know that we can get a random number between 0 and n-1 where n
+    is a number we pick with the random function. What we need to know
+    then, is the size of a list. We can define random-pick this way:
+
+    #+BEGIN_SRC scheme
+    (define (random-pick alon)
+     (list-pick0 (random (length alon)) alon))
+    #+END_SRC
+
+    We need to define length. It is a function which consumes a single
+    list and returns its length.
+
+    ;; length : list-of-names -> number
+    ;; return the number of names in alon.
+    (define (length alon) ...)
+
+    Examples:
+    #+BEGIN_SRC scheme
+    (= (length empty) 0)
+    (= (length (list 1)) 1)
+    (= (length (list 1 2)) 2)
+    #+END_SRC
+
+    We shape it according to the data definition.
+
+    #+BEGIN_SRC scheme
+    (define (length alon)
+     (cond
+      ((empty? alon) ...)
+      (else
+       ... (first alon) ...
+       ... (length (rest alon)) ...)))
+    #+END_SRC
+    
+    For the empty clause, we should return 0, as per the
+    examples. Otherwise, assuming our definition is correct, (length
+    (rest alon)) returns the length of (rest alon), we need to add one
+    to that for the definition to be correct.
+
+    #+BEGIN_SRC scheme
+    (define (length alon)
+     (cond
+      ((empty? alon) 0)
+      (else
+       (add1 (length (rest alon))))))
+    #+END_SRC
+    
+    Exercise 17.6.6. Develop the function DNAprefix. The function
+    takes two arguments, both lists of symbols (only 'a, 'c, 'g and 't
+    occur in DNA, but we can safely ignore the issue here). The first
+    list is called a _pattern_, the second one a _search-string_. The
+    function returns true if the pattern is a prefix of the
+    search-string. In all other cases, the function returns false.
+    
+
+    Examples:
+    (DNAprefix (list 'a 't) (list 'a 't 'c))
+    (not (DNAprefix (list 'a 't) (list 'a)))
+    (DNAprefix (list 'a 't) (list 'a 't))
+    (not (DNAprefix (list 'a 'c 'g 't) (list 'a 'g)))
+    (not (DNAprefix (list 'a 'a 'c 'c) (list 'a 'c)))
+
+    data definition:
+    a list-of-symbols is:
+    1. empty or
+    2. (cons s los) where s is a symbol and los is a list-of-symbols.
+
+    Contract:
+    ;; DNAprefix : list-of-symbols, list-of-symbols -> boolean
+    ;; returns true if the first elements of search-string are exactly
+    ;; all the elements of pattern.
+    (define (DNAprefix pattern search-string) ...)
+
+    Template:
+    We have two list-of-symbols, and no template immediately comes to
+    mind. So, we should develop four examples, with each example
+    covering a separate combination of data definition clauses for
+    each argument.
+
+    they should be:
+    (DNAprefix empty (list 'a 't))
+    This one is easy from the contract - the first element of (list 'a
+    't) is not empty, so return false.
+    (DNAprefix empty empty)
+    This is not as easy -- but we can imagine the most intuitive
+    answer would be true. If you search for an empty prefix in an
+    empty string, then really they are equal, the prefix is the same
+    as the string.
+    (DNAprefix (list 'a 't) empty)
+    If we're searching for (list 'a 't) in empty, we should return false.
+    (DNAprefix (list 'a 't) (list 'a 't))
+    This is can easily be seen to be true.
+    (DNAprefix (list 'a 'c) (list 'a 't))
+    This should be false.
+    
+    Now we should arrange a table of predicates.
+    |                        | (empty? pattern)                              | (cons? pattern)                              |
+    |------------------------+-----------------------------------------------+----------------------------------------------|
+    | (empty? search-string) | (and (empty? pattern) (empty? search-string)) | (and (cons? pattern) (empty? search-string)) |
+    | (cons? search-string)  | (and (empty? pattern) (cons? search-string))  | (and (cons? pattern) (cons? search-string))  |
+    
+    Our template, with only the cond questions, follows:
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? search-string)
+            (empty? pattern)) ...)
+      ((and (cons? pattern)
+           (empty? search-string)) ...)
+      ((and (empty? pattern)
+            (cons? search-string)) ...)
+      ((and (cons? pattern) (cons? search-string))
+       ...)))
+    #+END_SRC
+
+    Now we can annotate with selector expressions.
+ 
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? search-string)
+            (empty? pattern)) ...)
+      ((and (cons? pattern)
+           (empty? search-string)) 
+	  ... (first pattern) ...
+          ... (rest pattern) ...)
+      ((and (empty? pattern)
+            (cons? search-string))
+	    ... (first search-string) ...
+            ... (rest search-string) ...)
+      ((and (cons? pattern) (cons? search-string))
+       ... (first pattern) ... (first search-string) ...
+       ... (rest pattern) ... (rest search-string) ...)))
+    #+END_SRC
+    
+    The only place where we can recurse is in the final clause. There
+    are three possible recursions.
+    1. (DNAprefix pattern (rest search-string))
+    2. (DNAprefix (rest pattern) search-string)
+    3. (DNAprefix (rest pattern) (rest search-string))
+
+    Next, we can fill out the first three clauses based on our
+    definitions.
+
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? search-string)
+            (empty? pattern)) 
+       true)
+      ((and (cons? pattern)
+            (empty? search-string)) 
+       false)
+      ((and (empty? pattern)
+            (cons? search-string)) false)
+      ((and (cons? pattern) (cons? search-string))
+       ... (first pattern) ... (first search-string) ...
+       ... (rest pattern) ... (rest search-string) ...)))   
+    #+END_SRC
+    
+    We can, if we want, test in the last cond expr for whether (rest
+    pattern) is empty, and if so, return whether the firsts of the two
+    lists are equal, otherwise, return (and (symbol=? (first pattern)
+    (first search-string)) (some-recursion)). This avoids returning
+    true for an empty prefix on a list.
+    
+    #+BEGIN_SRC scheme
+    (cond
+     ((empty? (rest pattern))
+      (symbol=? (first pattern) (first search-string)))
+     (else 
+      (and (symbol=? (first pattern) (first search-string))
+           (DNAprefix ... ...))))
+    #+END_SRC 
+   
+    So, we need to decide from here what the best recursion is. The
+    obvious and most intuitive recursion is (DNAprefix (rest pattern)
+    (rest search-string)). Otherwise, we'll not move on from some
+    character in one of the lists.
+
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? search-string)
+            (empty? pattern)) 
+       true)
+      ((and (cons? pattern)
+            (empty? search-string)) 
+       false)
+      ((and (empty? pattern)
+            (cons? search-string)) false)
+      ((and (cons? pattern) (cons? search-string))
+       (cond
+        ((empty? (rest pattern))
+         (symbol=? (first pattern) (first search-string)))
+        (else 
+         (and (symbol=? (first pattern) (first search-string))
+              (DNAprefix (rest pattern) (rest search-string))))))))   
+    #+END_SRC
+    
+    Simplification:
+    Really, when we test for empty? (rest pattern), we can just
+    recurse, and return true if pattern is empty. We're needlessly
+    checking for that, it is counter-intuitive to just pass an empty
+    pattern to the function but in  terms of the recursion, it makes
+    sense to return true for an empty pattern and search string or an
+    empty pattern and non-empty search string. 
+    
+     #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? search-string)
+            (empty? pattern)) 
+       true)
+      ((and (cons? pattern)
+            (empty? search-string)) 
+       false)
+      ((and (empty? pattern)
+            (cons? search-string)) true)
+      ((and (cons? pattern) (cons? search-string))
+	(and (symbol=? (first pattern) (first search-string))
+	     (DNAprefix (rest pattern) (rest search-string))))))))   
+    #+END_SRC   
+    
+    Now that we've done this, we realize that we return the same cond
+    answer for multiple questions:
+    #+BEGIN_SRC scheme
+    (and (empty? search-string) (empty? pattern))
+    and
+    (and (empty? pattern) (cons? search-string))
+    #+END_SRC
+
+    So we can make a single condition:
+    #+BEGIN_SRC scheme
+    (or (and (empty? search-string) (empty? pattern))
+        (and (cons? search-string) (empty? pattern)))
+    #+END_SRC
+
+    symbolically that is
+    (A ^ B) V (C ^ B)
+    we can 'factor out' the B term.
+    (A V C) ^ B to get
+    (and (or (empty? search-string) (cons? search-string)) (empty?
+    pattern))
+    Given that our data definition is either empty or cons, this is
+    actually practically
+    (and true (empty? pattern))
+    So we can further simplify to (empty? pattern).
+    
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((empty? pattern)) true)
+      ((and (cons? pattern)
+            (empty? search-string)) 
+       false)
+      ((and (cons? pattern) (cons? search-string))
+	(and (symbol=? (first pattern) (first search-string))
+	     (DNAprefix (rest pattern) (rest search-string))))))))   
+    #+END_SRC     
+    
+    Since we know that pattern must be a cons if it passed the first
+    cond-question, we can remove the cons? part of the second
+    cond-question, and just use else instead of a third question.
+    
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((empty? pattern)) true)
+      ((empty? search-string) false)
+      (else
+	(and (symbol=? (first pattern) (first search-string))
+	     (DNAprefix (rest pattern) (rest search-string)))))
+    #+END_SRC
+
+    Modify DNAprefix so that it returns the first item beyond the
+    pattern in the search string if the pattern is a proper prefix of
+    the search string. If the li8sts do not match or if the pattern is
+    no shorter than  the search-string, the modified function should
+    still return false. Similarly, if the lists are equally long and
+    match, the result is still true.
+
+    Examples:
+    (symbol=? (DNAprefix (list 'a 't) (list 'a 't 'c)) 'c)
+    (not (DNAprefix (list 'a 't) (list 'a)))
+    (DNAprefix (list 'a 't) (list 'a 't))
+
+    The wording is bad. Specifically, if the lists are the same length
+    and are the same, we should return true. 
+
+    Data definition:
+    A list-of-symbols is:
+    1. empty or
+    2. (cons s los) where s is a symbol and los is a list-of-symbols.
+
+    Examples:
+    #+BEGIN_SRC scheme
+    (symbol=? (DNAprefix (list 'a 't) (list 'a 't 'c)) 'c)
+    (not (DNAprefix (list 'a 't) (list 'a)))
+    (DNAprefix (list 'a 't) (list 'a 't))
+    (symbol=? 
+     (DNAprefix (list 'a 't 'c 'g) (list 'a 't 'c 'g 'a 't)) 'a)
+    (DNAprefix (list 'a 'c 't) (list 'a 'c 't))
+    (not (DNAprefix (list 'a 't) (list 'a 'c 'g)))
+    #+END_SRC
+
+    Again, since we're starting over, we'll say we have two separate
+    complex pieces of data without easy connections between
+    them. We'll need to construct four different cond-questions and
+    examples based on those questions.
+
+    #+BEGIN_SRC scheme
+    (symbol=? (DNAprefix empty (list 'a 't 'c)) 'a)
+    (DNAprefix empty empty)
+    (not (DNAprefix (list 'a 't) empty))
+    (DNAprefix (list 'a 't) (list 'a 't))
+    #+END_SRC
+
+    Our condition table:
+    |                        | (empty? pattern)                              | (cons? pattern)                              |
+    |------------------------+-----------------------------------------------+----------------------------------------------|
+    | (empty? search-string) | (and (empty? pattern) (empty? search-string)) | (and (cons? pattern) (empty? search-string)) |
+    | (cons? search-string)  | (and (empty? pattern) (cons? search-string))  | (and (cons? pattern) (cons? search-string))  |
+    |------------------------+-----------------------------------------------+----------------------------------------------|
+    
+    We can design a template based on conditions:
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) ...)
+      ((and (cons? pattern) (empty? search-string)) ...)
+      ((and (empty? pattern) (cons? search-string)) ...)
+      ((and (cons? pattern) (cons? search-string)) ...)))
+    #+END_SRC
+
+    Given the information given us by conditions, we can then insert
+    selector expressions. 
+
+     #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) ...)
+      ((and (cons? pattern) (empty? search-string)) 
+       ... (first pattern)...
+       ... (rest pattern) ...)
+      ((and (empty? pattern) (cons? search-string)) 
+       ... (first search-string) ...
+       ... (rest search-string) ...)
+      ((and (cons? pattern) (cons? search-string)) 
+       ... (first pattern)...
+       ... (rest pattern) ...
+       ... (first search-string) ...
+       ... (rest search-string) ...)))
+    #+END_SRC   
+    
+    Next we need to insert recursion stubs. In the first three
+    cond-lines, at least one data item has reached it's terminal,
+    non-composite condition, after which recursion makes no
+    sense. Only for the final clause may there be a recursion:
+    1. (DNAprefix (rest pattern) (rest search-string))
+    2. (DNAprefix pattern (rest search-string))
+    3. (DNAprefix (rest pattern) search-string)
+
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) ...)
+      ((and (cons? pattern) (empty? search-string)) 
+       ... (first pattern)...
+       ... (rest pattern) ...)
+      ((and (empty? pattern) (cons? search-string)) 
+       ... (first search-string) ...
+       ... (rest search-string) ...)
+      ((and (cons? pattern) (cons? search-string)) 
+       ... (first search-string) ... (first pattern) ...
+       ... (DNAprefix (rest pattern) (rest search-string)) ...
+       ... (DNAprefix pattern (rest search-string)) ...
+       ... (DNAprefix (rest pattern) search-string) ...)))
+    #+END_SRC      
+    
+    Next we look at all our examples and try to find out which
+    cond-lines can be simply and easily answered. We return true for
+    the first, because of our examples. We return false for the
+    second, and in the case of the third, we should return (first
+    search-string), as per the examples. 
+    
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) true)
+      ((and (cons? pattern) (empty? search-string))  false)
+      ((and (empty? pattern) (cons? search-string)) 
+       (first search-string))
+      ((and (cons? pattern) (cons? search-string)) 
+       ... (first search-string) ... (first pattern) ...
+       ... (DNAprefix (rest pattern) (rest search-string)) ...
+       ... (DNAprefix pattern (rest search-string)) ...
+       ... (DNAprefix (rest pattern) search-string) ...)))
+    #+END_SRC      
+    
+    So, now we need to figure out which recursion(s) make sense. We
+    know that if the first of search-string and the first of pattern
+    are not equal, we should return false. Otherwise, we need to know
+    if they match. Here is one of our examples:
+
+    (DNAprefix (list 'a 't) (list 'a 't))
+    
+    'a and 'a match, which are the firsts. We want this function to
+    return true. 
+    (DNAprefix pattern (rest search-string)) corresponds to:
+    (DNAprefix (list 'a 't) (list 't)) 
+    Which would be processed again, and return false, since 'a is not
+    equal to 't. This is not the correct result.
+
+    (DNAprefix (rest pattern) (rest search-string)) corresponds to:
+    (DNAprefix (list 't) (list 't)) which passes the symbol=? test,
+    and results in
+    (DNAprefix empty empty), which returns true. This works, we can
+    test it with something else:
+    (DNAprefix (list 'a) (list 'a 't))
+    This passes the symbol=? test, and if we use
+    (DNAprefix (rest pattern) (rest search-string))
+    we get
+    (DNAprefix empty (list 't))
+    which its the third cond-clause, and returns 't, which is the
+    correct result.
+
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) true)
+      ((and (cons? pattern) (empty? search-string))  false)
+      ((and (empty? pattern) (cons? search-string)) 
+       (first search-string))
+      ((and (cons? pattern) (cons? search-string)) 
+       (cond
+        ((not (symbol=? (first search-string) (first pattern)))
+         false)
+        (else (DNAprefix (rest pattern) (rest search-string)))))))
+    #+END_SRC
+
+    Tests:
+    #+BEGIN_SRC scheme
+    >     (symbol=? (DNAprefix empty (list 'a 't 'c)) 'a)
+    (DNAprefix empty empty)
+    (not (DNAprefix (list 'a 't) empty))
+    (DNAprefix (list 'a 't) (list 'a 't))
+               
+    #true
+    #true
+    #true
+    #true
+    >     (symbol=? (DNAprefix (list 'a 't) (list 'a 't 'c)) 'c)
+    (not (DNAprefix (list 'a 't) (list 'a)))
+    (DNAprefix (list 'a 't) (list 'a 't))
+    (symbol=? 
+     (DNAprefix (list 'a 't 'c 'g) (list 'a 't 'c 'g 'a 't)) 'a)
+    (DNAprefix (list 'a 'c 't) (list 'a 'c 't))
+    (not (DNAprefix (list 'a 't) (list 'a 'c 'g)))
+    #true
+    #true
+    #true
+    #true
+    #true
+    #true
+    > 
+    #+END_SRC
+    
+    We can't use an and since we may return a symbol. Since none of
+    the cond-lines contain the same answers, we can't simplify this
+    very much. However, since we test for (and (empty? pattern)
+    (empty? search-string)), we can remove the (empty?
+    pattern/search-string) predicates from the latter cond lines.
+    
+    #+BEGIN_SRC scheme
+    (define (DNAprefix pattern search-string)
+     (cond
+      ((and (empty? pattern) (empty? search-string)) true)
+      ((empty? search-string)  false)
+      ((empty? pattern) (first search-string))
+      (else
+       (cond
+        ((not (symbol=? (first search-string) (first pattern)))
+         false)
+        (else (DNAprefix (rest pattern) (rest search-string)))))))
+    #+END_SRC
