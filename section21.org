@@ -1,0 +1,902 @@
+** 21.1 Abstracting from Examples
+   Forming abstractions from examples is easy. As we have seen in
+   section 19, we start from two concrete function definitions,
+   compare them, mark the differences, and abstract. Let us formulate
+   these steps as a recipe:
+
+   - The comparison: 
+     When we find two function definitions that are almost the same
+     except at a few places and for their names, we compare them and
+     mark the differences with boxes. If the boxes contain only
+     values, we can abstract.
+
+     *Warning: Abstracting over Non-values:* The recipe requires a
+     substantial modification for non-values.
+
+     Here is a pair of similar function definitions:
+
+     #+BEGIN_SRC scheme
+     ;; convertCF : lon -> lon
+     (define (convertCF alon)
+       (cond
+         [(empty? alon) empty]
+	 [else
+	   (cons (|C->F| (first alon))
+	    (convertCF (rest alon)))]))
+     ;; names : loIR -> los
+     (define (names aloIR)
+       (cond
+         [(empty? aloIR) empty]
+	 [else 
+	   (cons (|IR-name| (first aloIR))
+	         (names (rest aloIR)))]))
+     #+END_SRC
+     The two functions apply a function to each item on the list. They
+     differ only in one aspect: what they apply to each item on the
+     list. The two boxes emphasize the difference. Each contains a
+     functional value, so we can abstract.
+
+   - The abstraction:
+     Next we replace the contents of corresponding pairs of boxes with
+     new names and add these names to the parameter list. For example,
+     if there are three pairs of boxes, we need three new names. The
+     two definitions must now be the same, except for the function
+     name. To obtain the abstraction, we systematically replace the
+     function names with one new name.
+
+     For our running example, we obtain the following pair of functions:
+
+     #+BEGIN_SRC scheme
+     (define (convertCF f alon)
+       (cond
+         [(empty? alon) empty]
+         [else
+	   (cons (|f| (first alon))
+	         (convertCF f (rest alon)))]))
+     (define (names f aloIR)
+       (cond
+         [(empty? alon) empty]
+         [else
+	   (cons (|f| (first alon))
+                 (names f (rest alon)))]))
+     #+END_SRC
+		 
+     We have replaced the boxed names with f and added f as a
+     parameter. Now we replace convertCF and names with a new name and
+     thus obtain the abstract function:
+
+     #+BEGIN_SRC scheme
+     (define (map f lon)
+       (cond
+         [(empty? lon) empty]
+         [else (cons (f (first lon))
+                     (map f (rest lon)))]))
+     #+END_SRC
+
+     We use the name map for the result in our running example,
+     because it is the traditional name in programming languages for
+     this function.
+
+   - The test: 
+     Now we must validate that the new function is a correct
+     abstraction of the original concrete functions. The very
+     definition of abstract suggests that we define the original
+     functions in terms of the abstract one and test the new versions
+     with the original examples.
+
+     In most cases, defining the original function based on the
+     abstract one is straightforward. Suppose the abstract function is
+     called f-abstract, and furthermore that one original function is
+     called f-original and consumes one argument. If f-original
+     differs from the other concrete function in the use of only one
+     value, say boxed-value, then we define the following function:
+
+     #+BEGIN_SRC scheme
+     (define (f-from-abstract x)
+       (f-abstract boxed-value x))
+     #+END_SRC
+     
+     For every proper value V, (f-from-abstract V) now produces the
+     same answer as (f-original V). 
+
+     Let us return to our example. Here are the two new definitions:
+
+     #+BEGIN_SRC scheme
+     ;; convertCF-from-map : lon -> lon
+     (define (convertCF-from-map alon)
+       (map C->F alon))
+     ;; names-from-map : loIR -> los
+     (define (names-from-map aloIR)
+       (map IR-name aloIR))
+     #+END_SRC
+
+     To ensure that these two definitions are equivalent to the old
+     one and, indirectly, that map is a correct abstraction, we now
+     apply these two functions to the examples that we specified for
+     the development of convertCF and names.
+
+   - The contract:
+     To make the abstraction truly useful, we must also formulate a
+     contract. If the boxed values in stage 2 of our recipe are
+     functions, a contract requires the use of arrow
+     types. Furthermore, to obtain a widely usable contract, we may
+     have to develop or use parametric data definitions and formulate
+     a parametric type.
+
+     A case in point is the contract for map. On the one hand, if we
+     view map as an abstraction of convertCF, the contract could be
+     construed as
+
+     ;; map : (number -> number) (listof number) -> (listof number)
+     
+     On the other hand, if we view map as an abstraction of names, the
+     contract could be construed as
+
+     ;; map : (IR -> symbol) (listof IR) -> (listof symbol)
+
+     But the first contract would be useless in the second case, and
+     vice versa. To accomodate both cases, we must understand what map
+     does and then fix a contract. 
+
+     By looking at the definition, we can see that map applies its
+     first argument, a function, to every item on the second argument,
+     a list. This implies that the function must consume the class of
+     data that the list contains. That is, we know f has the contract
+
+     ;; f : X -> ???
+
+     if lon contains Xs. Furthermore, map creates a list from the
+     results of applying f to each item. Thus, if f produces Ys, then
+     map produces a list of Ys. Translated into our language of
+     contracts, we get this:
+
+     ;; map : (X -> Y) (listof X) -> (listof Y)
+
+     This contract says that map can produce a list of Ys from a list
+     of Xs and a function from X to Y -- no matter for what collection
+     of X and Y stand.
+
+    
+   Once we have abstracted two (or more) functions, we should check
+   whether there are other uses for the abstract function. In many
+   cases, an abstract function is useful in a much broader array of
+   contexts than we first anticipate and makes functions easier to
+   read, understand, and maintain. For example, we can now use map
+   every time we need a function to produce a new list by processing
+   all items on an existing list. If that function is a primitive
+   operation or a function we have defined, we don't even write a
+   function. Instead, we simply write an expression that performs the
+   task. Unfortunately, there is no recipe that guides this discovery
+   process. We must practice it and develop an eye for matching
+   abstract functions to situations.
+
+   - Exercise 21.1.1. Define tabulate, which is the abstraction of the
+     following tow functions:
+     
+     #+BEGIN_SRC scheme
+     ;; tabulate-sin : number -> lon
+     ;; to tabulate sin between n and 0 (inclusive) in a list
+     (define (tabulate-sin n)
+       (cond
+         [(= n 0) (list (sin 0))]
+         [else
+	  (cons (sin n)
+                (tabulate-sin (sub1 n)))]))
+
+    
+     ;; tabulate-sqrt : number -> lon
+     ;; to tabulate sqrt between n and 0 (inclusive) in a list.
+     (define (tabulate-sqrt n)
+       (cond
+         [(= n 0) (list (sqrt 0))]
+	 [else
+	  (cons (sqrt n)
+	        (tabulate-sqrt (sub1 n)))]))
+     #+END_SRC
+
+     Be sure to define the two functions in terms of tabulate. Also
+     use tabulate to define a tabulation function f sqr and tan. What
+     would be a good, general contract?
+
+     Since the functions process the same data, they have the same
+     shape with the below 'boxed' differences.
+		  
+     #+BEGIN_SRC scheme
+     ;; tabulate-sin : number -> lon
+     ;; to tabulate sin between n and 0 (inclusive) in a list
+     (define (tabulate-sin n)
+       (cond
+         [(= n 0) (list (|sin| 0))]
+         [else
+	  (cons (|sin| n)
+                (tabulate-sin (sub1 n)))]))
+
+    
+     ;; tabulate-sqrt : number -> lon
+     ;; to tabulate sqrt between n and 0 (inclusive) in a list.
+     (define (tabulate-sqrt n)
+       (cond
+         [(= n 0) (list (|sqrt| 0))]
+	 [else
+	  (cons (|sqrt| n)
+	        (tabulate-sqrt (sub1 n)))]))
+     #+END_SRC	 
+  
+     The only other difference is the names of the functions. We add a
+     parameter f in place of the boxed functions.
+
+     #+BEGIN_SRC scheme
+     ;; tabulate-sin : number -> lon
+     ;; to tabulate sin between n and 0 (inclusive) in a list
+     (define (tabulate-sin f n)
+       (cond
+         [(= n 0) (list (f 0))]
+         [else
+	  (cons (f n)
+                (tabulate-sin f (sub1 n)))]))
+
+    
+     ;; tabulate-sqrt : number -> lon
+     ;; to tabulate sqrt between n and 0 (inclusive) in a list.
+     (define (tabulate-sqrt f n)
+       (cond
+         [(= n 0) (list (f 0))]
+	 [else
+	  (cons (f n)
+	        (tabulate-sqrt f (sub1 n)))]))
+     #+END_SRC	 
+
+     #+BEGIN_SRC scheme
+     ;; tabluate : (number -> number) N[>= 0] -> (listof number)
+     ;; tabulate the values of f applied to integers from n to 0 (inclusive), in a list.
+     (define (tabulate f n)
+       (cond
+         [(= n 0) (list (f 0))]
+         [else
+	  (cons (f n)
+                (tabulate f (sub1 n)))]))
+     #+END_SRC	 
+
+     #+BEGIN_SRC scheme
+     ;; tabluate : (number -> number) N[>= 0] -> (listof number)
+     ;; tabulate the values of f applied to integers from n to 0 (inclusive), in a list.
+     (define (tabulate f n)
+       (cond
+         [(= n 0) (list (f 0))]
+         [else
+	  (cons (f n)
+                (tabulate f (sub1 n)))]))
+
+     ;; tabulate-sin : number -> lon
+     ;; to tabulate sin between n and 0 (inclusive) in a list
+     (define (tabulate-sin n)
+       (cond
+         [(= n 0) (list (sin 0))]
+         [else
+	  (cons (sin n)
+                (tabulate-sin (sub1 n)))]))
+
+    
+     ;; tabulate-sqrt : number -> lon
+     ;; to tabulate sqrt between n and 0 (inclusive) in a list.
+     (define (tabulate-sqrt n)
+       (cond
+         [(= n 0) (list (sqrt 0))]
+	 [else
+	  (cons (sqrt n)
+	        (tabulate-sqrt (sub1 n)))]))
+
+     (define (tabulate-abstract-sqrt n)
+       (tabulate sqrt n))
+     (define (tabulate-abstract-sin n)
+       (tabulate sin n))
+
+     (equal? (tabulate-sqrt 2)
+             (tabulate-abstract-sqrt 2))
+     (equal? (tabulate-sqrt 0) (tabulate-abstract-sqrt 0))
+     (equal? (tabulate-sqrt 100) (tabulate-abstract-sqrt 100))
+
+     (equal? (tabulate-sin 0) (tabulate-abstract-sin 2))
+     (equal? (tabulate-sin 2) (tabulate-abstract-sin 2))
+     (equal? (tabulate-sin 100) (tabulate-abstract-sin 100))
+     #+END_SRC
+
+   - Exercise 21.1.2. Define fold, which is the abstraction of the
+     following two functions:
+
+     #+BEGIN_SRC scheme
+     ;; sum : (listof number) -> number
+     ;; to compute the sum of the numbers in alon
+     (define (sum alon)
+       (cond
+         [(empty? alon) 0]
+	 [else (+ (first alon)
+	          (sum (rest alon)))]))
+
+     ;; product: (listof number) -> number
+     ;; to compute the product of the numbers on alon
+     (define (product alon)
+       (cond
+         [(empty? alon) 1]
+	 [else (* (first alon)
+	          (product (rest alon)))]))
+     #+END_SRC
+
+     Don't forget to test fold.
+
+     After fold is defined and tested, use it to define append, which
+     juxtaposes the items of two lists or, equivalently, replaces
+     empty at the end of the first list with the second list:
+
+     #+BEGIN_SRC scheme
+     (equal? (append (list 1 2 3) (list 4 5 6 7 8))
+             (list 1 2 3 4 5 6 7 8))
+     #+END_SRC
+
+     Finally, define map using fold. 
+
+     boxed differences:
+     #+BEGIN_SRC scheme
+     ;; sum : (listof number) -> number
+     ;; to compute the sum of the numbers in alon
+     (define (sum alon)
+       (cond
+         [(empty? alon) |0|]
+	 [else (|+| (first alon)
+	          (sum (rest alon)))]))
+
+     ;; product: (listof number) -> number
+     ;; to compute the product of the numbers on alon
+     (define (product alon)
+       (cond
+         [(empty? alon) |1|]
+	 [else (|*| (first alon)
+	          (product (rest alon)))]))
+     #+END_SRC
+
+     We add two parameters for each boxed difference. The first will
+     simply be called f, the second will be Inuit for initial.
+
+     #+BEGIN_SRC scheme
+     ;; sum : (listof number) -> number
+     ;; to compute the sum of the numbers in alon
+     (define (sum alon f init)
+       (cond
+         [(empty? alon) init]
+	 [else (f (first alon)
+	          (sum (rest alon)))]))
+
+     ;; product: (listof number) -> number
+     ;; to compute the product of the numbers on alon
+     (define (product alon f init)
+       (cond
+         [(empty? alon) init]
+	 [else (f (first alon)
+	          (product (rest alon)))]))
+     #+END_SRC
+
+     These are now the same functions. We then need to combine
+     them/change their names into 'fold':
+
+     #+BEGIN_SRC scheme
+     ;; fold : (listof X) (X Y -> Y) Y -> Y
+     ;; to compute the sum of the numbers in alon
+     (define (fold alon f init)
+       (cond
+         [(empty? alon) init]
+	 [else (f (first alon)
+	          (fold (rest alon)))]))
+     #+END_SRC
+
+    'map' is then:
+     #+BEGIN_SRC scheme
+     ;; fold : (listof X) (X Y -> Y) Y -> Y
+     ;; to compute the sum of the numbers in alon
+     (define (fold alon f init)
+       (cond
+         [(empty? alon) init]
+	 [else (f (first alon)
+	          (fold (rest alon)))]))
+     (define (map alon f)
+       (local ((define (fold-mapfun thefirst threrest)
+                 (cons (f thefirst) therest)))
+         (fold alon fold-mapfun empty)))
+
+     (define (sum alon)
+         (fold alon + 0))
+     (define (product alon)
+         (fold alon * 1))
+
+     (equal? (sum (list 1 2 3)) (+ 1 2 3))
+     (equal? (product (list 1 2 3)) (* 1 2 3))
+     (equal? (sum (list 1)) 1)
+     (equal? (product (list 0)) 0)
+     (equal? (product (list 1 2 3 4 5 6 7)) (* 1 2 3 4 5 6 7))
+     (local ((define (mapfun elem) (* 2 elem)))
+        (and (equal? (map mapfun (list 1 2 3))  (list 1 4 6))
+             (equal? (map mapfun (list 4 3 2)) (list 8 6 4))))
+     #+END_SRC
+
+   - Exercise 21.1.3. Define natural-f, which is the abstraction of
+     the following two functions:
+
+     #+BEGIN_SRC scheme
+     ;; copy : N X -> (listof X)
+     ;; to create a list that contains obj n times
+     (define (copy n obj)
+       (cond
+         [(zero? n) empty]
+         [else (cons obj
+                     (copy (sub1 n) obj))]))
+
+     ;; n-adder : N number -> number
+     ;; to add n to x using
+     ;; (+ 1 ...) only
+     (define (n-adder n x)
+       (cond
+         [(zero? n) x]
+         [else (+ 1
+                  (n-adder (sub1 n) x))]))
+     #+END_SRC
+
+     highlighted differences (that are not just differences in names
+     of the function or parameters):
+     #+BEGIN_SRC scheme
+     ;; copy : N X -> (listof X)
+     ;; to create a list that contains obj n times
+     (define (copy n obj)
+       (cond
+         [(zero? n) |empty|]
+         [else (|cons| |obj|
+                     (copy (sub1 n) obj))]))
+
+     ;; n-adder : N number -> number
+     ;; to add n to x using
+     ;; (+ 1 ...) only
+     (define (n-adder n x)
+       (cond
+         [(zero? n) |x|]
+         [else (|+| |1|
+                  (n-adder (sub1 n) x))]))
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; copy : N[>=0] X (X (listof X) -> (listof X)) (listof X) -> (listof X)
+     ;; to create a list that contains obj n times
+     (define (copy n obj adder end)
+       (cond
+         [(zero? n) end]
+         [else (adder obj
+                     (copy (sub1 n) obj))]))
+
+     ;; n-adder : N[>=0] N[>=0] (N[>=0] N[>=0] -> N[>=0]) N[>=0] -> N[>=0]
+     ;; to add n to x using
+     ;; (+ 1 ...) only
+     (define (n-adder n obj adder end)
+       (cond
+         [(zero? n) end]
+         [else (adder obj
+                  (n-adder (sub1 n) x))]))
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; natural-f : N[>=0] X (X Y -> Y) Y -> Y
+     (define (natural-f n obj adder end)
+       (cond
+         [(zero? n) end]
+	 [else (adder obj
+	              (natural-f (sub1 n) obj adder end))]))
+		      
+
+     (define (copy-abstract n obj)
+       (natural-f n obj cons empty))
+     (define (n-adder-abstract n x)
+       (natural-f n 1 + x))
+     (define (n-multipler n x)
+       (natural-f n x + 0))
+
+     (equal? (copy-abstract 2 'x) (list 'x 'x))
+     (equal? (copy-abstract 2 4) (list 4 4))
+     (equal? (length (copy-abstract 20 'x)) 20)
+     (equal? (n-adder-abstract 2 2) 4)
+     (equal? (n-adder-abstract 20 20) 40)
+     (equal? (n-adder-abstract 1500 1500) 3000)
+     (equal? (n-multiplier 20 20) 400)
+     (equal? (n-multiplier 0 0) 0)
+     (equal? (n-multiplier 1 0) 0)
+     (equal? (n-multiplier 1 1) 1)
+     #+END_SRC
+
+   - Formulating General Contracts: To increase the usefulness of an
+     abstract function, we must formulate a contract that describes
+     its applicability in the most general terms possible. In
+     principle, abstracting contracts follows the same recipe that we
+     use for abstracting functions. We compare and contrast the old
+     contracts; then we replace the differences with variables. But
+     the process is complicated and requires a lot of practice.
+
+     Let us start with our running example: convertCF and names:
+
+     #+BEGIN_SRC scheme
+     (listof number) -> (listof number)
+     (listof IR) -> (listof symbol)
+     #+END_SRC scheme
+     
+     Comparing the two contracts shows that they differ in two
+     places. To the left of ->, we have number and IR; to the right,
+     it is number versus symbol.
+
+     Consider the second stage of our abstraction recipe. The most
+     natural contracts are as follows:
+
+     #+BEGIN_SRC scheme
+     (listof number) -> (listof number)
+     (listof IR) -> (listof symbol)
+     #+END_SRC
+
+     Comparing the two contracts shows that they differ in two
+     places. To the left of ->, we have number and IR; to the right it
+     is number versus symbol.
+
+     Consider the second stage of our abstraction recipe. The most
+     natural contracts are as follows:
+
+     #+BEGIN_SRC scheme
+     (number -> number) (listof number) -> (listof number)
+     (IR -> symbol) (listof IR) -> (listof symbol)
+     #+END_SRC
+
+     These new contracts suggest a pattern. Specifically, they suggest
+     that the first argument, a function, consumes the items on the
+     second argument, a list, and furthermore, that the results
+     produced by these applications make up the output. The second
+     contract is particularly telling. If we replace IR and symbol
+     with variables, we get an abstract contract, and it is indeed a
+     contract for map:
+
+     map : (X -> Y) (listof X) -> (listof Y)
+
+     It is straightforward to check that by replacing X with number
+     and Y with number, we get the first of the intermediate
+     contracts.
+
+     Here is a second pair of examples:
+
+     #+BEGIN_SRC scheme
+     number (listof number) -> (listof number)
+     number (listof IR) -> (listof IR)
+     #+END_SRC
+
+     They are the contracts for below and below-ir. The contracts
+     differ in two places: the lists consumed and produced. As usual,
+     the functions of the second stage consume an additional argument:
+
+     #+BEGIN_SRC scheme
+     (number number -> boolean) number (listof number) -> (listof number)
+     (number IR -> boolean) number (listof IR) -> (listof IR)
+     #+END_SRC
+
+     The new argument is a function, which in the first case consumes
+     a number, and in the second case an IR.
+
+     A comparison of the two contracts suggests that number and IR
+     occupy related positions and that we should replace them with a
+     variable. Doing so makes the two contracts equal:
+
+     (number X -> boolean) number (listof X) -> (listof X)
+     (number X -> boolean) number (listof X) -> (listof X)
+
+     A closer inspection of filter1's definition shows that we can
+     also replace number with Y because the second argument is always
+     just the first argument of filter1's first argument. Here is the
+     new contract:
+
+     filter1: (Y X -> boolean) Y (listof X) -> (listof X)
+     
+     The result of the first argument must be boolean, because it is
+     used as a condition. Hence we have found the most general
+     contract possible.
+
+     The two examples illustrate how to find general contracts. We
+     compare the contracts of the examples from which we create
+     abstractions. By replacing specific, distinct classes in
+     corresponding positions, one at a time, we make the contract
+     gradually more general. To ensure that our generalized contract
+     works, we check that the contract describes the specific
+     instances of the abstracted function properly.
+
+** 21.2 Finger exercises with abstract list functions
+   Scheme provides a number of abstract functions for processing
+   lists. Figure 57 collects the specification of the most important
+   ones. Using these functions greatly simplifies many programming
+   tasks and helps readers understand programs quickly. The following
+   exercises provide an opportunity to get acquainted with these
+   functions.
+
+   #+BEGIN_SRC scheme
+   ;; build-list : N (N -> X) -> (listof X)
+   ;; to construct (list (f 0) ... (list (f (- n 1)))
+   (define (build-list n f) ...)
+
+   ;; filter : (X -> boolean) (listof X) -> (listof X)
+   ;; to construct a list from all those items on alox for which p
+   ;; holds
+   (define (filter p alox) ...)
+
+   ;; quicksort : (listof X) (X X -> boolean) -> (listof X)
+   ;; to construct a list from all items on alox in order according to
+   ;; cmp
+   (define (quicksort alox cmp) ...)
+
+   ;; map : (X -> Y) (listof X) -> (listof Y)
+   ;; to construct a list by applying f to each item on alox
+   ;; that is, (map f (list x-1 ... x-n)) = (list (f x-1) ... (f x-n))
+   (define (map f alox) ...)
+
+   ;; andmap : (X -> boolean) (listof X) -> boolean
+   ;; to determine whether p holds for every item on alox
+   ;; that is, (andmap p (list x-1 ... x-n)) = (and (p x-1) (and
+   ;; ... (p x-n))
+   (define (andmap p alox) ...)
+
+   ;; ormap : (X -> boolean) (listof X) -> boolean
+   ;; to determine whether p holds for at least one item on alox
+   ;; that is, (ormap p (list x-1 ... x-n)) = (or (p x-1) (or ... (p
+   ;; x-n)))
+   (define (ormap p alox) ...)
+
+   ;; foldlr : (X Y -> Y) Y (listof X) -> Y
+   ;; (foldr f base (list x-1 ... x-n)) = (f x-1 ... (f x-n base))
+   (define (foldr f base alox) ...)
+
+   ;; foldl : (X Y -> Y) Y (listof X) -> Y
+   ;; (foldl f base (list x-1 ... x-n)) = (f x-n ... (f x-1 base))
+   (define (foldl f base alox) ...)
+
+   ;; assf : (X -> boolean) (listof (list X Y)) -> (list X Y) or false
+   ;; to find the first item in alop for whose first item p? holds.
+   (define (assf p? alop) ...)
+   #+END_SRC
+
+   - Exercise 21.2.1. Use build-list
+     1. to create the lists (list 0 ... 3) and (list 1 ... 4);
+	(local ((define (identity x) x)) (build-list 4 identity))
+        (local ((define (plusone x) (+ 1 x))) (build-list 4 plusone))
+     2. to create the list (list .1 .01 .001 .0001)
+	(local ((define (negative-exponent x) (* 1 (expt 10 (* -1
+        (+ 1 x)))))) (build-list 4 negative-exponent))
+     3. to define evens, which consumes a natural number n and creates
+        the list of the first n even numbers;
+	(define (evens n)
+         (local ((define (timestwo x) (* 2 x)))
+          (build-list n timestwo)))
+	 
+     4. to define tabulate from exercise 21.1.1.; and
+	(define (tabulate f n)
+         (build-list (+ 1 n) f))
+     5. to define diagonal, which consumes a natural number n and
+        creates a list of lists of 0 and 1. 
+        (define (diagonal side-length)
+          (local ((define (make-row x) 
+                   (local ((define (row-element y)
+                             (cond ((= y x) 1) (else 0))))
+                    (build-list side-length row-element))))
+            (build-list side-length make-row)))
+
+	Example:
+	(equal? (diagonal 3)
+	        (list
+	         (list 1 0 0)
+		 (list 0 1 0)
+		 (list 0 0 1)))
+   - Use map to define the following functions:
+     1. convert-euro, which converts a list of U.S. dollar amounts
+        into a list of euro amounts based on an exchange rate of 1.22
+        euro for each dollar;
+
+	(define (convert-euro list-of-dollars)
+          (local ((define (exchange dollar-amount) 
+                    (* dollar-amount 1.22)))
+            (map exchange list-of-dollars)))
+	
+     2. convertFC, which converts a list of Fahrenheit measurements
+        into a list of Celsius measurements;
+	
+	(define (convertFC list-of-celsius)
+          (local ((define (C->F c) (+ 32 (* 9/5 c))))
+            (map C->F list-of-celsius)))
+
+     3. move-all, which consumes a list of posn structures and
+        translates each by adding 3 to the x-component. 
+
+	(define (move-all list-of-posns)
+	  (local ((define (move-posn a-posn) (make-posn 
+                                              (+ 3 (posn-x a-posn)) 
+                                              (posn-y a-posn))))
+            (map move-posn list-of-posns)))
+
+   - Exercise 21.2.3. Here is the version of filter that DrScheme
+     provides:
+     #+BEGIN_SRC scheme
+     ;; filter : (X -> boolean) (listof X) -> (listof X)
+     ;; to construct a list of X from all those items in alon
+     ;; for which predicate? holds
+     (define (filter predicate? alon)
+       (cond
+         [(empty? alon) empty]
+         [else (cond
+	         [(predicate? (first alon))
+                  (cons (first alon) (filter predicate? (rest alon)))]
+		 [else (filter predicate? (rest alon))])]))
+     #+END_SRC
+
+     Use filter to define the following functions:
+     1. eliminate-exp, which consumes a number, ua, and a list of toy
+        structures (containing name and price) and produces a list of
+        all those descriptions whose price is below ua;
+
+	(define (eliminate-exp ua lot)
+          (local ((define (toy-below? toy) 
+                   (< (toy-price toy) ua)))
+           (filter toy-below? lot)))
+     2. recall, which consumes the name of a toy, called ty, and a
+        list of names, called lon, and produces a list of names that
+        contains all components of lon with the exception of ty;
+	(define (recall ty lon)
+	  (local ((define (is-name!=? name) (not (symbol=? ty name))))
+	    (filter is-name!=? lon)))
+     3. selection, which consumes two lists of names and selects all
+        those from the second one that are also on the first
+
+	(define (selection lon1 lon2)
+	  (local ((define (in-lon2? elem)
+                   (false? (local ((define (is-elem? elem2) 
+                             (equal? elem elem2)))
+                     (filter is-elem? lon2)))))
+           (filter in-lon2? lon1)))
+
+** 21.3 Abstraction and a Single Point of Control
+   Just like editing papers, abstracting programs has many
+   advantages. Creating an abstraction often simplifies other
+   definitions. The process of abstracting may uncover problems with
+   existing functions. But the single most important advantage of
+   abstraction is that it creates a SINGLE POINT OF CONTROL for the
+   functionality of the program. In other words, it (as much as
+   possible) puts in one place the definitions related to some
+   specific task. 
+
+   Putting the definitions for a specific task iin one place makes it
+   easier to maintain a program. Roughly put, program maintenance
+   means fixing the program so that it functions properly in
+   previously untested cases; extending the program so that it can
+   deal with new and unforseen situations; or changing the
+   representation of some information as data (for example, calendar
+   dates). With everything in one place, fixing an error means fixing
+   it in one function, not four or five similar versions. Extending a
+   functions capabilities means fixing one function not its related
+   copies. And changing a data representation means changing a general
+   data-traversal function, not all those that came from the same
+   template. Translated into a guideline, this becomes:
+
+   *Guideline on Creating Abstractions*
+   Form an abstraction instead of copying and modifying a piece of a
+   program.
+
+   Experience teaches us that maintaining software is
+   expensive. Programmers can reduce the maintenance cost by
+   organizing programs correctly. The first principle of function
+   organization is to match the function's structure to the structure
+   of its input data. If every programmer follows this rule, it is
+   easy to modify and extend functions when the set of possible input
+   data changes. The second principle is to introduce proper
+   abstractions. Every abstracted function creates a single point of
+   control for at least two different functions, often for several
+   more. After we have abstracted, we often find more uses of the new
+   function. 
+
+   Our design recipe for abstracting functions is the most basic tool
+   to create abstractions. To use it requires practice. As we
+   practice, we expand our capabilities for building and using
+   abstractions. The best programmers are those who actively edit
+   their programs to build new abstractions so that they collect
+   things related to a task at a single point. Here we use functional
+   abstraction to study this practice. While not all languages provide
+   the freedom to abstract functions as easily as Scheme, modern
+   languages often support similar concepts and practicing in powerful
+   languages such as Shceme is the best possible preparation. 
+
+** 21.4 Extended Exercise: Moving Pictures, Again
+   In sections 6.6, 7.4, and 10.3, we studied the problem of moving
+   pictures across a canvas. The problem had two parts: moving
+   individual shapes and moving a picture, which is a list of
+   shapes. For the first part, we need functions to draw, clear, and
+   translate a shape. For the second part, we need functions that draw
+   all shapes on a list, that clear all shapes on a list, and that
+   translate all shapes on a list. Even the most cursory look at the
+   functions shows many repetitions. The following exercises aim to
+   eliminate these repetitions via manual abstraction and Scheme's
+   built-in operations.
+   
+   - Exercise 21.4.1. Abstract the functions draw-a-circle and
+     clear-a-circle into a single function, process-circle. 
+     
+
+
+** 21.5 Note: Designing abstractions from Templates
+   At the very beginning of this part of the book, we discussed how we
+   design sets of functions from the same template. More specifically,
+   when we design a set of functions that all consume the same kind of
+   data, we reuse the same template over and over again. It is
+   therefore not surprising that the function definitions look similar
+   and that we will abstract them later.
+
+   Indeed, we could abstract from the templates directly. While this
+   topic is highly advanced and still a subject of research in the
+   area of programming languages, we can discuss it with a short
+   example. Consider the template for lists:
+
+   #+BEGIN_SRC scheme
+   (define (fun-for-l l)
+     (cond
+       [(empty? l) ...]
+       [else ... (first l) ... (fun-for-l (rest l)) ...]))
+   #+END_SRC
+
+   It contains two gaps, one in each clause. When we define a
+   list-processing function, we fill these gaps. In the first clause,
+   we typically place a plain value. For the second one, we combine
+   (first l) and (f (rest l)) where f is the recursive function. 
+
+   We can abstract over this programming task with the following
+   function:
+
+   #+BEGIN_SRC scheme
+   ;; reduce : X (X Y -> Y) (listof Y) -> Y
+   (define (reduce base combine l)
+     (cond
+       [(empty? l) base]
+       [else (combine (first l)
+               (reduce base combine (rest l)))]))
+   #+END_SRC
+   
+   It consumes two extra arguments: base, which is the value for the
+   base case, and combine, which is a function that performs the value
+   combination for the second clause.
+
+   Using reduce we can define many plain list-processing functions as
+   well as almost all the functions of figure 57. Here are two of
+   them:
+
+   #+BEGIN_SRC scheme
+   ;; sum : (listof number) -> number
+   (define (sum l) (reduce 0 + l))
+   
+   ;; product : (listof number) -> number
+   (define (product l) (reduce 1 * l))
+   #+END_SRC
+
+   For sum, the base case always produces 0; adding the first item and
+   the result of the natural recursion combines the values of the
+   second clause. Analogous reasoning explains product. 
+
+   To define sort, we need to define an auxiliary function first:
+
+   #+BEGIN_SRC scheme
+   ;; sort : (listof number) -> (listof number)
+   (define (sort l)
+     (local ((define (insert an alon)
+               (cond [(empty? alon) (list an)]
+                     [else (cond
+                             [(> an (first alon)) (cons an alon)]
+			     [else (cons (first alon) (insert an (rest
+   alon)))])])))
+       (reduce empty insert)))
+   #+END_SRC
+
+   Other list-processing functions can be defined in a similar
+   manner. 
+	   
+   
+       
+     
+     
