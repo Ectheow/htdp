@@ -1,0 +1,99 @@
+**** 19.2 Similarities in Data Definitions
+     Inspect the following two data definitions:
+     
+     #+BEGIN_EXAMPLE
+     A _list-of-numbers_ is either    | A _list-of-IRS_ is either
+      * empty                         |   * empty
+      * (cons n l)                    |   * (cons n l)
+        where n is a number           |     where n is an IR
+        and n is a list-of-numbers    |     and n is a list-of-IRs.
+     #+END_SRC
+
+     Both define a class of lists. The one on the left is the data
+     definition for lists of numbers; the one on the right describes
+     lists of inventory records, which we represent with
+     structures. The necessary structure and data definitions follow:
+
+     (define-struct ir (name price))
+     A *_IR_* is a structure:
+       (make-ir n p)
+     where n is a symbol and p is a number.
+
+     Given the similarity between the data definitions, functions that
+     consume elements of these classes are similar too. Take a look at
+     the illustrative example in figure 55. The function on the left
+     is below, which filters numbers from a list of numbers. The one
+     on the right is below-ir, which extracts those inventory records
+     from a list whose prices are below a certain threshold. Except
+     for the name of the function, which is arbitrary, the two
+     definitions differ in only one point: the relational operator.
+
+     #+BEGIN_SRC scheme
+     ;; below : number lon -> lon
+     ;; to construct a list of those numbers
+     ;; on alon that are below t.
+     (define (below alon t)
+       (cond
+         [(empty? alon) empty]
+	 [else (cond
+	         [(< (first alon) t)
+                  (cons (first alon)
+                   (below (rest alon) t))]
+                 [else (below (rest alon) t)])]))
+     (define (below aloir t)
+       (cond
+         [(empty? aloir) empty]
+	 [else (cond
+	         [(<ir (first aloir) t)
+                  (cons (first aloir)
+                        (below-ir (rest aloir) t))]
+		 [else (below-ir (rest aloir) t)])]))
+     (define (<ir ir p)
+       (< (ir-price ir) p))
+     #+END_SRC
+
+     If we abstract the two functions, we obtain filter1. Conversely,
+     we can define below-ir in terms of filter1:
+
+     #+BEGIN_SRC scheme
+     (define (below-ir1 aloir t)
+       (filter1 <ir aloir t))
+     #+END_SRC
+
+     It should not surprise us to discover yet another use for filter1
+     -- after all, we already argued that abstraction promotes the
+     reuse of functions for different purposes. Here we see that
+     filter1 not only filters lists of numbers but lists of arbitrary
+     things -- as long as we can define a function that compares these
+     things with numbers.
+
+     Indeed, all we need is a function that compares items on the list
+     with the items we pass to filter1 as the second argument. Here is
+     a function that extracts all items with the same label from a
+     list of inventory records:
+
+     #+BEGIN_SRC scheme
+     ;; find loIR symbol -> boolean
+     ;; to determine whether aloir contains a record for t.
+     (define (find aloir t)
+       (cons? (filter1 eq-ir? aloir t)))
+       
+     ;; eq-ir? : IR symbol -> boolean
+     ;; to compare ir's name and p.
+     (define (eq-ir? ir p)
+       (symbol=? (ir-name ir) p))
+     #+END_SRC
+     
+     This new relational operator compares the name in an inventory
+     record with some other symbol.
+
+     - Exercise 19.2.1. Determine the values of
+       1. (below-ir1 10 (list (make-ir 'doll 8) (make-ir 'robot 12)))
+       2. (find 'doll (list (make-ir 'doll 8) (make-ir 'robot 12)
+          (make-ir 'doll 13)))
+   
+       by hand and in DrScheme. Show only those lines that introduce
+       new applications of filter1 to values.
+
+       
+	  

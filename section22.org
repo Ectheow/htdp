@@ -1,0 +1,319 @@
+* Section 22
+** Designing Abstractions with First-Class Functions
+   We have seen that functions can consume functions and how important
+   that is for creating single points of control in a function. But
+   functions not only can consume functions, they can also produce
+   them. More precisely, expressions in the new Scheme can evaluate to
+   functions. Because the body of a function definition is also an
+   expression, a function can produce a function. In this section, we
+   first discuss this surprising idea and then show how it is useful
+   for abstracting functions and in other contexts. 
+
+*** 22.1 Functions that Produce Functions
+    While the idea of producing a function may seem strange at first,
+    it is extremely useful. Before we can discuss the usefulness of
+    the idea, though, we must explore how a function can produce a
+    function. Here are three examples:
+
+    #+BEGIN_SRC scheme
+    (define (f x) first)
+    (define (g x) f)
+    (define (h x)
+      (cond
+        ((empty? x) f)
+	((cons? x) g)))
+    #+END_SRC
+
+    The body of f is first, a primitive operation, so applying f to
+    any argument always evaluates to first. Similarly, the body of g
+    is f, so applying g to any argument always evaluates to
+    f. Finally, depending on what kind of list we supply as an
+    argument to h, it produces f or g. 
+
+    None of these examples is useful but each illustrates the basic
+    idea. In the first two cases, the body of the function definition
+    is a function. In the last case, it evaluates to a function. The
+    examples are useless because the results do not contain or refer
+    to the argument. For a function f to produce a function that
+    contains one of f's arguments, f must define a function and return
+    it as a result. That is, f's body must be a local-expression. 
+
+    Recall that *local*-expressions group definitions and ask DrScheme
+    to evaluate a single expression in the context of these
+    definitions. They can occur wherever an expression can occur,
+    which means the following definition is legal:
+
+    #+BEGIN_SRC scheme
+    (define (add x)
+      (local ((define (x-adder y) (+ x y)))
+        x-adder))
+    #+END_SRC
+
+    The function add consumes a number; after all, x is added to y. It
+    then defines the function x-adder with a local-expression. The
+    body of the local-expression is x-adder, which means the result of
+    add is x-adder.
+
+    To understand add better, let us look at how an application of add
+    to some number evaluates
+
+    #+BEGIN_SRC scheme
+      (define f (add 5))
+    = (define f (local ((define (x-adder y) (+ 5 y))) x-adder))
+    = (define f (local ((define (x-adder_0 y) (+ 5 y))) x-adder_0))
+    = (define (x-adder_0 y) (+ 5 y))
+      (define f x-adder_0)
+    #+END_SRC
+
+    The last step adds the function x-adder_0 to the collection of our
+    definitions; the evaluation continues with the body of the
+    *local*-expression, x-adder_0, which is the name of a function,
+    and thus a value. Now f is defined and we can use it:
+
+    #+BEGIN_SRC scheme
+      (f 10)
+    = (x-adder_0 10)
+    = (+ 5 10)
+    = (15)
+    #+END_SRC
+
+    That is, f stands for x-adder_0, a function, which adds 5 to its
+    argument. 
+
+    Using this example, we can write add's contract and a purpose
+    statement:
+
+    #+BEGIN_SRC scheme
+    ;; add : number -> (number -> number)
+    ;; to create a function that adds x to its input
+    (define (add x)
+      (local ((define (x-adder y) (+ x y)))
+        x-adder))
+    #+END_SRC
+
+    The most interesting property of add is that the result
+    ``remembers'' the value of x. For example, every time we use f, it
+    uses 5, the value of x, when add was used to define f. This form
+    of ``memory'' is the key to our simple recipe for defining
+    abstract functions, which we discuss in the next section.
+
+*** 22.2. Designing Abstractions with Functions-as-Values
+    The combination of *local*-expressions and functions-as-values
+    simplifies our recipe for creating abstract functions. Consider
+    our very first example in figure 53 again. If we replace the
+    contents of the boxes with rel-op, we get a function that has a
+    free variable. To avoid this, we can either add rel-op to the
+    parameters or we can wrap the definition in a local and prefix it
+    with a function that consumes rel-op. Figure 59 shows what happens
+    when we use this idea with filter. If we also make the locally
+    defined function the result of the function, we have defined an
+    abstraction of the two original functions.
+
+    #+BEGIN_SRC scheme
+    (define (filter2 rel-op)
+      (local ((define (abs-fun alon t)
+                (cond
+		  [(empty? alon) empty]
+		  [else
+		    (cons
+		      [(rel-op (first alon) t)
+		       (cons (first alon)
+		             (abs-fun (rest alon) t))]
+		      [else (abs-fun (rest alon) t)])])))
+	abs-fun))
+    #+END_SRC
+
+    Put differently, we follow the example of add in the preceding
+    section. Like add, filter2 consumes an argument, defines a
+    function, and returns this function as a result. The result
+    remembers the rel-op argument for good as the following evaluation
+    shows:
+
+    #+BEGIN_SRC scheme
+    (filter2 <)
+
+    = (local ((define (abs-fun alon t)
+                (cond
+		  [(empty? alon) empty]
+		  [else 
+		    (cond
+		      [(< (first alon) t)
+		       (cons (first alon)
+		             (abs-fun (rest alon) t))]
+		      [else (abs-fun (rest alon) t)])])))
+        abs-fun)
+    = (define (below3 alon t)
+        (cond
+	  [(empty? alon) empty]
+	  [else
+	    (cond
+	      [(< (first alon) t)
+	       (cons (first alon)
+	             (below3 (rest alon) t))]
+	      [else (below3 (rest alon) t)])]))
+      below3
+    #+END_SRC
+
+    Remember that as we lift a local definition to the top-level
+    definitions, we also rename the function in case the same local is
+    evaluated again. Here we choose the name below3 to indicate what
+    the function does. And indeed, a comparison between below and
+    below3 reveals that the only difference is the name of the
+    function.
+
+    From the calculation, it follows that we can give the result of
+    (filter2 <) a name and use it as if it were below. More
+    succinctly, 
+
+    #+BEGIN_SRC scheme
+    (define below2 (filter2 <))
+    #+END_SRC
+    
+    is equivalent to
+
+    #+BEGIN_SRC scheme
+    (define (below3 alon t)
+      (cond
+        [(empty? alon) empty]
+	[else 
+	  (cond
+	    [(< (first alon) t)
+	     (cons (first alon)
+	           (below3 (rest alon) 3))]
+            [else (below3 (rest alon) t)])]))
+    (define below2 below3)
+    #+END_SRC
+    
+    which means below2 is just another name for below3 and which
+    directly proves that our abstract function correctly implements
+    below. 
+
+    The example suggests a variant of the abstraction recipe from
+    section 21:
+
+    - The Comparison:
+      The new recipe still requires us to compare and mark the differences.
+    - The abstraction:
+      The new step concerns the way we define the abstract
+      function. We place one of the functions into a
+      *local*-expression and use the name of the function as the body
+      of the local:
+
+      #+BEGIN_SRC scheme
+      (local ((define (concrete-fun x y z)
+               ... op1 ... op2 ...))
+        concrete-fun)
+      #+END_SRC
+
+      From that, we can create the abstract function by listing the
+      names in the boxes as parameters:
+
+      #+BEGIN_SRC scheme
+      (define (abs-fun op1 op2)
+        (local ((define (concrete-fun x y z)) ... op1 ... op2)
+           concrete-fun))
+      #+END_SRC
+
+      If op1 or op2 is a special symbol, say <, we name it something
+      that is more meaningful in the new context.
+    - The test:
+      To test the abstract function, we define the concrete functions
+      again, as before. Consider the example of below and
+      above. Obtaining below and above as instances of filter2 is now
+      straightforward:
+
+      #+BEGIN_SRC scheme
+      (define below2 (filter2 <))
+      (define above2 (filter2 >))
+      #+END_SRC
+
+      We simply apply filter2 to the contents of the box in the
+      respective concrete function and that application produces the
+      old function.
+    - The contract:
+      The contract of an abstract function contains two arrows. After
+      all, the function produces a function, and to describe this
+      relationship the type to the right of the first arrow must
+      contain another arrow. 
+
+      Here is the contract for filter2:
+
+      #+BEGIN_SRC scheme
+      ;; filter2 : (X Y -> boolean) -> ((listof X) Y -> (listof X))
+      #+END_SRC
+
+      It consumes a comparison function and produces a concrete
+      filter-style function.
+
+      The generalization of the contract works as before.
+
+      Given our experience with the first design recipe, the second
+      one is only a question of practice.
+
+      - Exercise 22.2.1. Define an abstraction of the functions
+        convertCF and names from section 21.1 Using the new recipe for
+        abstraction.
+
+	#+BEGIN_SRC scheme
+	;; original functions
+
+	;; convertCF : lon -> lon
+	(define (convertCF alon)
+	  (cond 
+	    [(empty? alon) empty]
+	    [else
+	      (cons (C->F (first alon))
+	            (convertCF (rest alon)))]))
+	      
+	;; names : loIR -> los
+        (define (names aloIR)
+	  (cond
+	    [(empty? alon) empty]
+	    [else 
+	      (cons (IR-name (first alon))
+	            (convertCF (rest alon)))]))
+
+        ;; Differences, of things that are not just the function name:
+	;; convertCF : lon -> lon
+	(define (convertCF alon)
+	  (cond 
+	    [(empty? alon) empty]
+	    [else
+	      (cons (|C->F| (first alon))
+	            (convertCF (rest alon)))]))
+	      
+	;; names : loIR -> los
+        (define (names aloIR)
+	  (cond
+	    [(empty? alon) empty]
+	    [else 
+	      (cons (|IR-name| (first alon))
+	            (names (rest alon)))]))
+
+        ;; So, we abstract now in a different way. We place a new concrete function in a local, using boxed items as parameters.
+	;; there was a single boxed difference so we have a single parameter to our function
+	;; generating function.
+	
+	(define IR (name price))
+
+	(define (C->F celsius)
+	  (* 9/5 (+ 32 celsius)))
+
+	(define (abs-map fun)
+	  (local ((define (concrete-map alox)
+                    (cond
+		      ((empty? alox) empty)
+		      (else (cons (fun (first alox))
+                                  (concrete-map (rest alox)))))))
+            abs-map))
+        (define convertCF (absmap C->F))
+	(define names (absmap IR-name))
+        #+END_SRC
+
+      - Exercise 22.2.2. Define an abstract version of sort (see
+        exercise 19.1.6) using the new recipe for abstraction. 
+
+	#+BEGIN_SRC
+	(
+
+	
