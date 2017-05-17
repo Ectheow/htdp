@@ -313,7 +313,418 @@
       - Exercise 22.2.2. Define an abstract version of sort (see
         exercise 19.1.6) using the new recipe for abstraction. 
 
-	#+BEGIN_SRC
-	(
+	#+BEGIN_SRC scheme
+
+        (define-struct ir (name price))
+	;; sort : (listof number) -> (listof number)
+	;; sort a list of numbers in descending order
+	(define (isort alon)
+	  (local ((define (sort alon)
+	            (cond
+	              ((empty? alon) empty)
+                      (else (insert (first alon) (sort (rest alon))))))
+                  (define (insert n alon)
+                    (cond
+                      ((empty? alon) (list n))
+                      (else
+                       (cond
+                         ((> n (first alon)) (cons n alon))
+                         (else (cons (first alon) 
+                                     (insert n (rest alon)))))))))
+           (sort alon)))
+	
+        (equal? (isort (list 4 2 1 1 20 3)) (list 20 4 3 2 1 1))
+        (equal? (isort (list 50 1 2 22 23)) (list 50 23 22 2 1))
+        (define (>ir ir1 ir2)
+          (> (ir-price ir1) (ir-price ir2)))
+	;; sort-ir : (listof IR) -> (listof IR)
+	;; sort a list of inventory-records in 
+	;; descending order of price.
+	(define (sort-ir aloir)
+	  (local ((define (sort-ir aloir)
+	            (cond
+                      ((empty? aloir) empty)
+                      (else (insert (first aloir)
+                                    (sort-ir (rest aloir))))))
+                  (define (insert ir aloir)
+                    (cond
+                      ((empty? aloir) (list ir))
+                      (else (cond
+                              ((>ir ir (first aloir))
+                               (cons ir aloir))
+                              (else (cons (first aloir)
+                                          (insert ir (rest aloir)))))))))
+             (sort-ir aloir)))
+
+        
+        (equal? (sort-ir (list (make-ir 'dog 12) (make-ir 'cat 44)))
+                (list (make-ir 'cat 44) (make-ir 'dog 12)))
+        (equal? (sort-ir (list (make-ir 'rocket 44)
+                               (make-ir 'car 66)
+                               (make-ir 'doll 12)
+                               (make-ir 'engine 555)))
+                (list (make-ir 'engine 555)
+                      (make-ir 'car 66)
+                      (make-ir 'rocket 44)
+                      (make-ir 'doll 12)))
+        ;; Abstraction: compare the differences 
+;
+;	;; sort : (listof number) -> (listof number)
+;	;; sort a list of numbers in descending order
+;	(define (sort alon)
+;	  (local ((define (sort alon)
+;	            (cond
+;	              ((empty? alon) empty)
+;                      (else (insert (first alon) (sort (rest alon))))))
+;                  (define (insert n alon)
+;                    (cond
+;                      ((empty? alon) (list n))
+;                      (else
+;                       (cond
+;                         ((|>| n (first alon)) (cons n alon))
+;                         (else (cons (first alon) 
+;                                     (insert n (rest alon)))))))))
+;           (sort alon)))
+;	
+;        (define (>ir ir1 ir2)
+;          (> (ir-price ir1) (ir-price ir2)))
+;	;; sort-ir : (listof IR) -> (listof IR)
+;	;; sort a list of inventory-records in 
+;	;; descending order of price.
+;	(define (sort-ir aloir)
+;	  (local ((define (sort-ir aloir)
+;	            (cond
+;                      ((empty? aloir) empty)
+;                      (else (insert (first aloir)
+;                                    (sort-ir (rest aloir))))))
+;                  (define (insert ir aloir)
+;                    (cond
+;                      ((empty? aloir) (list ir))
+;                      (else (cond
+;                              ((|>ir| ir (first aloir))
+;                               (cons ir aloir))
+;                              (else (cons (first aloir)
+;                                          (insert ir (rest aloir)))))))))
+;             (sort-ir aloir)))
+;
+;        ;; the difference is only in the comparison function. So, we need a function that 
+;        ;; consumes a comparison function and returns a sort function that sorts with that
+;        ;; comparison  operator.
+;
+	;; abs-sort : (X X -> boolean) -> ((listof X) -> (listof X))
+	;; produces a function that will sort a list of X according to the 
+	;; comparison function compare.
+	(define (abs-sort compare?)
+	  (local ((define (sort alox)
+	            (cond
+	             ((empty? alox) empty)
+	             (else (cons (insert (first alox)
+	                                 (sort (rest alox)))))))
+	          (define (insert x alox)
+	            (cond
+	              ((empty? alox) (list x))
+	              (else (cond
+	                      ((compare? x (first alox)) (cons x alox))
+	                      (else (cons (first alox)
+	                                  (insert x (rest alox)))))))))
+	    sort))
+	
+        (define sort-ir2 (abs-sort >ir))
+        (define sort2 (abs-sort >))
+
+        (define sortlist1 (list 4 23 2 1))
+        (define sortlist2 (list 6 2 19 28 2 10 100))
+
+        (define sortirlist1 (list (make-ir 'robot 22) (make-ir 'cat 23) (make-ir 'rocket 102)))
+        (define sortirlist2 (list (make-ir 'rocket 49) (make-ir 'car 209) (make-ir 'doll 22)))
+
+        (equal? (sort2 sortlist1) (isort sortlist1))
+        (equal? (sort2 sortlist2) (isort sortlist2))
+        (equal? (sort-ir2 sortirlist1) (sort-ir sortirlist1))
+        (equal? (sort-ir2 sortirlist2) (sort-ir sortirlist2))
+	#+END_SRC
+
+      - Exercise 22.2.3. Define fold using the new recipe for
+        abstraction. Recall that fold abstracts the following pair of
+        functions:
+	
+	#+BEGIN_SRC scheme
+	;; sum : (listof number) -> number
+	;; to compute the sum of alon
+	(define (sum alon)
+	  (cond
+	    [(empty? alon) 0]
+	    [else (+ (first alon) 
+                     (sum (rest alon)))]))
+ 
+        (equal? (+ 1 2 3 4) (sum (list 1 2 3 4)))
+        (equal? (+ 2 4 6 8 10) (sum (list 2 4 6 8 10)))
+
+	;; product : (listof number) -> number
+	;; to compute the product of alon
+	(define (product alon)
+	  (cond
+	    [(empty? alon) 1]
+	    [else (* (first alon)
+                     (product (rest alon)))]))
+
+        (equal? (* 1 2 3) (product (list 1 2 3)))
+        (equal? (* 1 2 3 4 5 6) (product (list 1 2 3 4 5 6)))
+        ;; As always, we do a highlighting of differences:
+;	;; sum : (listof number) -> number
+;	;; to compute the sum of alon
+;	(define (sum alon)
+;	  (cond
+;	    [(empty? alon) |0|]
+;	    [else (|+| (first alon) 
+;                     (sum (rest alon)))]))
+;	;; product : (listof number) -> number
+;	;; to compute the product of alon
+;	(define (product alon)
+;	  (cond
+;	    [(empty? alon) |1|]
+;	    [else (|*| (first alon)
+;                     (product (rest alon)))]))
+;
+
+        ;; and, now that we see the differences we replace them with a parameter. 
+        ;; this time the parameter(s) are given to a 'prefix' abstract function that
+        ;; generates another function using a local definition. There are two parameters,
+        ;; one is a 'base', and the other is an actual function, 'folder'. The base
+        ;; is the result to return on an empty list and the folder takes an element from the list
+        ;; and a result from the fold and applies the two, returning that as the result of the
+        ;; fold function. These parameters are introduced into the lexical scope of a lcoally
+        ;; defined fold function which 'remembers' them and uses them as values in it's definition.
+        ;; we return this function as the concrete result of the abstract fold function.
+
+        ;; fold : (X Y -> Y) -> ((listof X) Y -> Y)
+        (define (fold folder base)
+          (local ((define (fold alox)
+                    (cond
+                      ((empty? alox) base)
+                      (else (folder (first alox)
+                                    (fold base (rest alox)))))))
+            fold))
+
+        (define product1 (fold * 1))
+        (define sum1 (fold + 0))
+
+        (define prod1lst (list 10 7 7 28 1 2 30))
+        (define prod2lst (list 10 7 8 9 1  200 3 2 1))
+        (define sum1lst (list 1 2  10 2 3 4 300 1 20))
+        (define sum2lst (list 1 5 0 1 203 27 28 320 32))
+        (equal? (product1 prod1lst) (product prod1lst))
+        (equal? (product1 prod2lst) (product prod2lst))
+ 
+        (equal? (sum1 sum1lst) (sum sum1lst))
+        (equal? (sum1 sum2lst) (sum sum2lst))
+	#+END_SRC
+
+	
+	
+*** 22.3 A First Look at Graphical User Interfaces
+    Functions as first-class values play a central role in the design
+    of graphical user interfaces. The term ``interface'' refers to the
+    boundary between the program and a user. As long as we are the
+    only users we can apply functions to data in DrScheme's
+    Interactions window. If we want others to use our programs,
+    though, we must provide a way to interact with the program that
+    does not require any programming knowledge. The interaction
+    between a program and a casual user is the USER INTERFACE. 
+
+    A GRAPHICAL USER INTERFACE (GUI) is the most convenient interface
+    for casual users. A GUI is a window that contains GUI items. Some
+    of these items permit users to enter text; others are included so
+    that users can apply a specific function; and yet others exist to
+    display a function's results. Examples include _buttons_, in which
+    the user can click with the mouse and which trigger a function
+    application; _choice menus_, from which the user can choose one of
+    a collection of values; _text fields_, into which the user can
+    type arbitrary text; and _message fields_, into which a program
+    can draw text. 
+
+    Take a look at the simple GUI in figure 60. The left-most picture
+    shows its initial state. In that state, the GUI contains a text
+    field labeled ``Name'' and a message field labeled ``Number'' plus
+    a ``LookUp'' button. In the second picture, the user has entered
+    ``Sean'' but hasn't yet clicked the ``LookUp'' button. Finally,
+    the right-most picture shows how the GUI displays the phone number
+    of ``Sean'' after the user clicks the ``LookUp'' button.
+
+    The core of the program is a function that looks up a phone number
+    for a name in the a list. We wrote several versions of this
+    function in part II but always used it with DrScheme's
+    Interactions window. Using the GUI of figure 60, people who know
+    nothing about Scheme can now use our function, too.
+
+    To build a graphical user interface, we build structures that
+    correspond to the GUI items and hand them over to a GUI
+    manager. The latter constructs the visible window from these
+    items. Some of the structures' fields describe the visual
+    properties of the GUI's elements, such as the label of a button,
+    the initial content of a message field, or available choices on a
+    menu. Other fields stand for functions. They are called CALL-BACK
+    FUNCTIONS because the GUI manager calls -- or applies -- these
+    functions when the user manipulates the corresponding GUI
+    element. Upon application, a call-back function obtains strings
+    and (natural) numbers from the elements of the GUI and then
+    applies the function proper. This last step computes answers,
+    which the callback function can place into GUI elements just like
+    graphics functions draw shapes on a canvas.
+
+    The ideal program consists of two completely separate components:
+    the MODEL, which is the kind of program we are learning to design,
+    and a VIEW, which is the GUI program that manages the display of
+    information and the user's mouse and keyboard manipulations. The
+    bridge between teh two is the CONTROL expression. Figure 61
+    graphically illustrates the organization, known as the
+    MODEL-VIEW-CONTROL architecture. The lowest arrow indicates how a
+    program makes up a button along with a call-back function. The
+    left-to-right arrow depicts the mouse-click event and how it
+    triggers an application of the call-back function. It, in turn,
+    uses other GUI functions to obtain user input before it applies a
+    core function or to display the results of the core function.
+
+    The separation of the program into two parts means that the
+    definitions for the model contain no references to the view, and
+    that the definitions for the view contain no references to the
+    data or the functionality of the model. The organization principle
+    evolved over two decades from many good and bad experiences. It
+    has the advantage that, with an adaptation of just the bridge
+    expression, we can use one and the same program with different
+    GUIs and vice versa. Furthermore, the construction of views
+    requires different tools than does the construction of
+    models. Constructing views is a labor-intensive effort that
+    involves graphical design, but fortunately, it is often possible
+    to generate large portions automatically. The construction of
+    models, in contrast, will always demand a serious program design
+    effort. 
+
+    #+BEGIN_EXAMPLE
+    A gui-item is either
+    1. (make-button string (X -> true))
+    2. (make-text string)
+    3. (make-choices (listof string)) or
+    4. (make-message string).
+
+    ;; create-window :(listof (listof gui-item)) -> true
+    ;; to add gui-items to the window and to show the window
+    ;; each list of gui-items defines one row of gui items in the
+    ;; window
+    
+    ;; hide-window : X -> true
+    ;; to hide the window.
+
+    ;; make-button : string (event% -> true) -> gui-item
+    ;; to create a button with label and call-back function
+
+    ;; make-message : string -> gui-item
+    ;; to create an item that displays a message
+
+    ;; draw-message : gui-item[message%] string -> true
+    ;; to display a message in a message item
+    ;; it erases teh current message.
+
+    ;; make-text : string -> gui-item
+    ;; to create an item (with label) that allows users to enter text.
+
+    ;; text-contents : gui-item[text%] -> string
+    ;; to determine the contents of a text field
+
+    ;; make-choice : (listof string) -> gui-item
+    ;; to create a choice menu that permits users to choose from some 
+    ;; string alternatives.
+
+    ;; choice-inded : gui-item[choice%] -> num
+    ;; to determien which choice is currently selected in a
+    ;; choice-item result is the 0-based index in the choice menu
+    #+END_EXAMPLE
+
+    Here we study the simplified GUI world of the teachpack
+    gui.ss. Figure 62 specifies the operations that the teachpack
+    provides. The GUI manager is represented by the function
+    create-window. Its contract and purpose statement are
+    instructive. They explain that we create a window from a list. The
+    function arranges these lists in a corresponding number of rows on
+    the visible window. Each row is specified as a list of
+    gui-items. The data definition for gui-items in figure 62 shows
+    that there are four kinds:
+
+    - Text fields,
+      which are created with (make-text a-string) and allow users to
+      enter arbitrary text into an area in the window;
+    - buttons,
+      which are created with (make-button a-string a-function) and
+      allow users to apply a function with the click of a mouse
+      button;
+    - choice menus,
+      which are created with (make-choice a-list-of-strings) and allow
+      users to pick a choice from a specified set of choices; and
+    - message fields, 
+      which are created with (make-message a-string) and enable the
+      model to inform users of results.
+
+    The function that goes with a button is a function of one
+    argument: an event. For most uses, we can ignore the event; it is
+    simply a token that signals the user's click action. 
+
+    How all this works is best illustrated with examples. Our first
+    example is a canonical GUI program:
+
+    (create-window (list (list (make-button "Close" hide-window))))
+
+    It creates a window with a single button and equips it with the
+    simplest of all call-backs: hide-window, the function that hides
+    the window. When the user clicks the button labeled "Close", the
+    window disappears.
+
+    The second sample GUI copies what the user enters into the text
+    field to a message field. We first create a text field and a
+    message field:
+
+    #+BEGIN_SRC scheme
+    (define a-text-field (make-text "Enter Text:"))
+    (define a-message (make-message "`Hello World' is a silly program"))
+    #+END_SRC
+
+    Now we can refer to these fields in a call-back function:
+
+    #+BEGIN_SRC scheme
+    ;; echo-message : X -> true
+    ;; to extract the contents of a-text-field and to draw it into a-message
+    (define (echo-message e)
+    (draw-message a-message (text-contents a-text-field)))
+    #+END_SRC
+
+    The definition of the call-back function is based on our (domain)
+    knowledge about gui-items. Specifically, the function echo-message
+    obtains the current contents of the text field with text-contents
+    as a string, and it draws its string into the message field with
+    the draw-message function. To put everything together, we create a
+    window with two rows:
+
+    #+BEGIN_SRC scheme
+    (create-window
+     (list (list a-text-field a-message)
+           (list (make-button "Copy Now" echo-message))))
+    #+END_SRC
+
+    The first row contains the text and the message field; the second
+    one contains a button with the label "Copy Now" whose call-back
+    function is echo-message. The user can now enter text into the
+    text field, click the button, and see the text appear in the
+    message field of the window.
+
+    The purpose of the third and last example is to create a window
+    with a choice menu, a message field, and a button. Clicking the
+    button puts the current choice into the message field. As before,
+    we start by defining the input and output gui-items:
+
+    
+
+    
+
+    
+       
 
 	

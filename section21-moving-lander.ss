@@ -245,5 +245,4 @@ function in the relevant high-level function.
 		      (else moved-shape)))))
 	   move-ud)
 	 draw-losh)
-
 		 
