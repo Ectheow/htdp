@@ -1,0 +1,10 @@
+* Section 22
+** Designing Abstractions with First-Class Functions
+   We have seen that functions can consume functions and how important
+   that is for creating single points of control in a function. But
+   functions not only can consume functions, they can also produce
+   them. More precisely, expressions in the new Scheme can evaluate to
+   functions. Because the body of a function definition is also an
+   expression, a function can produce a function. In this section, we
+   first discuss this surprising idea and then show how it is useful
+   for abstracting functions and in other contexts. 

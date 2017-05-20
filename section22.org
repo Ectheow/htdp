@@ -635,7 +635,7 @@
     ;; to create a choice menu that permits users to choose from some 
     ;; string alternatives.
 
-    ;; choice-inded : gui-item[choice%] -> num
+    ;; choice-index : gui-item[choice%] -> num
     ;; to determien which choice is currently selected in a
     ;; choice-item result is the 0-based index in the choice menu
     #+END_EXAMPLE
@@ -720,10 +720,256 @@
     button puts the current choice into the message field. As before,
     we start by defining the input and output gui-items:
 
-    
+    #+BEGIN_EXAMPLE scheme
+    (define THE-CHOICES
+      (list "green" "red" "yellow"))
+    (define a-choice (make-choice THE-CHOICES))
+    (define a-message
+      (make-message (first THE-CHOICES)))
+    #+END_SRC
+
+    Because the list of choices is used more than once in the program,
+    it is specified in a separate variable definition.
+
+    As before, the call-back function for the button interacts with
+    a-choice and a-message:
+
+    #+BEGIN_SRC scheme
+    ;; echo-choice : X -> true
+    ;; to determine the current choice of a-choice and to draw 
+    ;; the corresponding string into a-message
+    (define (echo-choice e)
+      (draw-message a-message
+                    (list-ref THE-CHOICES
+                              (choice-index a-choice))))
+    #+END_SRC
+
+    Specifically, the call-back function finds the 0-based index of a
+    user's current choice with choice-index, uses Scheme's list-ref
+    function to extract the corresponding string from THE-CHOICES, and
+    then draws the result into the message field of the window. To
+    create the window, we arrange a-choice and a-message into one row
+    and the button in a row below:
+
+    #+BEGIN_SRC scheme
+    (create-window
+     (list (list a-choice a-message)
+           (list (make-button "Confirm Choice" echo-choice))))
+    #+END_SRC
+
+    #+BEGIN_SRC scheme
+    ;; Model: 
+    ;; build-number : (listof digit) -> number
+    ;; to translate a list of digits into a number
+    ;; example : (build-number (list 1 2 3)) = 123
+    (define (build-number x) 
+      (cond ((empty? (rest x)) (first x))
+            (else (+ (* (first x) (expt 10 (length x)))
+                     (build-number (rest x))))))
 
     
+    ;; View: 
+    ;; the ten digits as strings
+    (define DIGITS
+     (build-list 10 number->string))
+     
+    ;; a list of three digit choice menus
+    (define digit-choosers
+      (local ((define (builder i) (make-choice DIGITS)))
+        (build-list 3 builder)))
 
+    ;; a message field for saying hello and displaying the number
+    (define a-msg
+      (make-message "Welcome"))
+    
+
+    ;; Controller:
+    ;; check-call-back : X -> true
+    ;; to get the current choices of digits, convert them into a
+    ;; number, and draw this number as a string into the message
+    ;; field.
+    (define (check-call-back b)
+      (draw-message a-msg
+                    (number->string 
+                     (build-number (map choice-index
+                                        digit-choosers)))))
+
+
+    (create-window
+     (list 
+      (append digit-choosers (list a-msg))
+      (list (make-button "Check Guess" check-call-back))))
+    #+END_SRC
+
+    - Exercise 22.3.1. Modify the program of figure 63 so that it
+      implements the number-guessing game from exercises 5.1.2, 5.1.3,
+      and 9.5.5. Make sure that the number of digits that the player
+      must guess can be changed by editing a single definition in the
+      program.
+
+      #+BEGIN_SRC scheme
+      ;; Model: 
+      ;; build-number : (listof digit) -> number
+      ;; to translate a list of digits into a number
+      ;; example : (build-number (list 1 2 3)) = 123
+      (define (build-number x) 
+        (cond ((empty? (rest x)) (first x))
+              (else (+ (* (first x) (expt 10 (length (rest x))))
+                       (build-number (rest x))))))
+      (define (maximum-value ndigits)
+        (local ((define (nine n) 9))
+          (build-number (build-list (sub1 ndigits) nine))))
+
+      (equal? (maximum-value 1) 9)
+      (equal? (maximum-value 2) 99)
+      
+
+      (define (check-guess guess real-value)
+        (cond
+         ((> guess real-value) 'TooLarge)
+         ((< guess real-value) 'TooSmall)
+         (else 'Perfect)))
+      (equal? (check-guess 5 5) 'Perfect)
+      (equal? (check-guess 4 5) 'TooSmall)
+      (equal? (check-guess 7 5) 'TooLarge)
+
+      (define NDIGITS 5)
+      (define VALUE (random (maximum-value NDIGITS)))
+
+      ;; View: 
+      ;; the ten digits as strings
+      (define DIGITS
+       (build-list 10 number->string))
+       
+      ;; a list of three digit choice menus
+      (define digit-choosers
+        (local ((define (builder i) (make-choice DIGITS)))
+          (build-list NDIGITS builder)))
+      
+      ;; a message field for saying hello and displaying the number
+      (define a-msg
+        (make-message "Welcome"))
+      
+      
+      ;; Controller:
+      ;; check-call-back : X -> true
+      ;; to get the current choices of digits, convert them into a
+      ;; number, and draw this number as a string into the message
+      ;; field.
+      (define (check-call-back b)
+        (draw-message a-msg
+                      (symbol->string
+                       (check-guess 
+                        (build-number (map choice-index
+                                          digit-choosers))
+                        VALUE))))
+      
+      (create-window
+       (list 
+        (append digit-choosers (list a-msg))
+        (list (make-button "Check Guess" check-call-back))))      
+      #+END_SRC scheme
+
+    - Exercise 22.3.2. Develop a program for looking up phone
+      numbers. The program's GUI should consist of a text field, a
+      message field, and a button. The text field permits users to
+      enter names. The message field should display the number that
+      the model finds or the message "name not found", if the model
+      produces false. 
+
+      Generalize the program so that a user can also enter a phone
+      number (as a sequence of digits containing no other characters).
+
+      Hints: (1) Scheme provides the function string->symbol for
+      converting a string to a symbol. (2) It also provides the
+      function string->number, which converts a string to a number if
+      possible. If the function consumes a string that doesn't
+      represent a number, it produces false:
+
+      #+BEGIN_SRC scheme
+      (string->number "6670004")
+      = 6670004
+      (string->number "667-0004")
+      = false
+
+      The generalization demonstrates how one and the same GUI can use
+      two distinct models. 
+
+      Real-world GUIs: The graphical user interface in figure 60 was
+      not constructed from the items provided by the teachpack. GUIs
+      constructed with the teachpack's gui-items are primitive. They
+      are sufficient, however, to study the basic principles of GUI
+      programming. The design of real-world GUIs involves graphics
+      designers and tools that generate GUI programs (rather than
+      making them by hand). 
+      
+      -- 
+      We can start by defining the model functions and testing them,
+      then plugging them into the GUi which has basically been given
+      to us in the examples. First, data definitions and function templates:
+      #+BEGIN_SRC scheme
+      #|
+      ;; a PHONE-DIRECTORY is:
+      ;; 1. empty or
+      ;; 2. (cons pbr pd) where pd is a phone-directory and pbr is a
+      ;; phone-book-record.
+      ;; a phone-book-record is:
+      ;; (make-pbr name number) where name is a symbol and number is a
+      ;; number.
+      |#
+      (define-struct pbr (name number))
+
+      #|
+      ;; lookup-phone-number : symbol phone-directory -> number or false
+      ;; finds the phone number of who in the phone-directory a-pd
+      (define (lookup-phone-number who a-pd) ...)
+
+      |# 
+      ;; implementation: We see we are basically searching, something
+      ;; that filter will do. 
+      (define (lookup-phone-number who a-pd)
+        (local ((define (is-person? a-pbr)
+                  (equal? (pbr-name a-pbr) who))
+		(define filter-result (filter is-person? a-pd)))
+          (cond
+           ((false? filter-result) false)
+           (else (pbr-number (first (filter is-person? a-pd)))))))
+
+      (define test-pd1 (list (make-pbr 'john 9996667777)
+                             (make-pbr 'jack 6669998888)
+                             (make-pbr 'max  8889996666)))
+      (equal? (lookup-phone-number 'john test-pd1) 9996667777)
+      (equal? (lookup-phone-number 'jack test-pd1) 6669998888)
+      (equal? (lookup-phone-number 'max test-pd1)  8889996666)
+      (equal? (lookup-phone-number 'noexist test-pd1) false)
+
+      (define a-phone-directory
+       (list (make-pbr 'john 9996668888)
+             (make-pbr 'phillip 8889991111)
+	     (make-pbr 'jack    6668887777)
+	     (make-pbr 'jim  5558889999)))
+
+      (define a-message (make-message "no one now"))
+      (define a-text (make-text "Who are you looking for? "))
+
+      (define (do-lookup e)
+        (local ((define looked-up (lookup-phone-number 
+                                   (string->symbol 
+                                    (text-contents  a-text))
+                                   a-phone-directory)))
+          (cond
+           ((false? looked-up) 
+            (draw-message 
+             a-message 
+             "That person is not in the phonebook"))
+	   (else (draw-message a-message (number->string looked-up))))))
+                             
+
+      (create-window
+       (list (list a-message a-text)
+             (list (create-button "Look up" do-lookup))))
+      #+END_SRC scheme
+    
     
        
 
