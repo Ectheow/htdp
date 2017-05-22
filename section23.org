@@ -1,0 +1,915 @@
+* Section 23
+** Mathematical Examples
+   Applying mathematics to real-world problems requires programs that
+   implement mathematical functions. In many cases, the programs also
+   employ functions that consume and produce functions. Mathematics is
+   therefore a great starting point for practicing programming with
+   functions and, more generally, for creating abstract functions.
+
+   The first subsection covers sequences and series, a key element of
+   mathematics. The second section discusses integration, which relies
+   heavily on series. Finally, the third section introduces function
+   differentiation. 
+
+*** 23.1 Sequences and Series
+    In pre-algebra and algebra, we encounter _sequences_ (also known
+    as progressions) of numbers. Here are three examples:
+    
+    1. 0, 2, 4, 6, 8; 
+    2. 1, 3, 5, 7, 9;
+    3. 5, 10, 15, 20, 25.
+    
+    The first two enumerate the first five even and odd numbers,
+    respectively; the last one lists the first five positive integers,
+    evenly divisible by 5. Sequences can also be infinite:
+
+    1. 0, 2, 4, 6, 8, ....;
+    2. 1, 3, 5, 7, 9, ....;
+    3. 5, 10, 15, 20, 25, ...;
+
+    Following mathematical tradition, sequences end in ``...'' and the
+    reader must determine how to find more terms of the sequence.
+
+    One way to understand sequences of numbers, especially infinite
+    ones, is to match them up with an enumeration of the natural
+    numbers. For example, the even and odd (natural) numbers match up
+    like this:
+
+    |-------+---+---+---+---+---+----+----+----+----+----+-----|
+    | index | 0 | 1 | 2 | 3 | 4 |  5 |  6 |  7 |  8 |  9 | ... |
+    |-------+---+---+---+---+---+----+----+----+----+----+-----|
+    | evens | 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 18 | ... |
+    | odds  | 1 | 3 | 5 | 7 | 9 | 11 | 13 | 15 | 17 | 19 | ... |
+    |-------+---+---+---+---+---+----+----+----+----+----+-----|
+
+    
+    It is easy to see from this table that every even number is 2 * i
+    for its index i and that an odd number is 2 * i + 1. 
+
+    Both statements can be translated into simple Scheme functions:
+
+    #+BEGIN_SRC scheme
+    ;; make-even : N -> N[even]
+    ;; to compute the i-th even number
+    (define (make-even i)
+      (* 2 i))
+
+    ;; make-odd : N -> N[odd]
+    ;; to compute the i-th odd number
+    (define (make-odd i)
+      (+ (* 2 i) 1))
+    #+END_SRC
+
+    In short, functions from natural numbers to numbers are
+    reperesentations of infinite sequences.
+
+    A mathematical _series_ is the sum of a sequence. The three finite
+    sequences have the sums 20, 25, and 75, respectively. In the case
+    of infinite sequences it is often interesting to consider a finite
+    portion, starting with the first one. For example, adding the
+    first 10 even numbers yields 90, and adding the first 10 odd
+    numbers yields 100. Computing a series is clearly a job for a
+    computer. Here are the functions that add up the first n odd or
+    even numbers, respectively, using make-even and make-odd to
+    compute the required numbers:
+
+    #+BEGIN_SRC scheme
+    ;; series-even : N -> number
+    ;; to sum up the first n even numbers
+    (define (series-even n)
+      (cond
+        [(= n 0) (make-even n)]
+	[else (+ (make-even n)
+                 (series-even (- n 1)))]))
+
+    ;; series-odd : N -> number
+    ;; to sum up the first n odd numbers
+    (define (series-odd n)
+      (cond
+        [(= n 0) (make-odd n)]
+        [else (+ (make-odd n)
+                 (series-odd (- n 1)))]))
+    #+END_SRC
+
+    The two functions are natural canditates for abstraction and here
+    is the result of following our basic abstraction recipe:
+
+    #+BEGIN_SRC scheme
+    ;; series : N (N -> number) -> number
+    ;; to sum up the first n numbers in the sequence a-term
+    (define (series n a-term)
+      (cond
+        [(= n 0) (a-term n)]
+	[else (+ (a-term n)
+                 (series (- n 1) a-term))]))
+    #+END_SRC
+
+    The first argument specifies where the addition starts. The second
+    argument of series is a function that maps a natural number to the
+    corresponding term in the series. To test series, we apply it to
+    make-even and make-odd:
+
+    #+BEGIN_SRC scheme
+    ;; series-even1 : N -> number
+    (define (series-even1 n)
+      (series n make-even))
+
+    ;; series-odd1 : N -> number
+    (define (series-odd1 n)
+      (series n make-odd))
+    #+END_SRC
+
+    For over a century, mathematicians have used the Greek symbol
+    Sigma to communicate abuit series. The two series above would have
+    been expressed as
+
+    A true (lazy) mathematician would also replace make-evena nd
+    make-odd by their definitions, that is, 2*i and 2*i + 1, but we
+    refrain from doing so to emphasize the analogy to our
+    (well-organized) functions.
+    
+    - Exercise 23.1.1. Use local to create series-local from
+      series-even and series-odd. Show with a hand-evaluation that
+      (series-local make-even) is equivalent to series-even.
+
+      #+BEGIN_SRC scheme
+      ;; 'boxed' differences
+      ;; series-even : N -> number
+      ;; to sum up the first n even numbers
+      (define (series-even n)
+        (cond
+          [(= n 0) (|make-even| n)]
+      	[else (+ (|make-even| n)
+                   (series-even (- n 1)))]))
+      
+      ;; series-odd : N -> number
+      ;; to sum up the first n odd numbers
+      (define (series-odd n)
+        (cond
+          [(= n 0) (|make-odd| n)]
+          [else (+ (|make-odd| n)
+                   (series-odd (- n 1)))]))
+      
+      ;; we pull these differences out, into a larger function with a single
+      ;; parameter (since that's the number of different function/variable names), and
+      ;; rename it to a-term.
+
+      (define (series-local a-term)
+        (local ((define (series n)
+                  (cond ((= n 0) (a-term n))
+                        (else (+ (make-term n)
+                                 (series (- n 1)))))))
+          series))
+      (define series-even (series-local make-even))
+      (define series-odd  (series-local make-odd))
+
+        (series-even 2)
+      = ((series-local make-even) 2)
+      = ((local ((define (series n)
+                   (cond ((= n 0) (make-even n))
+                         (else (+ (make-even n)
+                                  (series (- n 1))))))) series) 2)
+      = ((local ((define (series_0 n)
+                   (cond ((= n 0) (make-even n))
+                         (else (+ (make-even n)
+                                  (series_0 (- n 1))))))) series_0) 2)
+      = (define (series_0 n)
+          (cond ((= n 0) (make-even n))
+                (else (+ (make-even n)
+                         (series_0 (- n 1))))))
+        (series_0 2)
+
+      ;; If we apply the normal series function we end up with the same thing by 
+      ;; applying it to 2.
+
+      (define (series-even n)
+        (cond ((= n 0) (make-even n))
+              (else (+ (make-even n)
+                       (series-even (- n 1))))))
+      (series-even 2)
+      ;; we can see that the definition of series-even matches the definition
+      ;; of series_0 completely, except for the name.
+      #+END_SRC      
+*** 23.2 Arithmetic Sequences and Series
+    In an arithmetic sequence
+
+    a_0, a_1, a_2, a_3, ..., a_n, a_n+1, ...
+
+    each successor term a_n+1 is the result of adding a fixed constant
+    to a_n. Here is a concrete example, matched up with the natural
+    numbers
+
+    | index               | 0 |  1 |  2 |  3 |   4 | ... |
+    |---------------------+---+----+----+----+-----+-----|
+    | Arithmetic sequence | 8 | 13 | 18 | 23 | ... |     |
+    |---------------------+---+----+----+----+-----+-----|
+
+    Here  the starting point is 3 and the constant is 5. From these
+    two facts, called _starting point_ and _summand_, respectively,
+    all other terms in the sequence can be determined.
+
+    - Exercise 23.2.1. Develop the recursive function a-fives, which
+      consumes a natural number and recursively determines the
+      corresponding term in the above series.
+
+      #+BEGIN_SRC scheme
+      ;; a-fives : number -> number
+      ;; computes the nth term in the sequence 
+      ;; 8, 13, 18, 23, ...
+      (define (a-fives n) ...)
+
+      (= (a-fives 0) 8)
+      (= (a-fives 1) 13)
+      (= (a-fives 2) 18)
+      #+END_SRC
+
+      #+BEGIN_SRC 
+      (define (a-fives n)
+        (cond
+          ((= n 0) ...)
+          (else ... (a-fives (- n 1)))))
+      #+END_SRC
+
+      Now, if n is 0, we should return 8, by the definition of the
+      series. Otherwise, we should return 5 plus whatever value
+      a-fives returns recursively, assuming the function is correct.
+
+      #+BEGIN_SRC 
+      (define (a-fives n)
+        (cond
+          ((= n 0) 8)
+          (else (+ 5 (a-fives (- n 1))))))
+      #+END_SRC
+
+    - Exercise 23.2.2. Develop the non-recursive function
+      a-fives-closed. It consumes a natural number and determines the
+      corresponding term in the above series. a non-recursive function
+      is sometimes called a _closed form_. 
+
+      #+BEGIN_SRC scheme
+      (define (a-fives-closed n)
+        (+ 8 (* 5 n)))
+      (= (a-fives-closed 0) 8)
+      (= (a-fives-closed 1) 13)
+      (= (a-fives-closed 2) 18)
+      #+END_SRC
+
+    - Exercise 23.2.3. Use series to determine the sum of the a-fives
+      sequence for the bounds 3, 7, and 88. Can an infinite arithemtic
+      series have a sum? 
+
+      (series 3 a-fives)
+      62
+      (series 7 a-fives)
+      204
+      (series 88 a-fives) 
+      20292
+
+      The constant could be 0, so it could have a sum.
+
+    - Exercise 23.2.4. Develop the function seq-a-fives, which
+      consumes a natural number n and creates the sequence of the
+      first n terms according to a-fives or a-fives-closed *Hint* use
+      build-list.
+      
+      #+BEGIN_SRC scheme
+      (define (seq-a-fives n)
+        (build-list n a-fives))
+      (equal? (seq-a-fives 4)
+              '(8 13 18 23))
+      #+END_SRC
+
+    - Exercise 23.2.5. Develop arithmetic-series. The function
+      consumes two numbers: start and s. Its result is a function that
+      represents the arithmetic series whose starting point is start
+      and whose summand is s. For example, (arithmetic series 8 5)
+      yields a-fives (or a-fives-closed). Similarly,
+      (arithmetic-series 0 2) produces a function that represents a
+      series of even numbers. 
+      
+      #+BEGIN_SRC scheme
+      ;; arithmetic-series : number number -> (number -> number)
+      ;; produces a function that represents the arithmetic series
+      ;; that starts at start and whose summand is s.
+      (define (arithmetic-series start s) ...)
+
+      (define five-series (arithmetic-series 8 5))
+      (define evens (arithmetic-series 0 2))
+      (= (five-series 0) 8)
+      (= (five-series 2) 18)
+      (= (five-series 3) 23)
+      (= (evens 0) 0)
+      (= (evens 1) 2)
+      (= (evens 3) 6)
+
+      (define (five-series n)
+        (cond
+          ((= n 0) 8)
+          (else (+ 5 (five-series (- n 1))))))
+      (define (evens n)
+        (cond ((= n 0) 0) (else (+ 2 (evens (- n 1))))))
+
+      (define (five-series n)
+        (cond
+          ((= n 0) |8|)
+          (else (+ |5| (five-series (- n 1))))))
+      (define (evens n)
+        (cond ((= n 0) |0|) (else (+ |2| (evens (- n 1))))))        
+
+      ;; we make the differences, the base case and the thing to add, 
+      ;; new parameters tothe generator function, and call them something 
+      ;; else and general in the body. 
+      (define (arithmetic-series start s)
+        (local ((define (series n)
+                  (cond
+                    ((= n 0) start)
+                    (else (+ s (series (- n 1)))))))
+          series))
+      #+END_SRC
+*** 23.3 Geometric Sequences and Series
+    In a geometric sequence
+
+    #+BEGIN_SRC scheme
+    g_0,g_1,g_2,g_3,...,g_n,g_n+1,
+    #+END_SRC
+
+    each successor term g_n+1 is the result of multiplying a fixed
+    constant with g_n. Here is a concrete example, matched up with the
+    natural numbers:
+
+    | index              | 0 |  1 |  2 |   3 |    4 | ... |
+    |--------------------+---+----+----+-----+------+-----|
+    | geometric sequence | 3 | 15 | 75 | 375 | 1875 | ... | 
+    
+    Here the starting point is 3 and the constant is 5. From these,
+    called _starting point_ and _factor_, respectively, every other
+    term in the sequence is determined.
+
+    - Exercise 23.3.1. Develop the recursive function g-fives, which
+      consumes a natural number and recursively determines the
+      corresponding term in the above geometric sequence.
+
+      We can see that it takes a natural number. For the base case of
+      0, the result of the function should be 3. For any other case,
+      it should be the factor multiplied by the previous term in teh
+      series, which we will get by calling the function on n-1. 
+
+      #+BEGIN_SRC scheme
+      (define (g-fives n)
+        (cond ((= n 0) 3) (else (* 5 (g-fives (- n 1))))))
+      (= (g-fives 0) 3)
+      (= (g-fives 1) 15)
+      (= (g-fives 2) 75)
+      (= (g-fives 3) 375)
+      (= (g-fives 4) 1875)
+      #+END_SRC
+
+    - Exercise 23.3.2. Develop the non-recursive function
+      g-fives-closed. It consumes a natural number and recursively
+      determines the corresponding term in the above geometric
+      sequence.
+
+      We can see that we could make a algebraic expression, namely,
+      the starting point times the factor to the nth power:
+
+      s*(f^n)
+
+      #+BEGIN_SRC scheme
+      (define (g-fives-closed n) (* 3 (expt 5 n)))
+      (equal? (build-list 10 g-fives) (build-list 10 g-fives-closed))
+      #+END_SRC
+
+    - Exercise 23.3.3. Develop the function seq-g-fives, which
+      consumes a natural number n and creates the sequence of the
+      first n terms according to g-fives or g-fives-closed. 
+
+      #+BEGIN_SRC scheme
+      (define (seq-g-fives n) (build-list n g-fives))
+      (equal? (seq-g-fives 1) (list 3))
+      (equal? (seq-g-fives 4) (list 3 15 75 375))
+      #+END_SRC
+
+    - Exercise 23.3.4. Develop geometric-series. The function consumes
+      two numbers: start and s. Its result is a function that
+      represents the geometric series whose starting point is start
+      and whose factor is s. For example, (geometric-series 3 5)
+      yields g-fives or g-fives-closed.
+
+      #+BEGIN_SRC scheme
+      ;; geometric-series : number number -> (number -> number)
+      ;; produces a function that represents the geometric series
+      ;; whose starting point is start and whose factor is s.
+      ;(define (geometric-series start s) ...)
+      
+      ; tests
+      ;(define series-five (geometric-series 3 5))
+      ;(= (series-five 0) 3)
+      ;(= (series-five 1) (+ 3 15))
+      ;(= (series-five 2) (+ 3 15 75))
+      ;
+      ;(define series-two (geometric-series 1 2))
+      ;(= (series-two 0) 1)
+      ;(= (series-two 1) (+ 1 2))
+      ;(= (series-two 2) (+ 1 2 4))
+      ;(= (series-two 3) (+ 1 2 4 8))
+
+      (define (geometric-series start s)
+        (local ((define (series n)
+                  (cond ((= n 0) start)
+                        (else (* s (series (- n 1)))))))
+           series))
+
+      (define series-five (geometric-series 3 5))
+      (= (series-five 0) 3)
+      (= (series-five 1) 15)
+      (= (series-five 2) 75)
+      
+      (define series-two (geometric-series 1 2))
+      (= (series-two 0) 1)
+      (= (series-two 1) 2)
+      (= (series-two 2) 4)
+      (= (series-two 3) 8)      
+      #+END_SRC
+
+    - Exercise 23.3.5. Use series to determine the sum of g-fives
+      sequence for the bounds 3, 7, and 88. Use series to determine
+      the sum of (geometric-series 1 .1) for the bounds 3, 7,
+      and 88. Can an infinite geometric series have a sum? 
+
+      the value for (geometric-series 1 .1) settles into 1.11
+      repeating, it seems like there can be a finite value, certainly,
+      this series approaches a finite value so that technically if you
+      imagine a series taking in an infinite number of terms the value
+      would settle.
+**** Taylor Series
+     Mathematical constants like π or 𝑒 or functions like sin, cos,
+     log are difficult to compute. Since these functions are important
+     for many daily engineering applications, mathematicians have
+     spent a lot of time and energy looking for better ways to compute
+     these functions. One method is to replace a function with its
+     Taylor series, which is, roughly speaking, an infinitely long
+     polynomial.
+
+     A _Talor series_ is the sum of a sequence of terms. In contrast
+     to arithmetic or geometric sequences, the terms of a taylor
+     series depend on two unknowns: some variable x and the position i
+     in the sequence. Here is the Taylor series for the exponential
+     function:
+
+     #+BEGIN_EXAMPLE 
+     𝑒^x = 1 + x/(1!) + x^2/(2!) + x^3/(3!) + ...
+     #+END_EXAMPLE
+
+     That is, if we wish to compute 𝑒^x for any specific x, we replace
+     x with the number and determine the value of the series. In other
+     words, for a specific value of x, say 1, the Taylor series
+     becomes an ordinary series, that is, a sum of some sequence of
+     numbers:
+
+     #+BEGIN_EXAMPLE
+     𝑒^1 = 1 + 1/(1!) + 1^1/(2!) + 1^3/(3!)
+     #+END_EXAMPLE
+
+     WHile this series is the sum of an infinitely long sequence it is
+     actually a number, and it often suffices to add just the first
+     few terms to have an idea what the number is.
+
+     The key to computing a Taylor series is to formulate each term in
+     the underlying sequence as a function of x and its position i. In
+     our running example, the taylor sequence for the exponential
+     function has the shape
+     
+     #+BEGIN_EXAMPLE
+     x^i/(i!)
+     #+END_EXAMPLE
+
+     Assuming a fixed x, here is an equivalent Scheme definition:
+
+     #+BEGIN_SRC scheme
+     ;; e-taylor : N -> number
+     (define (e-taylor i)
+       (/ (expt x i) (! i)))
+      
+     ;; ! : N -> number
+     (define (! n)
+       (cond ((= n 0) 1) (else (* n (! (sub1 n))))))
+     #+END_SRC
+     
+     The first function computes the term; the second computes the
+     factorial of a natural number. To compute the value of 𝑒^x, we
+     now just need to ask for (series 10 e-taylor), assuming we want
+     the first 10 items of the sequence included.
+
+     Putting everything together, we can define a function that
+     computes the xth power of e. Since the function requires two
+     auxiliaries, we use a local:
+     
+     #+BEGIN_SRC scheme
+     (define (e-power x)
+       (local ((define (e-taylor i)
+                 (/ (expt x i) (! i)))
+               (define (! n)
+                 (cond
+                   ((= n 0) 1)
+                   (else (* n (! (sub1 n)))))))
+          (series 10 e-taylor)))
+     #+END_SRC
+
+     - Exercise 23.3.6. Replace 10 by 3 in the definition of e-power
+       and evaluate (e-power 1) by hand. Show only those lines that
+       contain new applications of e-taylor to a number.
+
+       #+BEGIN_SRC scheme
+       (define (e-power x)
+         (local ((define (e-taylor i)
+                   (/ (expt x i) (! i)))
+                 (define (! n)
+                   (cond
+                     ((= n 0) 1)
+                     (else (* n (! (sub1 n)))))))
+           (series 3 e-taylor)))
+        (define (series n a-term)
+          (cond ((= n 0) (a-term 0))
+                (else (+ (a-term n) (series (sub1 n) a-term)))))
+
+         (e-power 1)
+       = (local ((define (e-taylor i)
+                   (/ (expt 1 i) (! i)))
+                 (define (! n)
+                   (cond ((= n 0) 1) (else (* n (! (sub1 n)))))))
+           (series 3 e-taylor))
+
+       = (local ((define (e-taylor_0 i)
+                   (/ (expt 1 i) (!_0 i)))
+                 (define (!_0 n)
+                   (cond ((= n 0) 1) (else (* n (!_0 (sub1 n)))))))
+         (series 3 e-taylor_0))
+
+       = (define (e-taylor_0 i)
+                   (/ (expt 1 i) (!_0 i)))
+         (define (!_0 n)
+           (cond ((= n 0) 1) (else (* n (!_0 (sub1 n))))))
+
+         (series 3 e-taylor_0)
+         ;; (lifted definitions will not be repeatedly displayed)
+       = (cond 
+           ((= 3 0) (e-taylor_0 0))
+           (else (+ (e-taylor_0 3) 
+                    (series (sub1 3) e-taylor_0))))
+       = (cond
+           (false (e-taylor_0 0))
+           (else (+ (e-taylor_0 3)
+                    (series (sub1 3) e-taylor_0))))
+       = (cond 
+           (else (+ (e-taylor_0 3)
+                    (series (sub1 3) e-taylor_0))))
+       = (+ (e-taylor_0 3)
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ (expt 1 3) (!_0 3))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (!_0 3))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (cond ((= 0 3) 1) (else (* 3 (!_0 (sub1 3))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (cond (false 1) (else (* 3 (!_0 (sub1 3))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (cond (else (* 3 (!_0 (sub1 3))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (!_0 (sub1 3))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (!_0 2)))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (cond ((= 0 2) 1) (else (* 2 (!_0 (sub1 2)))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (cond (false 1) (else (* 2 (!_0 (sub1 2)))))))
+            (series (sub1 3) e-taylor_0))             
+       = (+ (/ 1 (* 3 (cond (else (* 2 (!_0 (sub1 2)))))))
+            (series (sub1 3) e-taylor_0))                    
+       = (+ (/ 1 (* 3 (* 2 (!_0 (sub1 2)))))
+            (series (sub1 3) e-taylor_0))                    
+       = (+ (/ 1 (* 3 (* 2 (!_0 1))))
+            (series (sub1 3) e-taylor_0))   
+       = (+ (/ 1 (* 3 (* 2 (cond ((= 0 1) 1) (else (* 1 (!_0 (sub1 1))))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (cond (false 1) (else (* 1 (!_0 (sub1 1))))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (!_0 (sub1 1))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (!_0 0)))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (!_0 0)))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (!_0 0)))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (cond ((= 0 0) 1) (else (* 0 (!_0 (sub1 0)))))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 (cond (true 1) (else (* 0 (!_0 (sub1 0)))))))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 (* 1 1))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 (* 2 1))))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 (* 3 2)))
+            (series (sub1 3) e-taylor_0))
+       = (+ (/ 1 6)
+            (series (sub1 3) e-taylor_0))
+       = (+ 1/6
+            (series (sub1 3) e-taylor_0))
+       = (+ 1/6
+            (series 2 e-taylor_0))
+       = (+ 1/6
+            (cond ((= 2 0) (e-taylor_0 0))
+                  (else (+ (e-taylor_0 2)
+                           (series (sub1 2) e-taylor_0)))))
+       = (+ 1/6
+            (cond (false (e-taylor_0 0))
+                  (else (+ (e-taylor_0 2)
+                           (series (sub1 2) e-taylor_0))))) 
+       = (+ 1/6
+            (cond (else (+ (e-taylor_0 2)
+                           (series (sub1 2) e-taylor_0))))) 
+       = (+ 1/6
+            (+ (e-taylor_0 2)
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ (expt 1 2) (!_0 2))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (!_0 2))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (cond ((= 2 0) 1) (else (* 2 (!_0 (sub1 2))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (cond (false 1) (else (* 2 (!_0 (sub1 2))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (cond  (else (* 2 (!_0 (sub1 2))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 (!_0 (sub1 2))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 (!_0 1)))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 (cond ((= 1 0) 1) (else (* 1 (!_0 (sub1 1)))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 (cond (false 1) (else (* 1 (!_0 (sub1 1)))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 (cond (else (* 1 (!_0 (sub1 1)))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 (!_0 (sub1 1)))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 (!_0 0))))
+                           (series (sub1 2) e-taylor_0))) 
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 (!_0 0))))
+                           (series (sub1 2) e-taylor_0))) 
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 (cond ((= 0 0) 1) (else (* 0 (!_0 (sub1 0))))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 (cond (true 1) (else (* 0 (!_0 (sub1 0))))))))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2  (* 1 1)))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 (* 2 1))
+                           (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ (/ 1 2)
+               (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ 1/2
+               (series (sub1 2) e-taylor_0)))
+       = (+ 1/6
+            (+ 1/2
+               (series 1 e-taylor_0)))
+       = (+ 1/6
+            (+ 1/2
+               (series 1 e-taylor_0)))
+       = (+ 1/6
+            (+ 1/2
+               (cond ((= 1 0) (e-taylor_0 0))
+                     (else (+ (e-taylor_0 1) 
+                              (series (sub1 1) e-taylor_0))))))
+       = (+ 1/6
+            (+ 1/2
+               (cond (false (e-taylor_0 0))
+                     (else (+ (e-taylor_0 1) 
+                              (series (sub1 1) e-taylor_0))))))
+       = (+ 1/6
+            (+ 1/2
+               (cond (else (+ (e-taylor_0 1) 
+                              (series (sub1 1) e-taylor_0))))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (e-taylor_0 1) 
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ (expt 1 1) (!_0 1))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (!_0 1))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (cond ((= 0 1) 1) (else (* 1 (!_0 (sub1 1))))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (cond (false 1) (else (* 1 (!_0 (sub1 1))))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (cond  (else (* 1 (!_0 (sub1 1))))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 (!_0 (sub1 1))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 (!_0 (sub1 n))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 (!_0 0)))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 (cond ((= 0 0) 1) (else (* 0 (!_0 (sub1 0)))))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 (cond (true 1) (else (* 0 (!_0 (sub1 0)))))))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 (* 1 1))
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ (/ 1 1)
+                              (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1
+                  (series (sub1 1) e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1
+                  (series 0 e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1
+                  (series 0 e-taylor_0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1
+                  (cond
+                    ((= 0 0) (e-taylor_0 0))
+                    (else (+ (e-taylor_0 0) (series (sub1 0) e-taylor_0)))))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1
+                  (cond
+                    (true (e-taylor_0 0))
+                    (else (+ (e-taylor_0 0) (series (sub1 0) e-taylor_0)))))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 (e-taylor_0 0))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 (/ (expt 1 0) (!_0 0)))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 (/ 1 (!_0 0)))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 (/ 1 (cond ((= 0 0) 1) (else (* 0 (!_0 (sub1 0)))))))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 (/ 1 (cond (true 1) (else (* 0 (!_0 (sub1 0)))))))))
+       = (+ 1/6
+            (+ 1/2
+               (+ 1 1)))
+       = (+ 1/6
+            (+ 1/2
+               2))
+       = 2.6 repeating, the same value as evaluting in drracket.
+         
+       #+END_SRC
+
+       The results of e-power are fractions with large numerators and
+       denominators. In contrast, Scheme's built-in exp function
+       produces an inexact number. We can turn exact fractions into
+       inexact numbers with the following function:
+
+       #+BEGIN_SRC scheme
+       ;; exact->inexact : number [exact] -> number [inexact]
+       #+END_SRC
+
+       Test the function and add it to e-power's body. Then compare
+       the results of exp and e-power. Increase the number of items in
+       the series until the difference between the results is small.
+
+     - Develop the function ln, which computes the Taylor series for
+       the natural logarithm. The mathematical definition of the
+       series is
+
+       #+BEGIN_EXAMPLE
+       ln(x) = 2 * [((x - 1)/(x + 1)) + (1/3)*((x - 1)/(x + 1))^3 + ...]
+       #+END_SRC
+
+       This Taylor series has a value for all x that are greater
+       than 0. 
+
+       DrScheme also provides log, a primitive for computing the
+       natural logarithm. Compare the results for ln and log. Then use
+       exact->inexact to get results that are easier to compare.
+
+       We already have the definition for series, so we just need to
+       define a local function for the terms for this specific series.
+
+       #+BEGIN_SRC scheme
+       (define (ln x)
+         (local ((define (odd n)
+                   (cond ((= n 0) 1)
+                         (else (+ 2 (odd (sub1 n))))))
+                 (define (a-term n)
+                   (* (/ 1 (odd n))
+                      (expt (/ (- x 1) (+ x 1)) (odd n)))))
+            (* 2 (series 10 a-term))))
+       #+END_SRC
+
+     - Exercise 23.3.8. Develop the function my-sin, which computes
+       the Taylor series for sin, one of the trigonometric
+       functions. The Taylor series is defined as follows:
+
+       #+BEGIN_SRC scheme
+       sin(x) = x/1! - x^3/3! + x^5/5! - x^7/7! ...
+       #+END_SRC
+
+       It is defined for all x.
+
+       Hint: The sign of a term is positive if the index is even and
+       negative if otherwise. Mathematicians compute (-1)^i to
+       determine the sign; programmers can use cond instead.
+
+       #+BEGIN_SRC scheme
+       (define (my-sin x)
+         (local ((define (odd? n)
+                   (cond
+                     ((= n 1) true)
+                     (else (even? (sub1 n)))))
+                 (define (even? n)
+                   (cond
+                     ((= n 0) true)
+                     (else (odd? (sub1 n)))))
+                 (define (odd n)
+                   (cond ((= n 0) 1) (else (+ 2 (odd (sub1 n))))))
+                 (define (! n)
+                   (cond ((= n 0) 1) (else (* n (! (sub1 n))))))
+                 (define (a-term n)
+                   (local ((define base (/ (expt x (odd n)) (! (odd n)))))
+                     (cond ((odd? n) (* -1 base))
+                           (else base)))))
+            (series 10 a-term)))
+       #+END_SRC
+
+     - Exercise 23.3.9. Mathematicians have used series to determine
+       the value of 𝝅 for many centuries. Here is the first such
+       sequence, discovered by Gregory (1638-1675):
+
+       𝝅 = 4⋅[1 - 1/3 + 1/5 - 1/7 ...].
+
+       Define the function greg, which maps a natural number to the
+       corresponding term in this sequence. Then use series to
+       determine approximations of the value of 𝝅. 
+
+       #+BEGIN_SRC scheme
+       (define (greg n)
+         (local ((define base (/ 1 (odd n))))
+           (cond ((odd? base) (* -1 base))
+                 (else base))))
+       #+END_SRC
+
+** 23.4 The Area Under a Function
+   Consider the function graph in figure 64. Suppose we wish to know
+   the area between the x axis, the fat lines labeled a and b, and the
+   graph. Determining the area under the graph of a function for some
+   specific interval is called _integrating a function_. Since
+   enbinneers 
+   
+       
+       
+       

@@ -891,6 +891,7 @@
       = 6670004
       (string->number "667-0004")
       = false
+      #+END_SRC
 
       The generalization demonstrates how one and the same GUI can use
       two distinct models. 
@@ -907,6 +908,7 @@
       We can start by defining the model functions and testing them,
       then plugging them into the GUi which has basically been given
       to us in the examples. First, data definitions and function templates:
+
       #+BEGIN_SRC scheme
       #|
       ;; a PHONE-DIRECTORY is:
@@ -932,7 +934,7 @@
                   (equal? (pbr-name a-pbr) who))
 		(define filter-result (filter is-person? a-pd)))
           (cond
-           ((false? filter-result) false)
+           ((empty? filter-result) false)
            (else (pbr-number (first (filter is-person? a-pd)))))))
 
       (define test-pd1 (list (make-pbr 'john 9996667777)
@@ -970,7 +972,611 @@
              (list (create-button "Look up" do-lookup))))
       #+END_SRC scheme
     
-    
-       
+      Now we generalize the program, so that a user can enter a phone
+      number, and get the name. This will have to do with conditional
+      action on the input from the text-contents of a-text. If it
+      finds a normal name, we look up the number, if it finds a
+      number, we look up the name. This also means we need to make
+      another function in our model that does reverse lookups. We'll
+      do that first. 
 
+      #+BEGIN_SRC
+      ;; reverse-lookup : number phone-directory -> symbol or false
+      ;; lookup the name who owns the phone number n in a-pd. Returns false if 
+      ;; not found.
+      (define (reverse-lookup n a-pd) ...)
+
+      (define test-pd1 (list (make-pbr 'john 9996667777)
+                             (make-pbr 'jack 6669998888)
+                             (make-pbr 'max  8889996666)))
+      (equal? (reverse-lookup 9996667777 test-pd1) 'john)
+      (equal? (reverse-lookup 0000000000 test-pd1) false)
+      (equal? (reverse-lookup 1110001111 test-pd1) false)
+      (equal? (reverse-lookup 8889996666 test-pd1) 'max)
+      #+END_SRC
+
+      Again we can use the filter function since this is a generic
+      list-search type of function.
+
+      #+BEGIN_SRC scheme
+      ;; reverse-lookup : number phone-directory -> symbol or false
+      (define (reverse-lookup n a-pd)
+        (local ((define (is-right-number? a-pbr)
+                  (equal? (pbr-number a-pbr) n))
+                (define filter-result
+                  (filter is-right-number? a-pd)))
+          (cond
+            ((empty? filter-result) false)
+            (else (pbr-name (first filter-result))))))
+      #+END_SRC
+      
+      Now we have modified the model, and it passes our tests, we can
+      modify the controller. The view needs no modification. The
+      controller only needs to detect if a number or name has been
+      entered, and take action accordingly. Our current controller is:
+
+      #+BEGIN_SRC scheme
+      (define (do-lookup e)
+        (local ((define looked-up (lookup-phone-number 
+                                   (string->symbol 
+                                    (text-contents  a-text))
+                                   a-phone-directory)))
+          (cond
+           ((false? looked-up) 
+            (draw-message 
+             a-message 
+             "That person is not in the phonebook"))
+	   (else (draw-message a-message (number->string looked-up))))))
+      #+END_SRC
+         
+      To make it work, we need to save the text-contents into a local
+      definition, and test to see if it's a number using
+      string->number. If this is false, it is a name so we should do a
+      regular name lookup. Otherwise, it is a number lookup. We can
+      define small auxiliary functions for these two types of
+      lookups. 
+
+      #+BEGIN_SRC scheme
+      (define (do-lookup e)
+        (local ((define string->number-result 
+                  (string->number (text-contents a-text)))
+                (define (lookup-name a-name)
+                  (local ((define looked-up
+                            (lookup-phone-number a-name)))
+                     (cond ((false? looked-up)
+                            (draw-message 
+                              a-message
+                              "That person is not in the phonebook"))
+                            (else (draw-message a-message looked-up)))))
+                 (define (lookup-number a-number)
+                   (local ((define looked-up
+                             (reverse-lookup a-number)))
+                     (cond ((false? looked-up)
+                            (draw-message
+                             a-message
+                             "That number is not in the phonebook"))
+                           (else (draw-message a-message looked-up))))))
+          (cond
+            ((false? string->number-result)
+             (lookup-name (string->symbol string->number-result)))
+            (else (lookup-number string->number-result)))))
+      #+END_SRC      
+
+      We can immediately see that the two lookup helper functions are
+      candidates for abstraction but we'll test the new GUI first. It
+      turns out to be a pain in the ass to debug. Here is a working
+      version:
+
+      #+BEGIN_SRC scheme
+#|
+      ;; a PHONE-DIRECTORY is:
+      ;; 1. empty or
+      ;; 2. (cons pbr pd) where pd is a phone-directory and pbr is a
+      ;; phone-book-record.
+      ;; a phone-book-record is:
+      ;; (make-pbr name number) where name is a symbol and number is a
+      ;; number.
+      |#
+(define-struct pbr (name number))
+
+#|
+      ;; lookup-phone-number : symbol phone-directory -> number or false
+      ;; finds the phone number of who in the phone-directory a-pd
+      (define (lookup-phone-number who a-pd) ...)
+
+      |# 
+;; implementation: We see we are basically searching, something
+;; that filter will do. 
+(define (lookup-phone-number who a-pd)
+  (local ((define (is-person? a-pbr)
+            (equal? (pbr-name a-pbr) who))
+          (define filter-result (filter is-person? a-pd)))
+    (cond
+      ((empty? filter-result) false)
+      (else (pbr-number (first (filter is-person? a-pd)))))))
+
+(define test-pd1 (list (make-pbr 'john 9996667777)
+                       (make-pbr 'jack 6669998888)
+                       (make-pbr 'max  8889996666)))
+(equal? (lookup-phone-number 'john test-pd1) 9996667777)
+(equal? (lookup-phone-number 'jack test-pd1) 6669998888)
+(equal? (lookup-phone-number 'max test-pd1)  8889996666)
+(equal? (lookup-phone-number 'noexist test-pd1) false)
+
+;; reverse-lookup : number phone-directory -> symbol or false
+(define (reverse-lookup n a-pd)
+  (local ((define (is-right-number? a-pbr)
+            (equal? (pbr-number a-pbr) n))
+          (define filter-result
+            (filter is-right-number? a-pd)))
+    (cond
+      ((empty? filter-result) false)
+      (else (pbr-name (first filter-result))))))
+
+(equal? (reverse-lookup 9996667777 test-pd1) 'john)
+(equal? (reverse-lookup 0000000000 test-pd1) false)
+(equal? (reverse-lookup 1110001111 test-pd1) false)
+(equal? (reverse-lookup 8889996666 test-pd1) 'max)
+
+(define a-phone-directory
+  (list (make-pbr 'john 9996668888)
+        (make-pbr 'phillip 8889991111)
+        (make-pbr 'jack    6668887777)
+        (make-pbr 'jim  5558889999)))
+
+(define a-message (make-message "no one now"))
+(define a-text (make-text "Who are you looking for? "))
+
+
+(define (do-lookup e)
+  (local ((define string->number-result 
+            (string->number (text-contents a-text)))
+          (define (lookup-name a-name)
+            (local ((define looked-up
+                      (lookup-phone-number a-name a-phone-directory)))
+              (cond ((false? looked-up)
+                     (draw-message 
+                      a-message
+                      "That person is not in the phonebook"))
+                    (else (draw-message a-message (number->string looked-up))))))
+          (define (lookup-number a-number)
+            (local ((define looked-up
+                      (reverse-lookup a-number a-phone-directory)))
+              (cond ((false? looked-up)
+                     (draw-message
+                      a-message
+                      "That number is not in the phonebook"))
+                    (else (draw-message a-message
+                                        (symbol->string looked-up)))))))
+    (cond
+      ((false? string->number-result)
+       (lookup-name (string->symbol (text-contents a-text))))
+      (else (lookup-number string->number-result)))))
+ 
+
+(create-window
+ (list (list a-message a-text)
+       (list (make-button "Look up" do-lookup))))
+      #+END_SRC
+
+      For the abstraction, let's focus in the two functions,
+      lookup-name and lookup-number.
+
+      #+BEGIN_SRC scheme
+      (define (lookup-name a-name)
+        (local ((define looked-up
+                  (|lookup-phone-number| a-name a-phone-directory)))
+          (cond ((false? looked-up)
+                 (draw-message 
+                  a-message
+                  |"That person is not in the phonebook"|))
+                (else (draw-message a-message (|number->string| looked-up))))))
+      (define (lookup-number a-number)
+        (local ((define looked-up
+                  (|reverse-lookup| a-number a-phone-directory)))
+          (cond ((false? looked-up)
+                 (draw-message
+                  a-message
+                  |"That number is not in the phonebook"|))
+                (else (draw-message a-message
+                                    (|symbol->string| looked-up)))))))
+ 
+      ;; the differences are in the messages, the conversion function, and the
+      ;; function doing the searching. We 'parametrize', by changing the names 
+      ;; to be the same.
+
+
+      (define (lookup-name a-name)
+        (local ((define looked-up
+                  (look-up a-name a-phone-directory)))
+          (cond ((false? looked-up)
+                 (draw-message a-message on-nofind))
+                (else (draw-message a-message (convert looked-up))))))
+
+      (define (lookup-number a-number)
+        (local ((define looked-up
+                  (look-up a-number a-phone-directory)))
+          (cond ((false? looked-up)
+                 (draw-message a-message looked-up))
+                (else (draw-message a-message (convert looked-up)))))))
+
+      ;; We'll use the new recipe for abstraction, creating a function that
+      (define (look-up-fun look-up on-nofind convert)
+        (local ((define (look-upper a-value)
+                  (local ((define looked-up
+                            (look-up a-value a-phone-directory)))
+                    (cond ((false? looked-up)
+                            (draw-message a-message on-nofind))
+                          (else (draw-message a-message (convert looked-up)))))))
+          look-upper))
+      #+END_SRC 
+
+      The new control:
+
+      #+BEGIN_SRC scheme
+      (define (do-lookup e)
+        (local ((define (look-up-fun look-up on-nofind convert)
+                  (local ((define (look-upper a-value)
+                            (local ((define looked-up
+                                      (look-up a-value a-phone-directory)))
+                              (cond ((false? looked-up)
+                                     (draw-message a-message on-nofind))
+                                    (else (draw-message a-message (convert looked-up)))))))
+                     look-upper))
+                 (define look-up-number 
+                   (look-up-fun lookup-phone-number
+                                "That number is not in the directory"
+                                number->string))
+                 (define look-up-name
+                         "That name is not in the directory"
+                         symbol->string)
+                 (define string->number-result 
+                   (string->number (text-contents a-text))))
+          (cond
+            ((false? string->number-result)
+             (lookup-name (string->symbol (text-contents a-text))))
+            (else (lookup-number string->number-result)))))
+      #+END_SRC
+      
+      We also see that the ways of looking things up themselves are
+      suspiciously abstractable.
+      
+      #+BEGIN_SRC scheme
+      ;; implementation: We see we are basically searching, something
+      ;; that filter will do. 
+      (define (lookup-phone-number who a-pd)
+        (local ((define (is-person? a-pbr)
+                  (equal? (|pbr-name| a-pbr) who))
+                (define filter-result (filter is-person? a-pd)))
+          (cond
+            ((empty? filter-result) false)
+            (else (|pbr-number| (first filter-result))))))
+      
+      ;; reverse-lookup : number phone-directory -> symbol or false
+      (define (reverse-lookup n a-pd)
+        (local ((define (is-right-number? a-pbr)
+                  (equal? (|pbr-number| a-pbr) n))
+                (define filter-result
+                  (filter is-right-number? a-pd)))
+          (cond
+            ((empty? filter-result) false)
+            (else (|pbr-name| (first filter-result))))))
+      #+END_SRC
 	
+      Now, we see there are only two real differences. 
+
+      #+BEGIN_SRC scheme
+      ;; implementation: We see we are basically searching, something
+      ;; that filter will do. 
+      (define (lookup-phone-number who a-pd)
+        (local ((define (is-person? a-pbr)
+                  (equal? (to-compare a-pbr) who))
+                (define filter-result (filter is-person? a-pd)))
+          (cond
+            ((empty? filter-result) false)
+            (else (to-get (first filter-result))))))
+      
+      ;; reverse-lookup : number phone-directory -> symbol or false
+      (define (reverse-lookup n a-pd)
+        (local ((define (is-right-number? a-pbr)
+                  (equal? (to-compare a-pbr) n))
+                (define filter-result
+                  (filter is-right-number? a-pd)))
+          (cond
+            ((empty? filter-result) false)
+            (else (to-get (first filter-result))))))
+
+      ;; Now we create a wrapper function with named parameters for the commonalities. 
+
+      ;; look-up-fun : (phone-book-record -> Y) (phone-book-record -> Z) -> (Y phone-directory -> Z or false)
+      ;; create a look up function for a phone directory, which compares values
+      ;; returned by to-compare and returns a value returned by to-get -- 
+      ;; the first value that matches to-compare of an element the phone directory, 
+      ;; is passed to the selector to-get, which gives the result of the function.
+      (define (look-up-fun to-compare to-get)
+        (local ((define (look-up a-value a-directory)
+                  (local ((define (is? a-pbr)
+                            (equal? (to-compare a-pbr) a-value))
+                          (define filter-result (filter is? a-directory)))
+                    (cond
+                      ((empty? filter-result) false)
+                      (else (to-get (first filter-result)))))))
+           look-up))
+      (define reverse-lookup (look-up-fun pbr-number pbr-name))
+      (define lookup-phone-number (look-up-fun pbr-name pbr-number))
+
+      #+END_SRC
+
+    - Exercise 22.3.3. Develop pad->gui. The function consumes a title
+      (string) and a gui-table. It turns the table into a list of
+      lists of gui-items that window can consume. Here is the data
+      definition for gui-tables:
+
+      #+BEGIN_EXAMPLE
+      A _cell_ is either
+      1. a number,
+      2. a symbol
+
+      A _gui-table_ is a (listof (listof cell)).
+      
+      Here are two example gui-tables:
+      
+      (define pad
+        '((1 2 3)
+          (4 5 6)
+          (7 8 9)
+          (\# 0 *)))
+
+      (define pad2
+        '((1 2 3 +)
+          (4 5 6 -)
+          (7 8 9 *)
+          (0 = \. /)))
+      #+END_EXAMPLE
+
+      The table on the left lays out a virtual phone pad, the right
+      one a calculator pad.
+
+      The function pad->gui should turn each cell into a button. The
+      resulting list should be prefixed with two messages. The first
+      one displays the title and never changes. The second one
+      displays the latest button that the user clicked. The two
+      examples above should produce the following GUIs:
+
+      Hint: The second message header requires a  short string, for
+      example, "N" as the initial value.
+
+      Well, examples:
+
+      #+BEGIN_SRC scheme
+      ;; pad->gui : string gui-table -> (listof (listof gui-items))
+      ;; convert a gui-table to a list of lists of gui-items, 
+      ;; which can be passed to create-window.
+      (define (pad->gui title a-table) ...)
+      (equal? (pad->gui "phone" pad)
+              (list 
+               (list (make-message "phone"))
+               (list (make-message "N"))
+               (list (make-button "1" echo-first-button)
+                     (make-button "2" echo-second-button)
+                     (make-button "3" echo-third-button))
+               (list (make-button "4" echo-fourth-button)
+                     ...)
+               (list ...)))
+      (equal? (pad->gui "Calculator" pad2)
+              (list
+               (list (make-message "Calculator"))
+               (list (make-message "N"))
+               (list (make-button "1" echo-first-button)
+                     (make-button "2" echo-second-button)
+                     (make-button "3" echo-third-button)
+                     (make-button "+" echo-plus-button))
+               (list ...) ...))
+      #+END_SRC
+      
+      This function will not be easily/automatically testable because
+      of the functions, which will be made locally. First we should
+      start with basic templates and then try to apply mapping
+      functions once we know what we're doing.
+
+      #+BEGIN_SRC scheme
+      (define (pad->gui title a-table)
+        (cond
+          ((empty? a-table) ...)
+          (else
+           ... (first a-table) ...
+           ... (pad->gui title (rest a-table)))))
+      #+END_SRC
+
+      The basic list-processing template works fine. For the first
+      element of the list we'll need to do some special processing
+      since it itself is a list. It will process a row of cells and
+      return a list of gui-items. the pad->gui function applied to the
+      rest of the list will simply return a converted gui-table for
+      the rest of the rows.
+
+      We see there is a problem with this definition - it doesn't
+      account for the top two rows, which are created by the function
+      and not as converted cells. So, we should rename our current
+      pad->gui function to gui-table->gui-items. pad->gui will do the
+      appropriate thing: prepend two messages. 
+
+      #+BEGIN_SRC scheme
+      (define (pad->gui title a-table)
+        (cons (list (make-message title))
+              (cons (list (make-message initial))
+                    (gui-table->gui-items a-table))))
+      #+END_SRC scheme
+
+      'initial' is undefined, we should define it but also save the
+      definition locally of the entire message, which we need to pass
+      to gui-table->gui-items. The contract for that function just got
+      expanded, it will now use this message to create locally defined
+      functions for the rows. 
+
+      #+BEGIN_SRC scheme
+      (define (pad->gui title a-table)
+        (cons (list (make-message title))
+          (local ((define message (make-message "N")))
+                    (cons (cons message empty)
+                          (gui-table->gui-items a-table message)))))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      ;; gui-table->gui-items : (listof (listof cell)) gui-message -> (listof (listof gui-item))
+      ;; converts each cell into a button with the cell's stringified
+      ;; value as the button text. The button will have a callback
+      ;; function which will cause gui-message to change to the text
+      ;; of that button's value.
+      (define (gui-table->gui-items pad a-message) ...)
+
+      (gui-table->gui-items
+        '((1 2 3)) gui-message)
+      ;; this should evaluate to the same as:
+      (list
+        (list (make-button "1" (local ((define (a-callback X)
+                                (draw-message gui-message "1"))) a-callback))
+              (make-button "2" (local ((define (a-callback X)
+                               (draw-message gui-message "2")))
+                 a-callback))
+              (make-button "3" (local ((define (a-callback X)
+                                 (draw-message gui-message "3")))
+        a-callback))))
+      #+END_SRC
+      
+      We'll define gui-table->gui-items with a generic list template
+      #+BEGIN_SRC scheme
+      ;; gui-table->gui-items : (listof (listof cell)) gui-message -> (listof (listof gui-item))
+      ;; converts each cell into a button with the cell's stringified
+      ;; value as the button text. The button will have a callback
+      ;; function which will cause gui-message to change to the text
+      ;; of that button's value.
+      (define (gui-table->gui-items pad a-message) 
+        (cond
+          ((empty? pad) empty)
+          (else (cons (table-row->gui-items (first pad) a-message)
+                      (gui-table->gui-items (rest pad) a-message)))))
+      ;; table-row->gui-items (listof cell) gui-message -> (listof gui-itmes)
+      ;; converts a single row of cells into a listof gui items, specifically, 
+      ;; buttons.
+      (define (table-row->gui-items cells gui-message) ...)
+      #+END_SRC
+      
+      We've defined an auxiliary function. However, we see that
+      gui-table->gui-items
+      matches a specific form of map with extra parameters. So:
+
+      #+BEGIN_SRC scheme
+      (define (gui-table->gui-items pad a-message)
+        (local ((define (do-item an-item)
+                  (table-row->gui-items an-item a-message)))
+          (map do-item pad)))
+      #+END_SRC
+
+      For table-row->gui-items, again, we see that the contract more
+      or less matches the contract for map. However, for clarity, we
+      will develop a generic template so we can see what to do.
+
+      #+BEGIN_SRC scheme
+      (define (table-row->gui-items cells gui-message)
+        (cond ((empty? cells) ...)
+              (else ... (first cells) ... 
+                    ... (table-row->gui-items (rest cells) gui-message))))
+      #+END_SRC
+      
+      Examples:
+      #+BEGIN_SRC scheme
+      (table-row->gui-items empty (make-message ...))
+      empty
+      (table-row->gui-items (list 'x) (make-message ...))
+      (list (make-button "x" (local ((define (a-callback X)
+                                       (draw-message (make-message ...)
+                                                     "x"))))))
+      (table-row->gui-items (list 'x 'y 'z) (make-message ...)
+      #+END_SRC
+      
+      So clearly, we need to return empty for the empty case. Other
+      than that, we know we are creating a list, so we cons on some
+      value that is the result of processing the first of the list. We
+      need to turn that value into a button which takes a string
+      version of that value, with a callback that draws the string
+      value onto the message given to us. These themselves are
+      auxiliary funcions:
+
+      1. turn a cell into a string
+      2. draw the string value into the message. 
+
+      So we'll need these as local functions, and the definition of
+      the stringified value as a local value.
+      
+      #+BEGIN_SRC scheme
+      (define (table-row->gui-items a-loc gui-message)
+        (cond
+          ((empty? a-loc) empty)
+          (else (cons (local ((define (cell->string cell) ...)
+                              (define (button-callback X) ...)
+                              (define stringified 
+                                (cell->string a-loc)))
+                        (make-button stringified button-callback))))))
+      #+END_SRC scheme
+
+      This is the outline. All that's left is to define cell->string
+      and button-callback. Button-callback is simple, all it does is
+      call draw-message with the stringified value and the
+      gui-message. cell->string takes a cell which according to its
+      data definition is either a number or symbol; both of these we
+      have string conversion functions for.
+
+      #+BEGIN_SRC scheme
+      (define (table-row->gui-items a-loc gui-message)
+        (cond
+          ((empty? a-loc) empty)
+          (else (cons (local ((define (cell->string cell) 
+                                (cond ((number? cell) (number->string cell))
+                                      (else (symbol->string cell))))
+                              (define (button-callback X) 
+                                (draw-message gui-message stringified))
+                              (define stringified 
+                                (cell->string (first a-loc))))
+                        (make-button stringified button-callback))))))
+      #+END_SRC scheme 
+      
+      We see this also is easily transformed into map, we just make
+      the expression inside the local into a function, taking as a
+      parameter the element which we were selecting using the first
+      function.
+
+      #+BEGIN_SRC scheme
+      (define (table-row->gui-items a-loc gui-message)
+        (local ((define do-cell a-cell)
+                 (local ((define (cell->string cell) 
+                           (cond ((number? cell) (number->string cell))
+                                  (else (symbol->string cell))))
+                              (define (button-callback X) 
+                                (draw-message gui-message stringified))
+                              (define stringified 
+                                (cell->string a-cell)))
+                        (make-button stringified button-callback)))
+          (map do-cell a-loc)))
+      #+END_SRC
+
+      The complete function(s):
+      
+      #+BEGIN_SRC scheme
+      (define (table-row->gui-items a-loc gui-message)
+        (local ((define do-cell a-cell)
+                 (local ((define (cell->string cell) 
+                           (cond ((number? cell) (number->string cell))
+                                  (else (symbol->string cell))))
+                              (define (button-callback X) 
+                                (draw-message gui-message stringified))
+                              (define stringified 
+                                (cell->string a-cell)))
+                        (make-button stringified button-callback)))
+          (map do-cell a-loc)))
+
+      (define (gui-table->gui-items pad a-message)
+        (local ((define (do-item an-item)
+                  (table-row->gui-items an-item a-message)))
+          (map do-item pad)))
+      #+END_SRC
