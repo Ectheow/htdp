@@ -908,8 +908,490 @@
    the area between the x axis, the fat lines labeled a and b, and the
    graph. Determining the area under the graph of a function for some
    specific interval is called _integrating a function_. Since
-   enbinneers 
+   engineers had to solve this kind of problem before computers were
+   available, mathematicians have studied it extensively. For a small
+   class of functions, it is indeed possible to determine the area
+   exactly. For the other cases, mathematicians have developed several
+   methods to determine close estimates. Since these methods involve
+   lots of mechanical calculations, they are natural candidates for
+   computer functions.
+
+   A general integration function must consume three inputs: a, b, and
+   the function f. The fourth part, the x axis, is implied. This
+   suggests the following contract:
+
+   #+BEGIN_SRC scheme
+   ;; integrate : (number -> number) number number -> number
+   ;; to compute the area under the graph of f between a and b
+   (define (integrate f a b) ...)
+   #+END_SRC
+
+   Kepler suggested one simple integration method. It consists of
+   three steps:
+
+   1. divide the interval into two parts: [a, (a + b/2)] and
+      [(a+b/2),b];
+   2. compute the area of each trapezoid; and
+   3. add the two areas to get an estimate at the integral.
    
-       
-       
-       
+   - Exercise 23.4.1. Develop the function integrate-kepler. It
+     computes the area under some graph of some function f between
+     left and right using Kepler's rule.
+
+     #+BEGIN_SRC scheme
+     ;; area of a trapezoid: 1/2*(a+b)/h. 
+     ;; integrate-kepler : (number -> number) number[a] number[>a] -> number
+     (define (integrate-kepler f a b)
+       (local ((define (trap-area a b h) (* 1/2 (/ (+ a b) h)))
+               (define mid (/ (+ a b) 2))
+               (define area1 (* (- mid a) (/ (+ (f a) (f mid)) 2)))
+               (define area2 (* (- b mid) (/ (+ (f mid) (f b)) 2)))
+               (define total (+ area1 area2)))
+         total))
+     #+END_SRC
+
+   Another simple method is to think of the area as a sequence of many
+   small rectangles. Each rectangle is as tall as the function graph
+   in, say, the middle of the rectangle. Figure 64 shows two
+   examples. By adding up the area of the rectangles, we get a good
+   estimate at the area under the graph. The more rectangles we
+   consider, the closer the estimate is to the actual area.
+
+   Let us agree that R stands for the number of rectangles we wish to
+   consider. To determine how large these rectangles are, we need to
+   figure out how large their sides are. The length of the side on the
+   x axis is the length of the interval divided by the number of
+   rectangles:
+
+   #+BEGIN_SRC scheme
+   width = (b - a)/R
+   #+END_SRC
+
+   For the height of the rectangle, we need to determine its midpoint
+   and then the value of f at the midpoint. The first midpoint is
+   clearly at a plus half the width of the rectangle, that is if
+   
+   step = width/2,
+
+   the area is
+
+   W*f(a+S)
+
+   where W stands for width and S for step from now on.
+
+   To get from the rectangle starting at a to the next one on the
+   right, we must add the width of the rectangle. That is, the next
+   midpoint (called x_1 in figure 64) is at
+
+   a + W + S, 
+
+   the third one at
+
+   a + 2*W + S, 
+
+   and so on. The following table explains the three sequences that
+   are involved in the usual manner.
+
+   | index  | 0        | 1            | 2          | ... |
+   |--------+----------+--------------+------------+-----|
+   | M      | a+S      | a+1*W+S      | a+2*W+S    | ... |
+   | f at M | f(a+S)   | f(a+1*W+S)   | f(a+2*W+S) | ... |
+   | area   | W*f(a+S) | W*f(a+1*W+S) | f(a+2*W+S) | ... |
+
+   In the second row, M stands for midpoint. The first rectangle has
+   index 0, the last one R-1. 
+
+   Using this sequence of rectangles, we can now determine the area
+   under the graph as a series:
+
+   sum(area-of-rectangle(i) from i=0 to i=R-1).
+
+   - Exercise 23.4.2. Develop the function integrate. It computes the
+     area under the graph of some function f between left and right
+     using the rectangle-series method.
+
+     Use test cases for f, a, and b for which one cant determine the
+     area exactly and easily by hand, for example, (define (id x)
+     x). Compare the results with those of integrate from exercise
+     23.4.1. 
+
+     Make R a top-level constant:
+
+     #+BEGIN_SRC scheme
+     (define R ...)
+     #+END_SRC
+
+     Test integrate on sin and increase R gradually from 10
+     to 10000. What happens to the result?  -- they get more accurate,
+     especially at larger intervals - small intervals are typically
+     more accurate.
+
+     #+BEGIN_SRC scheme
+     (define (integrate f left right)
+       (local ((define width (/ (- right left) R))
+               (define step (/ width 2))
+               (define (series-term n)
+                 (* width (f (+ left (* n W) step))))
+               (define (series n)
+                 (cond ((= n 0) (series-term 0))
+                       (else (+ (series-term n)
+                                (series (- n 1)))))))
+         (series R)))
+     #+END_SRC
+
+*** 23.5. The Slope of a Function
+    Let us take another look at the function graph in figure 64. For
+    many problems, we need to be able to draw a line that has the same
+    slope as some curve at a certain point. Indeed, computing the
+    slope is often the true goal. In economics problems, the slope is
+    the growth rate of a company if the curve represents income over
+    time. In a physics problem, the curve could represent the velocity
+    of some object; its slope, at any point, is then the current
+    acceleration of the object.
+
+    Determining the slope of some function f at some point x is to
+    differentiate the function. The differential operator (also called
+    a functional) returns a function f' (pronounced ``f prime''). It
+    tells us for any x what the slope f is at that point. Computing f'
+    is complicated, so it is again a good task for a computer
+    program. The program consumes some function f and produces f'.
+
+    To design a ``differentiator'' we must study how we could
+    construct lines that have the same slope as a curve. In principle,
+    such a line touches the curve at just that point. But suppose we
+    relax this constraint for a moment and look at straight lines that
+    intersect the curve close to the point of interest. We pick two
+    points that are equally far away from x, say x - ε and x + ε, the
+    constant ε, pronounced epsilon, represents some small
+    distance. Using the two corresponding points on teh curve, we can
+    determine a straight line that has the proper slope.
+
+    The situation is sketched in figure 65. If the point of interest
+    has coordinate x, the two points are (x, f(x - ε)) and (x, (f x +
+    ε)). Hence the slope of the line is
+
+    (f(x + ε) - f(x - ε))/(2*ε)
+
+    That is, teh difference between the height of the right point and
+    the left point divided by the horizontal distance. Determining the
+    line from the slope and one of the points or even from two points
+    is an exercise.
+
+    - Exercise 23.5.1. 
+
+      y(x) = a*x + b.
+
+      By now, it is straightforward to translate this equation into
+      Scheme:
+
+      #+BEGIN_SRC scheme
+      (define (y x)
+        (+ (* a x) b))
+      #+END_SRC
+
+      To obtain a concrete line we must replace a and b with numbers.
+
+      The teachpack graphing.ss provides one operation for drawing
+      lines: graph-line. The operation consumes a line like y and a
+      color, say, 'red. Use graph-line to draw the graphs of the
+      following lines:
+
+      1. y_1(x) = x + 4
+
+      2. y_2(x) = 4 - x
+
+      3. y_3(x) = x + 10
+
+      4. y_4(x) = 10 - x
+
+      5. y_5(x) = 12
+
+      (done interactively)
+
+    - Exercise 23.5.2. It is a standard mathematical exercise to
+      develop the equation for a line from a point on the line and its
+      slope. Look up the method in your mathematics book. Then develop
+      the function line-from-point+slope, which implements the
+      method. The function consumes a posn (the point) and a number
+      (the slope). It produces a function that represents the line
+      in the spirit of exercise 23.5.1. 
+
+      y = m*x + b. 
+
+      We take a slope and a value. If we had
+
+      (0, 4) and 1 we would get
+
+      (define (y-1 x)
+        (+ x 4))
+      
+      again, for the second example, we would get:
+
+      (define (y-2 x)
+        (- 4 x))
+
+      third:
+
+      (define (y-3 x)
+        (+ x 10))
+
+      (define (y-4 x)
+        (- 10 x))
+
+      We can generalize by first changing the formulas inside the
+      functions to generic format, using algebra.
+
+      (0, 4) (slope 1)
+      (define (y-1 x)
+        (+ (* 1 x) 4))
+
+      (0, 4) (slope -1)
+      (define (y-2 x)
+        (+ (* -1 x) 4))
+
+      (0, 10) (slope 1)
+      (define (y-3 x)
+        (+ (* 1 x) 10))
+
+      (0, 10) (slope -1)
+      (define (y-4 x)
+        (+ (* - 1 x) 10))
+
+      Highlighted/boxed differences:
+
+      (define (y-1 x)
+        (+ (* |1| x) |4|))
+
+      (define (y-2 x)
+        (+ (* |-1| x) |4|))
+
+      (define (y-3 x)
+        (+ (* |1| x) |10|))
+
+      (define (y-4 x)
+        (+ (* |-1| x) |10|))      
+      
+      We make these parameters to our function-producing function
+
+      #+BEGIN_SRC scheme
+      ;; line-from-point+slope : number number -> (number -> number)
+      ;; produce the function for the line with point and slope.
+      (define (line-from-point+slope point slope)
+        (local ((define (f x)
+                  (+ (* slope x) point))) f))
+      #+END_SRC
+
+      However, we were asked to take a posn; other than that, our
+      function is OK since graph-line is designed like this:
+
+      #+BEGIN_SRC scheme
+      (graph-line line color) -> true
+      line : (number? -> number?)
+      color : symbol?
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      ;; line-from-point+slope : posn number -> (number -> number)
+      (define (line-from-point+slope point slope)
+        (local ((define (f x)
+                  (+ (* slope x) (posn-y point))))
+          f))
+      #+END_SRC
+      
+      Testing a function-producing function like line-from-point+slope
+      can be done in two ways. Suppose we apply the function to (0, 4)
+      and 1. The result should be line y_1 from exercise 23.5.1. To
+      check this, we can either apply the result of
+
+      #+BEGIN_SRC scheme
+      (line-from-point+slope (make-posn 0 4) 1)
+      #+END_SRC
+
+      to some numbers, or we can draw the result using the operations
+      from graphing.ss. In the first case, we must use y_1 to compare
+      outputs; in the second case we can draw the result in one color
+      and the hand-constructed line in a different one and observe the
+      effect.
+
+      Once we have an intersecting line through (x,f(x-ε)) and
+      (x,f(x+ε)), we can also get a line with the proper slope. By
+      decreasing ε until it is (almost) indistinguishable from 0, the
+      two intersection points move closer and closer until they are
+      one, namely (x,f(x)) the point for which we wish to know the
+      slope.
+
+    - Exercise 23.5.3. Use the operation graph-fun in the teachpack
+      graphing.ss to draw the mathematical function
+
+      #+BEGIN_SRC scheme
+      y(x) = x^2 - 4*x + 7
+      #+END_SRC
+
+      The operation works just like draw-line.
+
+      Suppose we wish to determine the slope at x = 2. Pick an ε > 0
+      and determine the slope of the line that goes through (x,f(x -
+      ε)) and (x,f(x+ε)) with the above formula. Compute the line with
+      line-from-point+slope from exercise 23.5.2. and use draw-line to
+      draw it into the same coordinate system as y. Repeat the process
+      with ε/2 and ε/4. 
+
+      #+BEGIN_EXAMPLE
+      ε = 0.4
+      #+END_EXAMPLE
+
+      Our formula was 
+
+      #+BEGIN_EXAMPLE
+      (f(x + ε) - f(x - ε)) / 2*ε
+      #+END_EXAMPLE
+
+      which gives us the slope. WSe know that the point is whatever
+      value is produced at 2, since that's the point at which we want
+      to know the slope.
+
+      #+BEGIN_SRC scheme
+      (define (f x)
+        (+ (sqr x) (* -4 x) 7))
+
+      ;; line-from-point+slope : posn number -> (number -> number)
+      (define (line-from-point+slope slope point)
+        (local ((define (f x)
+                  (+ (* slope (- x (posn-x point))) (posn-y point))))
+          f))
+      
+      (define x 2)
+      (define slope-fun1
+              (local ((define eps 0.4))
+              (line-from-point+slope 
+                (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps))
+                (make-posn x (f x)))))
+
+      (define slope-fun2
+              (local ((define eps (/ 0.4 2)))
+              (line-from-point+slope 
+                (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps))
+                (make-posn x (f x)))))
+      (define slope-fun3
+              (local ((define eps (/ 0.4 4)))
+                (line-from-point+slope
+                 (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps)))
+                (make-point x (f x))))
+      (graph-fun f)
+      (graph-line slope-fun1)
+      (graph-line slope-fun2)
+      (graph-line slope-fun3)
+      #+END_SRC
+      
+     If our goal is to define the differential operator as a Scheme
+     function we can approximate it by setting ε to a small number
+     and by translating the mathematical formula into a Scheme
+     expression:
+
+     #+BEGIN_SRC scheme
+     ;; d/dx (num -> num) -> (num -> num)
+     ;; to compute the derivative function of f numerically.
+     (define (d/dx f)
+       (local ((define (fprime x)
+                 (/ (- (f (+ x ε) (f (- x ε))))
+                    (* 2 ε)))
+               (define ε 0.4)) fprime))
+     #+END_SRC
+     
+     Note that d/dx consumes and produces functions -- just like the
+     differential operator in mathematics. 
+
+     As mentioned in the introduction to this section, the
+     differential operator computes the function f' from some function
+     f. The former computes the slope of f for any x. For straight
+     lines, the slope is always known. Hence a function that
+     represents a straight line is an ideal test case for d/dx. Let us
+     consider
+
+      #+BEGIN_SRC scheme
+      (define (a-line x)
+        (+ (* 3 x) 1))
+      #+END_SRC
+
+      The evaluation of (d/dx a-line) prodeeds as follows:
+
+      #+BEGIN_SRC scheme
+      = (local ((define (fprime x)
+                  (/ (- (a-line (+ x ε))
+                        (a-line (- x ε)))
+                     (* 2 ε)))
+                (define ε 0.4)) fprime)
+
+      = (local ((define (fprime_0 x)
+                  (/ (- (a-line (+ x ε_0))
+                        (a-line (- x ε_0)))
+                     (* 2 ε_0)))
+                (define ε_0 0.4)) fprime_0)
+      = (define (fprime_0 x)
+                  (/ (- (a-line (+ x ε_0))
+                        (a-line (- x ε_0)))
+                     (* 2 ε_0)))
+
+        (define ε_0 0.4)) 
+        fprime_0
+      #+END_SRC
+
+      Now, if we think of (+ x ε) and (- x ε) as numbers, we can
+      evaluate the application of a-line in the definition of fprime,
+      (if x is a number, than adding or subtracting epsilon yields
+      a number. If, by accident, we apply fprime to something else,
+      both expressions signal an error. It is therefore acceptable to
+      act as if the expressions were values. In general, this is not
+      true.)
+
+      #+BEGIN_SRC scheme
+      = (define (fprime_0 x)
+          (/ (- (a-line (+ x ε_0))
+                (a-line (- x ε_0)))
+             (* 2 ε_0)))
+      = (define (fprime_0 x)
+          (/ (- (* 3 (+ x ε_0))
+                (* 3 (- x ε_0)))
+             (* 2 ε_0)))
+      = (define (fprime_0 x)
+          (/ (* 3 (- (+ x ε_0) (- x ε_0)))
+             (* 2 ε_0)))
+      = (define (fprime_0 x)
+          (/ (* 3 (* 2 ε_0))
+             (* 2 ε_0)))
+      = (define (fprime_0 x) 3)
+      #+END_SRC
+
+      In other words, the result of (d/dx a-line) always returns 3,
+      which is the slope of a-line. In short, we not only got a close
+      approximation because ε is small, we actually got the correct
+      answer. In general, however, the answer will depend on epsilon
+      and will not be precise.
+
+      - Exercise 23.5.4. Pick a small ε and use d/dx to compute the
+        slope of
+	
+	#+BEGIN_EXAMPLE
+	y(x) = x^2 - 4*x + 7
+	#+END_EXAMPLE
+
+	at x = 2. How does the result compare with your calculation in
+        exercise 23.5.3.?
+
+	It gives the exact same answer. Actually they all do.
+
+
+      
+             
+             
+
+      
+
+      
+      
+
+
+
+
+      
+     
