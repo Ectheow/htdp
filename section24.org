@@ -1,0 +1,110 @@
+* Section 24
+** Intermezzo 4: Defining Functions on the Fly
+   Many uses of abstract functions require the definition of auxiliary
+   functions. Consider filter1, which consumes a filtering function, a
+   list, and a filtering item. In the previous section alone, we
+   encountered three uses of filter1 with three different auxiliary
+   functions: squared?, <ir, and eq-ir?.
+
+   Since these auxiliary functions are only used as arguments to
+   filter1, we should employ the program organization guidelines from
+   the preceding intermezzo. That is, we should use a local-expression
+   to indicate that the application of filter1 and the auxiliary
+   function definition belong together. Here is one possible
+   arrangement for the filter1-eq-ir? combination:
+
+   #+BEGIN_SRC scheme
+   ;; find : list-of-IRs symbol -> boolean
+   (define (find aloir t)
+     (local ((define (eq-ir? ir p)
+               (symbol=? (ir-name ir) p))) 
+       (filter1 eq-ir? aloir t)))
+   #+END_SRC
+
+   an alternative arrangement places the local expression where the
+   function is needed: 
+
+   #+BEGIN_SRC scheme
+   ;; find : list-of-IRs symbol -> boolean
+   (define (find aloir t)
+     (filter1 (local ((define (eq-ir? ir p)
+                        (symbol=? (ir-name ir) p))) 
+                eq-ir?) aloir t))
+   #+END_SRC
+
+   This alternative is feasible because the names of functions -- like
+   eq-ir? -- are now legitimate expressions and can play the role of
+   local's body. Thus the local-expression introduces a function
+   definition and returns the function as its result.
+
+   Because good programmers use abstract functions and organize their
+   programs in a tidy manner, it is not surprising that Scheme
+   provides a short-hand for this particular, frequent use of
+   local. The short-hand is called a lambda-expression and greatly
+   facilitates the introduction of functions like eq-ir?, squared?, or
+   <ir. The following two subsections introduce the syntax and
+   semantics of lamda-expressions. The last subsection discusses its
+   pragmatics.
+
+*** Syntax of lambda
+    A *lambda*-expression is just a new form of expression:
+
+    #+BEGIN_SRC scheme
+    <exp> = (lambda (<var>...<var>) <exp>)
+    #+END_SRC
+
+    Its distinguishing characteristic is the keyword lambda. It is
+    followed by a sequence of variables, enclosed in a pair of
+    parenthesis. The last component is an expression.
+
+    Here are three useful examples:
+
+    1. (lambda (x c) (> (* x x) c))
+    2. (lambda (ir p) (< (ir-price ir) p))
+    3. (lambda (ir p) (symbol=? (ir-name ir) p))
+
+    They correspond to squared?, <ir, and eq-ir?, respectively, the
+    three motivating examples discussed above. 
+
+    A *lambda*-expresison defines an anonymous function, that is, a
+    function without a name. The sequence of variables behind lambda
+    are the function's parameters; the third component is the
+    function's body. 
+
+*** Scope and Semantics of lambda
+    
+    As discussed in the introduction, a lambda-expression is just a
+    short-hand for a local-expression. In general, we can think of
+    
+    #+BEGIN_SRC scheme
+    (lambda (x-1 ... x-n) exp)
+    #+END_SRC
+
+    as 
+    
+    #+BEGIN_SRC scheme
+    (local ((define (a-new-name x-1 ... x-n) exp)) a-new-name)
+    #+END_SRC
+
+    The name of the function, a-new-name, may not occur in exp.
+
+    The short-hand explanation suggests that
+
+    #+BEGIN_SRC scheme
+    (lambda (x-1 ... x-n) exp)
+    #+END_SRC
+
+    introduces x-1 ... x-n as binding occurences and that the scope of
+    the parameters is exp. Of course, if exp contains further binding
+    constructs (say, a nested local-expression), then the scope of the
+    variables mayhave a hole.
+
+    Similarly, the explanation implies basic facts that govern the
+    evaluation of *lambda*-expressions:
+    
+    1. A *lambda*-expression is a value because functions are values.
+    2. The application of *lambda*-expressions to values proceeds
+       according to our usual laws of function application, assuming
+       we expand the short-hand first.
+
+       
