@@ -1380,18 +1380,88 @@
 
 	It gives the exact same answer. Actually they all do.
 
+      - Exercise 23.5.5. Develop the function line-from-two-points. It
+        consumes two points p1 and p2. Its result is a Scheme function
+        that represents the line through p1 and p2. 
 
-      
-             
-             
+	Question: Are there any situations for which this function may
+        fail to compute a function? If so, refine the definition to
+        produce the proper error message in this case. 
 
-      
+	This is a slope + start function. We can compute the slope as:
 
-      
-      
+	#+BEGIN_SRC scheme
+	(/ (- (posn-y p2) (posn-y p1)) (- (posn-x p2) (posn-x p1)))
+	#+END_SRC
+
+	So, if we want a (number -> number) function
+	#+BEGIN_SRC scheme
+f	;; line-from-two-points : posn posn -> (number -> number)
+	;; produce a line function that can be graphed with the
+        ;; graphing toolkit from posn1 and posn2.
+	(define (line-from-two-points posn1 posn2)
+	  (local ((define slope (/ (- (posn-y posn2) (posn-y posn1))
+                                   (- (posn-x posn2) (posn-y posn1))))
+                  (define (f x)
+                    (+ (posn-y posn2)
+                       (* slope (- x (posn-x posn2)))))) f))
+	#+END_SRC
+	
+	Tests:
+
+	#+BEGIN_SRC scheme
+	(define (id x) x)
+
+	(define id-computed (line-from-two-points (id -1) (id 1)))
+	(equal?
+          (build-list 10 id)
+	  (build-list 10 id-computed))
+	
+        This will fail to compute a function any time (- (posn-x
+        posn2) (posn-y posn1)) is 0 or very close to it.
+
+      - Exercise 23.5.6. Compute the slope of the following function
+
+	#+BEGIN_SRC scheme
+	(define (f x)
+	  (+ (* 1/60 (* x x x))
+             (* -1/10 (* x x))))
+	#+END_SRC
+
+	at x = 4. Set ε TO 2, 1, .5. try the same for other values of
+        x.
+	
+	#+BEGIN_SRC scheme
+	(local ((define x 4) (define eps 2))
+          (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps)))
+	#+END_SRC
+
+	evaluates to .06 repeating.
+
+	#+BEGIN_SRC scheme
+        (local ((define x 4) (define eps 1))
+          (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps)))
+	#+END_SRC
+
+	evaluates to .016
+
+	#+BEGIN_SRC scheme
+        (local ((define x 4) (define eps .5))
+          (/ (- (f (+ x eps)) (f (- x eps))) (* 2 eps)))
+	#+END_SRC
+
+	evaluates to .00416 repeating.
+
+	In general the values keep changing, they seem to get closer
+        to 0 - with .0000000001 it is 'basically' 0, DrRacket stops
+        trying to figure out what it was.
+
+	It appears to be the (local) zero of the function.
+
+	The function converges at x = 6 much faster.
 
 
 
-
-      
-     
+	
+	
+	

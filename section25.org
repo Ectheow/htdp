@@ -1,0 +1,271 @@
+* Section 25
+** A New Form of Recursion
+   The functions we have developed so far fall into two broad
+   categories. On the one hand, we have a category of functions that
+   encapsulate domain knowledge. On the other hand we have functions
+   that consume structured data. These functions typically decompose
+   their arguments into their immediate structural components and then
+   process those components. If one of the immediate components
+   belongs to the same class of data as the input, the function is
+   recursive. For that reason, we refer to these algorithms as
+   (STRUCTURALLY) RECURSIVE FUNCTIONS. In some cases, however, we also
+   need functions based on a different form of recursion, namely,
+   generative recursion. The study of this form of recursion is as old
+   as mathematics and is often called the study of ALGORITHMS.
+
+   The inputs of an algorithm represent a problem. Except for rare
+   occasions, the problem is an instance of a large class of problems
+   and the algorithm works for all of these problems. In general, an
+   algorithm partitions a problem into other, smaller problems and
+   solves those. For example, an algorithm for planning a vacation
+   trip requires arrangements for a trip from our home to a nearby
+   airport, a flight to an airport near our vacation spot, and a trip
+   from that airport to our vacation hotel. The entire problem is
+   solved by combining the solutions for these problems.
+   
+   Designing an algorithm distinguishes two kinds of problems: those
+   that are TRIVALLY SOLVABLE and those that are not. If a given
+   problem is trivially solvable, an algorithm produces the matching
+   solution. For example, the problem of getting from our home to a
+   nearby airport might be trivially solvable. We can drive there,
+   take a cab, or ask a friend to drop us off. If not, the algorithm
+   generates a new problem and solves those new problems. A multistage
+   trip is an example of a problem that is non-trivial and can be
+   solved by generating new, smaller problems. In a computational
+   setting one of the smaller problems often belongs to the same class
+   of problems as the original one, and it is for this reason that we
+   call the approach GENERATIVE RECURSION.
+
+   In this part of the book, we study the design of algorithms, that
+   is, functions based on generative recursion. From the description
+   of the idea, we know that this process is much more of an ad hoc
+   activity than the data-driven design of structurally recursive
+   functions. Indeed, it is almost better to call it inventing an
+   algorithm than designing one. Inventing an algorithm requires
+   insight -- a ``eureka''. Sometimes very little insight is
+   required. For example, solving a ``problem'' might just require the
+   enumeration of a series of numbers. At other times, however, it may
+   rely on a mathematical theorem concerning numbers. Or, it may
+   exploit a series of mathematical results on systems of
+   equations. To acquire a good understanding of the design process,
+   it is necessary to study examples and to develop a sense for the
+   various classes of examples. In practice, new complex algorithms
+   are often developed by mathematicians and mathematical computer
+   scientists; programmers though, must thoroughly understand the
+   underlying ideas so that they can invent the simple algorithms on
+   their own and communicate with scientists about the others.
+
+   The two subsections illustrate two vastly different algorithms. The
+   first one is an example of something programmers invent on a daily
+   basis. The second describes a fast sorting algorithm, one of the
+   first applications of generative recursion in computing.
+
+   *Terminology*: Mathematical computer scientists often do not
+   distinguish between structural recursion and generative recursion
+   and refer to both kinds of functions as algorithms. Instead they
+   use the terminology of RECURSIVE and ITERATIVE methods. The latter
+   refers to a subclass of function definitions whose recursive
+   function applications are in a particular position in the
+   definition. We will strictly adhere to the terminology of algorithm
+   and generative recursion when we work with this class of functions
+   because this classification matches our thinking of design recipes
+   better than the purely syntactic classification of applied
+   mathematicians.
+
+** 25.1 Modeling a Ball on a Table
+   Let's consider the simple-looking problem of modeling the moves of
+   a ball across a table. Assume the ball rolls at a constant speed
+   until it drops off the table. We can model the table with a canvas
+   of some fixed width and height. The ball is a disk that moves
+   across the canvas, which we express with drawing the disk,
+   waiting, and clearing it, until it is out of bounds.
+
+   #+BEGIN_SRC scheme
+   ;; TeachPack: draw.ss
+
+   (define-struct ball (x y delta-x delta-y))
+   ;; a ball is a structure:
+   ;;  (make-ball number number number number)
+   
+   ;; draw-and-clear : a-ball -> true
+   ;; draw, sleep, clear a disk from the canvas. 
+   (define (draw-and-clear a-ball)
+     (and 
+      (draw-solid-disk (make-posn (ball-x a-ball) (bally- a-ball)) 5 'red)
+      (sleep-for-a-while DELAY)
+      (clear-solid-disk (make-posn (ball-x a-ball) (ball-y a-ball)) 5 'red)))
+   ;; move-ball : ball -> ball
+   ;; to create a new ball, modeling a move by a-ball
+   ;; structural design, physics knowledge.
+   (define (move-ball a-ball)
+     (make-ball (+ (ball-x a-ball) (ball-delta-x a-ball))
+                (+ (ball-y a-ball) (ball-delta-y a-ball))
+                (ball-delta-x a-ball)
+                (ball-delta-y a-ball)))
+   (define WIDTH 100)
+   (define HEIGHT 100)
+   (define DELAY .1)
+   #+END_SRC
+
+   This collects the function, structure, data, and variable
+   definitions that move the ball:
+
+   1. A ball is a structure with four fields, the current position and
+      the velocity in each direction. That is, the first two numbers
+      in a ball structure are the current position on the canvas and
+      the next two numbers describe how far the ball moves in the two
+      directions per step.
+   2. The function move-ball models the physical movement of the
+      ball. It consumes a ball and creates a new one, modeling one step.
+   3. The function draw-and-clear draws the ball at its current
+      position, then waits for a short time, and clears it again.
+
+   The variable definitions specify the dimensions of the canvas and
+   the delay time.
+
+   To move the ball a few times we can write
+
+   #+BEGIN_SRC scheme
+   (define the-ball (make-ball 10 20 -5 +17))
+
+   (and
+    (draw-and-clear the-ball)
+    (and
+     (draw-and-clear (move-ball the-ball)) ...))
+   #+END_SRC
+
+   though this gets tedious after a while. We should instead develop a
+   function that moves the ball until it is out of bounds.
+
+   The easy part is to define out-of-bounds?, a function that
+   determines whether a given ball is still visible on the canvas:
+
+   #+BEGIN_SRC scheme
+   ;; out-of-bounds? : a-ball -> boolean
+   ;; to determine whether a-ball is outside of the bounds
+   ;; domain knowledge, geometry
+   (define (out-of-bounds? a-ball)
+     (not (and
+           (<= 0 (ball-x a-ball) WIDTH)
+	   (<= 0 (ball-y a-ball) HEIGHT))))
+   #+END_SRC
+   
+   We have defined functions like out-of-bounds? in the first few
+   sections of the book. 
+
+   In contrast, writing a function that draws the ball on the canvas
+   until it is out of bounds belongs to a group of programs we haven't
+   encountered thus far. Let's start with the basics of the function:
+
+   #+BEGIN_SRC scheme
+   ;; move-until-out : a-ball -> true
+   ;; to model the movement of a ball until it goes out of bounds
+   (define (move-until-out a-ball) ...)
+   #+END_SRC
+
+   Because the function consumes a ball and draws its movements on a
+   canvas, it produces true like all other functions that draw onto a
+   canvas. Designing it with a recipe for structures makes no sense,
+   however. After all, it is already clear how to draw-and-clear the
+   ball and how to move it too. What is needed instead is a case
+   distinction that checks whether the ball is out of bounds or not.
+
+   Let us refine the function header with an appropriate
+   *cond*-expression:
+
+   #+BEGIN_SRC scheme
+   (define (move-until-out a-ball)
+     (cond
+       [(out-of-bounds? a-ball) ...]
+       [else ...]))
+   #+END_SRC
+
+   We have already defined the function out-of-bounds? because it was
+   clear from the problem description that ``being out of bounds'' was
+   a separate concept.
+
+   If the ball consumed by move-until-out is outside of the canvas's
+   boundaries, the function can produce true, following the
+   contract. If the ball is still inside the boundaries, two things
+   must happen. First the ball must be drawn and cleared from the
+   canvas. Second the ball must be moved and then we must do things
+   all over again. This implies that after moving the ball, we apply
+   move-until-out again, which means that the function is recursive:
+
+   #+BEGIN_SRC scheme
+   ;; move-until-out : a-ball -> true
+   ;; to model the movement of a ball until it goes out of bounds.
+   (define (move-until-out a-ball)
+     (cond
+       [(out-of-bounds? a-ball) true]
+       [else (and (draw-and-clear a-ball)
+                  (move-until-out (move-ball a-ball)))]))
+   #+END_SRC
+
+   Both (draw-and-clear a-ball) and (move-until-out (move-ball
+   a-ball)) produce true, and both expressions must be evaluated. So
+   we combine them with an and-expression.
+
+   We can now test the function as follows:
+
+   #+BEGIN_SRC scheme
+   (start WIDTH HEIGHT)
+   (move-until-out (make-ball 10 20 -5 +17))
+   (stop)
+   #+END_SRC
+
+   This creates a canvas of proper size and a ball that moves left and
+   down.
+   
+   A close look at the function definition reveals two
+   peculiarities. First, although the function is recursive, its body
+   consists of a cond-expression whose conditions have nothing to do
+   with the input data. Second, the recursive application in the body
+   does not consume a part of the input. Instead, move-until-out
+   generates an entirely new and different ball structure, which
+   represents the original ball after one step, and uses it for the
+   recursion. Clearly, none of our design recipes could possibly
+   produce such a definition. We have encountered a new way of
+   programming.
+
+   - Exercise 25.1.1. What happens if we place the following three
+     expressions
+
+     #+BEGIN_SRC scheme
+     (start WIDTH HEIGHT)
+     (move-until-out (make-ball 10 20 0 0))
+     (stop)
+     #+END_SRC
+
+     at the bottom of the Definitions window and click Execute? Does
+     the second expression ever produce a value so that the third
+     expression is evaluated and the canvas disappears? Could this
+     happen with any of the functions designed according to our old
+     recipes?
+     
+     You have to click stop, you get a true return value from the
+     start function and the move-until-out function never returns. Our
+     old functions, assuming they were given properly formed input
+     data, never had the problem of not exiting with valid input
+     data. This function works and is correct for most inputs but for
+     some nominally valid inputs does not return. In general, it used
+     to be that if the function worked for any input value it always
+     returned. Here it can not return for some valid values.
+
+   - Exercise 25.1.2. Develop move-balls. The function consumes a list
+     of balls and moves each one until all of them have been moved out
+     of bounds.
+
+     #+BEGIN_SRC
+     (map (filter (map ....
+     #+END_SRC
+
+     #+BEGIN_SRC
+     (define (move-balls a-lob)
+       (cond 
+        ((empty? a-lob) #t)
+        (else
+         (move-balls (filter (lambda (ball)
+                              (not (out-of-bouhlinnds? ball)))
+                             (map move-ball a-lob))))))
+     #+END_SRC
