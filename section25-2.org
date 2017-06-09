@@ -1,0 +1,292 @@
+- Exercise 25.2.3. While quick-sort quickly reduces the size of the
+  problem in many cases, it is inappropriately slow for small
+  problems. Hence people often use quick-sort to reduce the size of
+  the problem and switch to a different sort function when the list is
+  small enough. 
+
+  Develop a version of quick-sort that uses sort from section 12.2 if
+  the length of the input is below some threshold.
+
+  So our obvious change is that we stop when the list is
+  below-threshold? (whatever that is) and use isort to sort that list.
+
+  #+BEGIN_SRC scheme
+  (define (quick-sort alon)
+    (cond 
+      ((or (below-threshold? alon)
+           (empty? alon))  (isort alon))
+      (else (append (quick-sort (smaller-items (first alon) alon))
+                    (list (first alon))
+                    (quick-sort (larger-items (first alon) alon))))))
+  #+END_SRC
+
+  We know how to define isort and larger/smaller items. However, we do
+  need to think about below-threshold?. Of course we could naively
+  implement it as
+
+  (< (length alon) THRESHOLD)
+  
+  but this requires iterating over every element in the list every
+  time we call the function. We're not really interested in the total
+  length of the list, just if it is below a certain threshold. This
+  will involve defining a function for two complex compound values.
+
+  #+BEGIN-SRC scheme
+  ;; below-threshold? (listof number) number -> boolean
+  ;; returns true if the length of alon is less than n.
+  (define (below-threshold? alon n) ...)
+  
+  (equal? (below-threshold? empty 0)  false)
+  (equal? (below-threshold? empty 2) true)
+  (equal? (below-threshold? (list 1) 0) false)
+  (equal? (below-threshold? (list 1) 1) false)
+  (equal? (below-threshold? (list 1) 2) true)
+  (equal? (below-threshold? (list 1) 3) true)
+  (equal? (below-threshold? (list 1 2 3 4) 5) true)
+  (equal? (below-threshold? (list 1 2 3 4) 4) false)
+  #+END_SRC
+
+  We have two complex values, N[>=0]:
+
+  1. 0 or
+  2. (add1 n) where n is a N[>=0]
+
+  and a (listof number):
+  1. empty or
+  2. (cons n lon) where n is a number and lon is a (listof number).
+
+  |               | (= 0 n)                     | (> 0 n))                    |
+  | (empty? alon) | (and (empty? alon) (= 0 n)) | (and (empty? alon) (> 0 n)) |
+  | (cons? alon)  | (and (cons? alon) (= 0 n))  | (and (cons? alon) (> 0 n))  |
+
+  So our template,  can without further examination, can have these
+  clauses:
+
+  #+BEGIN_SRC scheme
+  (define (below-threshold? alon n)
+    (cond
+      ((and (empty? alon) (= 0 n)) 
+       ...)
+      ((and (empty? alon) (> 0 n))
+       ... (sub1 n) ...)
+      ((and (cons? alon) (= 0 n))
+       ... (first alon) ...
+       ... (rest alon) ...)
+      ((and (cons? alon) (> 0 n))
+       ... (first alon) ...
+       (below-threshold? alon (sub1 n))
+       (below-threshold? (rest alon) (sub1 n))
+       (below-threshold? (rest alon) n))))
+  #+END_SRC
+
+  We can look at the examples and answer the first non-recursive
+  clauses.
+
+  1. false
+  2. true
+  3. false
+
+  #+BEGIN_SRC scheme
+  (define (below-threshold? alon n)
+    (cond
+      ((and (empty? alon) (= 0 n)) false)
+      ((and (empty? alon) (> 0 n)) true)
+      ((and (cons? alon) (= 0 n)) false)
+      ((and (cons? alon) (> 0 n))
+       ... (first alon) ...
+       (below-threshold? alon (sub1 n))
+       (below-threshold? (rest alon) (sub1 n))
+       (below-threshold? (rest alon) n))))
+  #+END_SRC
+
+  Finally we can look at some simple examples for the last clause. 
+
+  (below-threshold? (list 1) 1)
+  1. (below-threshold? (list 1) 0) -> false
+  2. (below-threshold? empty 0) -> false
+  3. (below-threshold? empty 1) -> true
+  
+  This eliminates the third option as a possibility, since it is the
+  wrong answer. This list was not below the threshold. We need to test
+  the other case, a list that _is_ below the threshold.
+
+  (below-threshold? (list 1) 2)
+
+  1. (below-threshold? (list 1) 1) -> 
+      (below-threshold? (list 1) 0) -> false (should be true)
+  2. (below-threshold? empty 1) -> true (OK)
+  3. not a possibility since it gives the wrong answer for other
+     cases.
+
+  we see that (2.) gives the correct answer both times.
+  
+  #+BEGIN_SRC scheme
+  (define (below-threshold? alon n)
+    (cond
+      ((and (empty? alon) (= 0 n)) false)
+      ((and (empty? alon) (> 0 n)) true)
+      ((and (cons? alon) (= 0 n)) false)
+      ((and (cons? alon) (> 0 n))
+       (below-threshold? (rest alon) (sub1 n)))))
+  #+END_SRC  
+
+  #+BEGIN_SRC scheme
+  (define THRESHOLD 5)
+  (define (smaller-items n alon)
+    (cond ((empty? alon) empty)
+          (else (cond ((< (first alon) n) (cons (first alon)
+                                                (smaller-items n (rest alon))))
+                      (else (smaller-items n (rest alon)))))))
+  (define (larger-items n alon)
+    (cond ((empty? alon) empty)
+          (else (cond ((> (first alon) n) (cons (first alon)
+                                                (smaller-items n (rest alon))))
+                      (else (smaller-items n (rest alon)))))))
+                    
+  (define (quick-sort alon)
+    (cond 
+      ((below-threshold? alon THRESHOLD) (isort alon))
+      (else (append (quick-sort (smaller-items (first alon) alon))
+                    (list (first alon))
+                    (quick-sort (larger-items (first alon) alon))))))
+
+  (define (isort alon)
+    (cond ((empty? alon) empty)
+          (else (insert (first alon) (isort (rest alon))))))
+
+  (define (insert n alon)
+    (cond ((empty? alon) (list n))
+          (else (cond ((< n (first alon)) (cons n alon))
+                      (else (cons (first alon) (insert n (rest alon))))))))
+  #+END_SRC
+
+- Exercise 25.2.4. If the input to quick-sort contains the same number
+  several times, the algorithm returns a list that is strictly shorter
+  than the input. Why?
+
+  It does this because any time you run into a number that is
+  duplicated it will eventually be the first number in the entire
+  list. You will then append a sorted list of all the items strictly
+  less than the item, the list of that item itself, and a sorted list
+  of all the items strictly greater than the item, which does result
+  in a sorted list. However, duplicates are not included in either the
+  list of smaller items, or the list of larger items. There are a few
+  possible solutions. 
+
+  1. instead of appending (list (first alon)), have (equal-items
+     (first alon) alon), which returns all items equal to n. This will
+     ensure all items that are greater than, less than, or equal to n
+     are accounted for.
+  2. instead of smaller-than, use smaller-than-or-equal-to, which will
+     sort a list of items less than or equal to (first alon) and
+     return that list. 
+  #+BEGIN_SRC scheme
+  (define (equal-items n alon)
+    (cond ((empty? alon) empty)
+          (else (cond ((= (first alon) n) (cons (first alon) (equal-items n (rest alon))))
+                      (else (equal-items n (rest alon)))))))
+  (define (smaller-than-or-equal-to n alon) 
+    (cond ((empty? alon) empty)
+          (else (cond ((or (= (first alon) n)
+                           (< (first alon) n)) (cons (first alon) (equal-items n (rest alon))))
+                      (else (smaller-than-or-equal-to n (rest alon)))))))
+                      
+  (define (quick-sort.v1 alon)
+    (cond 
+      ((empty? alon) empty)
+      (else (append (quick-sort.v1 (smaller-items (first alon) alon))
+                    (equal-items (first alon) alon)
+                    (quick-sort.v1 (larger-items (first alon) alon))))))
+  (equal? (list 1 1 2 2 3 3) (quick-sort.v1 (list 2 3 2 1 3 1)))
+  (equal? (list 1 1 2 2 30 30 40 40 45 45)
+          (quick-sort.v1 (list 1 30 30 2 45 1 40 40 2 45)))
+  (equal? (list 1 1 1 1)
+          (quick-sort.v1 (list 1 1 1 1)))
+  (define (quick-sort.v2 alon)
+    (cond
+      ((empty? alon) empty)
+      (else (append (quick-sort.v2 (smaller-than-or-equal-to (first alon) (rest alon)))
+                    (list (first alon))
+                    (quick-sort.v2 (larger-items (first alon) alon))))))
+  (equal? (list 1 1 2 2 3 3) (quick-sort.v2 (list 2 3 2 1 3 1)))
+  (equal? (list 1 1 2 2 30 30 40 40 45 45)
+          (quick-sort.v2 (list 1 30 30 2 45 1 40 40 2 45)))
+  (equal? (list 1 1 1 1)
+          (quick-sort.v2 (list 1 1 1 1)))
+  #+END_SRC
+
+- Exercise 25.2.5. Use the filter function to define smaller-items and
+  larger-items as one-liners.
+
+  #+BEGIN_SRC scheme
+  (define (smaller-items n alon)
+    (filter (lambda (a-number) (< a-number n)) alon))
+  (define (larger-items n alon)
+    (filter (lambda (a-number) (> a-number n)) alon))
+  #+END_SRC
+- Exercise 25.2.6. Develop a variant of quick-sort that uses only one
+  comparison function, say, <. Its partitioning step divides the given
+  list alon into a list that contains the items of alon smaller than
+  (first alon) and another one with those that are not smaller.
+
+  Use *local* to combine the functions into a single function. Then
+  abstract the new version to consume a list and a comparison
+  function:
+
+  #+BEGIN_SRC scheme
+  ;; general-quick-sort : (X X -> bool) (list X) -> (list X)
+  (define (general-quick-sort a-predicate a-list) ...)
+  #+END_SRC
+
+  step 1, concrete:
+  #+BEGIN_SRC scheme
+  (define (quick-sort alon)
+    (cond
+      ((empty? alon) empty)
+      (else
+       (append (quick-sort (filter (lambda (a-number) 
+                                     (< a-number (first alon)))  (rest alon)))
+               (list (first alon))
+               (quick-sort (filter (lambda (a-number) 
+                                     (not (< a-number (first alon)))) (rest alon)))))))
+  #+END_SRC
+
+  step 2, other example: 
+  say we wish to sort it in reverse:
+  #+BEGIN_SRC scheme
+  (define (quick-sort alon)
+    (cond
+      ((empty? alon) empty)
+      (else
+       (append (quick-sort (filter (lambda (a-number) 
+                                     (> a-number (first alon)))  (rest alon)))
+               (list (first alon))
+               (quick-sort (filter (lambda (a-number) 
+                                     (not (> a-number (first alon)))) (rest alon)))))))
+  #+END_SRC  
+  
+  #+BEGIN_SRC scheme
+  (define (quick-sort-reverse alon)
+    (cond
+      ((empty? alon) empty)
+      (else
+       (append (quick-sort-reverse (filter (lambda (a-number) 
+                                     (|>| a-number (first alon)))  (rest alon)))
+               (list (first alon))
+               (quick-sort-reverse (filter (lambda (a-number) 
+                                     (not (|>| a-number (first alon)))) (rest alon)))))))  
+  #+END_SRC
+
+  #+BEGIN_SRC scheme
+  (define (general-quick-sort a-predicate alox)
+    (cond
+      ((empty? alox) empty)
+      (else
+       (append (general-quick-sort (filter (lambda (a-x) 
+                                     (a-predicate a-x (first alox)))  (rest alox)))
+               (list (first alox))
+
+               (general-quick-sort (filter (lambda (a-x) 
+                                     (not (a-predicate a-x (first alox)))) (rest alox))))))) 
+  #+END_SRC
+

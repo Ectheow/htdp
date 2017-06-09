@@ -1,0 +1,652 @@
+* Section 26
+** Designing Algorithms
+   At first glance, the algorithms move-until-out and quick-sort have
+   little in common. Once processes structures; the other processes
+   lists. One creates new structure for the generative step; the other
+   splits up a list into three pieces and recurs on two of them. In
+   short, a comparison of the two examples of generative recursion
+   suggests that it is impossible to come up with a general design
+   recipe. A closer look, however, suggests a different picture. 
+
+   First, even though we speak of algorithms as processes that solve
+   problems, they are still functions that consume and produce
+   data. In other words, we still choose data to represent a problem,
+   and we must definitely understand the nature of our data if we wish
+   to understand the process. Second, we describe the processes in
+   terms of data, for example, ``creating a new structure'' or
+   ``partitioning a list of numbers.'' Third, we always distinguish
+   between input data for which it is trivial to produce a solution
+   and those for which it is not. Fourth, the generation of problems
+   is the key to the design of algorithms. Although the idea of how to
+   generate a new problem might be independent of a data
+   representation, it must certainly be implemented in whatever form
+   of representation we choose for our problem. Finally, once the
+   generated problems have been solved, the solutions must be combined
+   with other values.
+
+   Let us examine the six general stages of our structural design
+   recipe in light of our discussion:
+
+   - Data analysis and design ::
+	The choice of a data representation for a problem often
+        affects our thinking about the process. Sometimes the
+        description of a problem dictates a particular choice of
+        representation. On other occasions it is possible and
+        worthwhile to explore alternatives. In any case we must
+        analyze and define our data collections.
+   - Contract, purpose, header :: 
+	We also need a contract, a definition header, and a purpose
+        statement. Since the generative step has no connection to the
+        structure of the data definition, the purpose statement should
+        not only specify *what* the function does but should also
+        include a comment that explains in general terms *how* it
+        works.
+   - Function examples :: 
+	In our previous design recipes, the function examples merely
+        specified which output the function should produce for some
+        given input. For algorithms, examples should illustrate *how*
+        the algorithm proceeds for some given input. This helps us to
+        design, and readers to understand, the algorithm. For
+        functions such as move-until-out the process is trivial and
+        doesn't need more than a few words. For others, including
+        quick-sort, the process relies on a non-trivial idea for its
+        generative step, and its explanation requires a good example
+        such as the one in figure 67.
+   - Template :: 
+        Our discussion suggests a general template for algorithms:
+
+	#+BEGIN_SRC scheme
+	(define (generative-recursive-fun problem)
+	  (cond
+            [(trivially-solvable? problem)
+	     (determine-solution problem)]
+            [else
+             (combine-solutions
+	      ... problem ...
+              (generative-recursive-fun (generate-problem-1 problem))
+              .
+              .
+              .
+              (generate-recursive-fun (generate-problem-n
+                 problem)))]))
+        #+END_SRC
+   - Definition :: 
+       Of course, this template is not only a suggestive blueprint,
+       not a definitive shape. Each function in the template is to
+       remind us that we need to think about the following four
+       questions: 
+     1. What is a trivially solvable problem?
+     2. what is the corresponidng solution?
+     3. How do we generate new problems that are more easily solvable
+        than the original problem? Is there one new problem that we
+        generate or are there several?
+     4. Is the solution of the given problem the same as the solution
+        of (one of) the new problems? Or, do we need to combine the
+        solutions to create a solution for the original problem? And
+        if so, do we need anything from the original problem data?
+     To define the algorithm, we must express the answers to these
+     questions in terms of chosen data representation.
+   - Test :: 
+      Once we have a complete function we must also test it. As
+      before the goal of testing is to discover bugs and eliminate
+      them. Remember that testing cannot validate that the function
+      works correctly for all possible inputs. Also remember that it
+      is best to formulate tests as boolean-valued expressions that
+      automatically compare the expected value with the compound
+      value (see section 17.8).
+
+   - Exercise 26.0.7. Formulate informal answers to the four key
+     questions for the problem of modeling a ball's movement across a
+     canvas until it is out of bounds.
+     1. What is the trivially solvable problem? -- a ball which is out
+        of the bounds of the canvas, that is, has an x or y position
+        which are less than 0 or an x or y position greater than the x
+        or y boundaries, respectively. In this case we simply return
+        true.
+     2. What is the corresponding solution? -- for an out of bounds
+        ball, the value true.
+     3. How do we generate new problems that are more easily solvable
+        than the original problem? Is there one new problem that we
+        generate or are there several? -- The new problem is the ball
+        which as been moved, which is presumably closer to being out
+        of bounds and therefore closer to being trivially solvable.
+     4. Is the solution of the given problem the same as the solution
+        of (one of) the new problems? Or, do we need to combine the
+        solutions to create a solution for the original problem? And
+        if so, do we need anything from the original problem data? --
+        The answer to the new, smaller problem is the same as the
+        answer to the larger problem.
+   - Exercise 26.0.8. Formulate informal answers to the four key
+     questions for the quick-sort problem. How many instances of
+     generate-problem are there?
+     1. What is a trivially solvable problem? -- the sorted empty list
+        is empty, so this is the trivially solvable problem.
+     2. What is a corresponding solution? -- empty.
+     3. How do we generate new problems that are more easily solvable
+        than the original problem? Is there one new problem that we
+        generate or are there several? -- We generate new problems by
+        taking out the first element of the list and partitioning the
+        list into two (unsorted) lists - one which has items strictly
+        less than, and one with items greater than or equal to but not
+        including the first item in the list. Thus, both lists are
+        strictly smaller than the input list, the total length of both
+        is exactly one less. So, we have two new smaller problems, we
+        sort the list of items smaller than the first item, and the
+        list of items greater than the first item, then append
+        them. So generally speaking it is easier because the sublists
+        are smaller than the input list and therefore closer to being
+        empty which is the trivially solvable solution.
+     4. Is the solution of the given problem the same as the solution
+        of (one of) the new problems? Or, do we need to combine the
+        solutions to create a solution for the original problem? And,
+        if so, do we need anything from the original problem data? --
+        The solution to the two sub-problems is not in fact the
+        same. Each sub-problem returns a sorted list which contains
+        elements from the total sorted list but we need to combine the
+        two solutions with the piece of data we took from the list
+        into a new total list. We need the first element of the
+        original problem, which will not be present in either solution
+        to the new, smaller, sub-problems.
+** 26.1 Termination
+   Unfortunately, the standard recipe is not good enough for the
+   design of algorithms. Up to now, a function has always produced an
+   output for any legitimate input. That is, the evaluation has always
+   stopped. After all, by the nature of our recipe, each natural
+   recursion consumes an immediate piece of the input, not the input
+   itself. Because data is constructed in a hierarchical manner, this
+   means that the input shrinks at every stage. Hence the function
+   sooner or later consumes an atomic piece of data and stops.
+
+   With functions based on generative recursion, this is no longer
+   true. The internal recursions don't consume an immediate component
+   of the input but some new piece of data, which is generated from
+   the input. As exercise 25.1.1 shows, this step may produce the
+   input over and over again and thus prevent the evaluation from ever
+   producing a result. We say that the program LOOPS or is in an
+   INFINITE LOOP. 
+
+   In addition, even the slightest mistake in translating the process
+   description into a function definition may cause an infinite
+   loop. The problem is most easily understood with an
+   example. Consider the following definition of smaller-items, one of
+   the two ``problem generators'' for quick-sort:
+
+   #+BEGIN_SRC scheme
+   ;; smaller-items : (listof number) number -> (listof number)
+   ;; to create a list with all those numbers on alon
+   ;; that are smaller than or equal to threshold.
+   (define (smaller-items alon threshold)
+     (cond
+       [(empty? alon) empty]
+       [else (if (<= (first alon) threshold)
+                 (cons (first alon) (smaller-items (rest alon) threshold))
+		 (smaller-items (rest alon) threshold))]))
+   #+END_SRC
+
+   Instead of < it employs <= to compare numbers. As a result this
+   function produces (list 5) when applied to (list 5) and 5.
+
+   Worse, if the quick-sort function from figure 68 is combined with
+   this new version of smaller-items, it doesn't produce any output
+   for (list 5):
+
+   #+BEGIN_SRC scheme
+     (quick-sort (list 5))
+   = (append (quick-sort (smaller-items 5 (list 5)))
+             (list 5)
+	     (quick-sort (larger-items 5 (list 5))))
+   = (append (quick-sort (list 5))
+             (list 5)
+             (quick-sort (larger-items 5 (list 5))))
+   #+END_SRC
+
+   The first recursive use demands that quick-sort solve the problem
+   of sorting (list 5) -- but that is the exact problem that we
+   started with. Since this is a circular evaluation, (quick-sort
+   (list 5)) never produces a result. More generally there is no
+   guarantee that the size of the input for a recursive call brings us
+   closer to a solution that the original input.
+
+   | Phase    | Goal                                                                                     | Activitiy                                                                                                                                                                                                                                                                                    |
+   |----------+------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+   | Examples | To characterize the input-output relationship and the computational process via examples | create and show examples of trivially solvable problems * create and show examples that require recursive processing * illustrate how to work through examples                                                                                                                               |
+   | Body     | To define an algorithm                                                                   | formulate tests for trivially solvable problems * formulate answers for the trivial cases * determine how to generate new problems from teh given problem, possibly using auxiliary functions * determine how to combine the solutions of the problems into a solution for the given problem |
+   | Termin.  | To argue that the algorithm terminates for all possible inputs                           | shows that the inputs to the recursive applications are smaller than the given input                                                                                                                                                                                                         |
+
+   The lesson from this example is that the design of algorithms
+   requires one more step in our design recipe: a TERMINATION
+   ARGUMENT, which explains why the process produces an output for
+   every input and how the function implements this idea; or a
+   warning, which explains when the process may not terminate. For
+   quick-sort, the argument might look like this:
+
+   At each step, quick-sort partitions the list into two sublists
+   using smaller-items and larger-items. Each function produces a list
+   that is smaller than the input (the second argument), even if the
+   threshold (the first argument) is an item on the list. Hence each
+   recursive application of quick-sort consumes a strictly shorter
+   list than the given one. Eventually, quick-sort receives and
+   returns empty.
+
+   Without such an argument an algorithm must be considered
+   incomplete.
+
+   A good termination argument may on occasion also reveal additional
+   termination cases. For example, (smaller-items N (list N)) and
+   (larger-items N (list N)) will always produce empty for any
+   N. Therefore we know that quick-sort's answer for (list N) is (list
+   N). To add this knowledge to quick-sort, we simply add a
+   cond-clause:
+
+   #+BEGIN_SRC scheme
+   (define (quick-sort alon)
+     (cond
+       [(empty? alon) empty]
+       [(empty? (rest alon)) empty]
+       [else (append
+              (quick-sort (smaller-items alon (first alon)))
+	      (list (first alon))
+	      (quick-sort (larger-items alon (first alon))))]))
+   #+END_SRC
+   
+   The condition (empty? (rest alon)) is one way to ask whether alon
+   contains one item.
+
+   #+BEGIN_SRC scheme
+   ;; tabluate-div : N[>=1] -> (listof N[>=1])
+   ;; return a list in ascending order of all the divisors of n.
+   (define (tabluate-div n) ...)
+   #+END_SRC
+
+   Examples:
+   #+BEGIN_SRC scheme
+   (equal? (tabluate-div 4) (list 1 2 4))
+   (equal? (tabluate-div 6) (list 1 2 3 6))
+   (equal? (tabluate-div 5) (list 1 5))
+   #+END_SRC
+
+   #+BEGIN_SRC scheme
+   (define (tabulate-div n)
+     (cond
+       ((= 1 n) (list 1))
+       (else
+         (combine ...
+	   ... n ...
+           (tabluate-d-v (generate-subproblem-1 n))
+	   ...
+	   (tabluate-div (generate-subproblem-n n))
+           n))))
+   #+END_SRC
+
+   We know: 
+   - one divisor in the list is n.
+   - if n is 1, that is the only item in the list.
+
+   The simplest way to find a single divisor is to count down by ones:
+
+   #+BEGIN_SRC scheme
+   ;; greatest-divisor : N[>=1] -> N[>=1]
+   ;; find the largest number that divides n.
+   (define (greatest-divisor n) ...)
+   #+END_SRC
+   
+   Template:
+
+   #+BEGIN_SRC scheme
+   (define (greatest-divisor n)
+     (cond ((= n 1) ...)
+           (else ... n ... (greatest-divisor (sub1 n)))))
+   #+END_SRC
+
+   the answer for (= n 1) should be 1. 
+
+   We can clearly see that if (remainder n some-value) is 0 we should
+   return that value, but...
+
+   There's a problem: if greatest divisor is called with (sub1 n) and
+   nothing else, we have no way of knowing what our original number
+   was. So we will define an auxiliary greatest-divisor that takes n
+   and the current attempt at dividing. n will be the same, but
+   atomic. d will be the current attempt at dividing. 
+
+   (define (greatest-divisor n)
+     (local ((define (greatest-divisor n d)
+               (cond ((= d 1) 1)
+                     (else (if (= (remainder n d) 0)
+                                  d
+                                  (greatest-divisor n (sub1 d)))))))
+      (greatest-divisor n (sub1 n))))
+
+   #+BEGIN_SRC scheme
+   (define (greatest-divisor n)
+     (local ((define (greatest-divisor n current)
+               (cond ((= 1 current) 1)
+                     (else (if (= (remainder n current) 0) 
+                               current
+			       (greatest-divisor n (sub1 current)))))))
+      (greatest-divisor n (sub1 n))))
+   #+END_SRC
+   
+   We can use this as an item in the list and as input to the next problem.
+
+   #+BEGIN_SRC scheme
+   (define (tabluate-div n d)
+     (cond
+       ((= d 1) (list 1))
+       ((= (remainder n d) 0)
+        (append (tabluate-div n (sub1 d))
+                (list d)))
+       (else (tabluate-div n (sub1 d)))))
+   #+END_SRC
+
+   Questions
+   Redo:
+
+   We did the contract and purpose header as well as the template. 
+   
+   Definition:
+   1. What is the trivially solvable problem? The list of divisors of
+      1 is (list 1).
+   2. What is the corresponding solution? (list 1).
+   3. How do we generate new problems that are more easily solvable
+      than the original problem? Is there one new problem that we
+      generate or are there several? -- we generate new problems by
+      making the number smaller and closer to one each time. We can do
+      this by subtracting 1 from the attempted divisor at each
+      step. If the attempted divisor 'works', i.e. n is divisible by
+      it, we add it to the list, and continue tabulating. Otherwise,
+      continue trying to tabulate without adding it to the list.
+
+   #+BEGIN_SRC scheme
+   ;; tabulate-div : N[>=1] -> (listof N[>=1])
+   (define (tabulate-div n)
+     (local ((define (tabulate-div n d)
+               (cond ((= d 1) 1)
+                     ((= (remainder n d) 0) 
+                      (cons d (tabluate-div n (sub1 d))))
+                     (else (tabulate-div n (sub1 d))))))
+       (tabluate-div n n)))
+   #+END_SRC
+
+   This is really just structural, plus the earlier questions we had.
+   
+   - Exercise 26.1.2. Develop the function merge-sort, which sorts a
+     list of numbers in ascending order, using the following two
+     auxiliary functions:
+
+     1. The first one, make-singles, constructs a list of one-item
+        lists from the given list of numbers. For example:
+
+	#+BEGIN_SRC scheme
+	(equal? (make-singles (list 2 5 9 3))
+                (list (list 2) (list 5) (list 9) (list 3)))
+        #+END_SRC
+
+     2. The second one, merge-all-neighbors, merges pairs of
+        neighboring lists. More specifically it consumes a list of
+        lists (of numbers) and merges neighbors. For example,
+
+	#+BEGIN_SRC scheme
+	(equal? (merge-all-neighbors (list (list 2)
+                                           (list 5)
+                                           (list 9)
+                                           (list 3)))
+                (list (list 2 5) (list 3 9)))
+        (equal? (merge-all-neighbors (list (list 2 5) (list 3 9)))
+                (list (list 2 3 5 9)))
+        #+END_SRC
+
+        In general, this function yields a list that is approximately
+        half as long as the input. Why is the output not always half
+        as long as the input?
+
+     3. make-singles
+	
+	;; make-singles : (listof number) -> (listof (cons number  empty))
+	;; makes a list of lists where each list contains a single number,
+	;; the numbers are the same as the input list just nested a layer deep.
+
+	(equal? (make-singles empty) empty)
+	(equal? (make-singles (list 1)) (list (list 1)))
+	(equal? (make-singles (list 1 2)) (list (list 1) (list 2)))
+	
+	template:
+	#+BEGIN_SRC shceme
+	(define (make-singles alon)
+          (cond ((empty? alon) ...)
+	        (else ... (first alon) ...
+                      ... (make-singles (rest alon)) ...)))
+        #+END_SRC
+
+        definition:
+	#+BEGIN-SRC scheme
+	(define (make-singles alon)
+          (cond ((empty? alon) empty)
+                (else (cons (cons (first alon) empty)
+                            (make-singles (rest alon))))))
+        #+END_SRC
+
+     4. merge-all-neighbors
+	;; merge-all-neighbors : (listof (listof number)) -> (listof (listof number))
+	;; take a list of lists, each of which is either single or ordered. 
+	;; Merge each neighbor, starting with 1 and 2, such that the result is a list
+	;; of lists that is half or half+1 the length of the input list, 
+	;; and each inner list is still in sorted order. 
+	(define (merge-all-neighbors alolon) ...)
+
+	(equal? (merge-all-neighbors empty) empty)
+	(equal? (merge-all-neighbors (list (list 1))) (list (list 1)))
+	(equal? (merge-all-neighbors (list (list 2) (list 1))) (list (list 1 2)))
+	(equal? (merge-all-neighbors (list (list 3) (list 2) (list 1)))
+                (list (list 2 3) (list 1)))
+	(equal? (merge-all-neighbors (list (list 2 3) (list 1))) (list (list 1 2 3)))
+
+        Template:
+	#+BEGIN_SRC scheme
+	(define (merge-all-neighbors alolon)
+          (cond
+            ((empty? alolon) ...)
+	    (else ... (first alolon) ...
+	          ... (merge-all-neighbors (rest alolon)) ...)))
+
+        #+END_SRC
+
+        The answer to the first clause is clearly empty. Next, we see
+        that we want to access two items at a time. We would be better
+        served by a different data definition that takes into account
+        the purpose of our function and of the list, how we look at it
+        when we consider what we want to do with it.
+
+	a list-of-neighbors is:
+
+	1. empty
+	2. (cons x empty) where x is a (listof number)
+	3. (cons x (cons y l)) where x and y are (listof number) and l
+           is a list-of-neighbors.
+
+        This gives us a new template based on this data definition:
+
+	#+BEGIN_SRC scheme
+	(define (merge-all-neighbors alolon)
+	  (cond 
+            ((empty? alolon) ...)
+	    ((empty? (rest alolon)) ...)
+	    (else
+	      ... (first alolon) ...
+	      ... (first (rest alolon)) ...
+	      ... (merge-all-neighbors (rest (rest alolon))) ...)))
+        #+END_SRC
+
+        Now we can define our function with more ease. Based on the
+        examples the first two clauses should return empty and alolon,
+        respectively. The next clause should merge the first two
+        lists, preserving order, and the recursive call takes care of
+        the rest of the list. Clearly, we need an auxiliary function,
+        merge. 
+
+	#+BEGIN_SRC scheme
+	(define (merge-all-neighbors alolon)
+	  (cond 
+            ((empty? alolon) empty)
+	    ((empty? (rest alolon)) alolon)
+	    (else
+              (cons 
+	       (merge (first alolon)
+	              (first (rest alolon)))
+	       (merge-all-neighbors (rest (rest alolon)))))))
+        #+END_SRC		
+
+        merge takes two complex inputs, it needs the more complex
+        recipe. 
+
+	#+BEGIN_SRC scheme
+	;; merge : (listof number) (listof number) -> (listof number)
+	;; combines two already sorted lists, preserving the order of
+        ;; them.
+	(define (merge alon1 alon2) ...)
+
+	(equal? (merge (list 1) (list 1)) (list 1 1))
+	(equal? (merge (list 1) empty) (list 1))
+	(equal? (merge (list 1 2) (list 3 4)) (list 1 2 3 4))
+	(equal? (merge empty (list 3 4)) (list 3 4))
+	(equal? (merge (list 1 5 7) (list 2 4 6)) (list 1 2 4 5 7))
+	#+END_SRC
+
+	Template:
+	We need to look at our data definition:
+	
+	a (listof number) is:
+	1. empty
+	2. (cons n lon) where n is a number and lon is a (listof
+           number).
+
+	We therefore need to take into account different possible
+        clauses:
+
+	|                | (empty? alon1)                      | (cons? alon1)                      |
+	|----------------+-------------------------------------+------------------------------------|
+	| (empty? alon2) | (and (empty? alon1) (empty? alon2)) | (and (cons? alon1) (empty? alon2)) |
+	| (cons? alon2)  | (and (empty? alon1) (cons? alon2))  | (and (cons? alon1) (cons? alon2))  |
+
+	We can then create a generic template, annotated with possible
+        recursions:
+
+	#+BEGIN_SRC scheme
+	(define (merge alon1 alon2)
+	  (cond
+	    ((and (empty? alon1) (empty? alon2))
+             ...)
+            ((and (empty? alon1) (cons? alon2))
+	     ... (first alon2) ...
+	     ... (merge (rest alon2) alon1) ...
+             ... (merge alon1 (rest alon2)) ...)
+            ((and (cons? alon1) (empty? alon2))
+	     ... (first alon1) ...
+             ... (merge alon2 (rest alon1)) ...
+	     ... (merge (rest alon1) alon2) ...)
+            ((and (cons? alon1) (cons? alon2))
+	     ... (first alon1) ...
+	     ... (first alon2) ...
+	     ... (merge-sort (rest alon1) (rest alon2)) ...
+	     ... (merge-sort alon1 (rest alon2)) ...
+	     ... (merge-sort (rest alon1) alon2) ...
+             ... (merge-sort (rest alon2) (rest alon1)) ...
+	     ... (merge-sort alon2 (rest alon1)) ... )))
+        #+END_SRC
+	     
+        Plainly, the first answer should be empty. For the second
+        question, we can see from the examples that returning the
+        non-empty list makes the most sense, and likewise for the
+        third clause. The difficulty is in the final clause. There are
+        two possible inputs:
+
+	1. where (first alon1) is greater than or equal to (first alon2), and
+           should appear after it in the output data.
+
+	   1. (merge (list 2) (list 1))
+	      - (merge-sort (rest alon1) (rest alon2)) --
+	        (merge empty empty) --> empty/some sorted list.
+		MAYBE since it depends on how we combine outputs. 
+	      - (merge-sort alon1 (rest alon2)) --
+	        (merge (list 2) empty) -- (list 2) -- this depends on
+                 how we combine the output. We could do (cons (first
+                 alon1) (merge alon1 (rest alon2)). This would be
+                valid. MAYBE.
+	      - (merge-sort (rest alon1) alon2) 
+		(merge-sort emtpy (list 1)) -- this would return (list
+                1), and again, it depends on how the output is
+                combined. We could do (append alon1 (merge-sort empty
+                alon2)) MAYBE.
+	      - (merge-sort (rest  alon2) (rest alon2)) -- again,
+                merge sorting this way is an empty result and we could
+                combine in a number of ways.
+	      - (merge-sort alon2 (rest alon1)) -- 
+		(merge-sort (list 2) empty) -- (list 2) - could be
+                combined so it works MAYBE.
+		
+	   2. (merge (list 2 3 4) (list 1))
+	      - (merge (rest alon1) (rest alon2)) --
+		(merge (list 3 4) empty) -- (list 3 4). We could then
+                combine like this: 
+
+                (cons (first alon2) (cons (first
+                  alon1) (merge (rest alon1) (rest alon2)). 
+                MAYBE.
+
+	   3. (merge (list 2 3 4 5) (list 1 1 50 60))
+	      - (merge (rest alon1) (rest alon2)) --
+		(merge (list 3 4 5) (list 1 50 60)) -- If this call
+                returns correctly, we still can't combine them
+                effectively. It would return (list 1 3 4 5 50 60), we
+                would need to insert 2 after the 1. so NO in cases
+                where they are not equal. We could combine it well if
+                we gave (rest alon2) as input data and alon1 as data
+                to the function -- in cases where (first alon1) >
+                (first alon2). 
+
+		(cond ((> (first alon1) (first alon2))
+                       (cons (first alon2) (merge alon1 (rest
+                alon2))))
+                      ((< (first alon1) (first alon2))
+                       (cons (first alon1) (merge (rest alon1)
+                alon2)))
+                      ((= (first alon1) (first alon2))
+                       (cons (first alon1) (cons (first alon2) (merge
+                (rest alon1) (rest alon2))))))
+
+	   4. (merge (list 2 2 3 4) (list 
+
+	2. where (first alon1) is less than (first alon2), and should
+           appear before. 
+
+	#+BEGIN_SRC scheme
+	(define (merge alon1 alon2)
+	  (cond
+	    ((and (empty? alon1) (empty? alon2))
+             empty)
+            ((and (empty? alon1) (cons? alon2)) alon2)
+	    ((and (cons? alon1) (empty? alon2)) alon1)
+	    ((and (cons? alon1) (cons? alon2))
+	     (cond
+	       ((< (first alon1) (first alon2))
+	        (cons (first alon1) (merge (rest alon1) alon2)))
+	       ((> (first alon1) (first alon2))
+	        (cons (first alon2) (merge alon1 (rest alon2))))
+	       ((= (first alon1) (first alon2))
+		(cons (first alon1)
+                      (cons (first alon2) (merge (rest alon1) (rest
+        alon2)))))))))
+        #+END_SRC
+
+	#+BEGIN_SRC scheme
+	(define (merge-sort alon)
+	  (cond ((empty? alon) alon)
+	        (else (merge-all-neighbors 
+                       
+
+
+
+	
+
+
+
