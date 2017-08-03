@@ -73,8 +73,82 @@
    - Exercise 27.5.1. Check that the following system of equations
      
      #+BEGIN_EXAMPLE
-     2*x + 2*y
+     2*x + 2*y + 3*z = 10
+           3*y + 9*z = 21
+          -3*y - 8*z = -19
      #+END_EXAMPLE
+
+     has the same solution as the one labeled with (+/-).
+
+     We check this by simply plugging in the previously mentioned
+     solution - x = 1, y = 1, z = 2, into the equation.
+
+     #+BEGIN_EXAMPLE
+     2*1 + 2*1 + 3*2 = 10 ?
+     2 + 2 + 6 = 10 ?
+     4 + 6 = 10 ?
+     10 = 10 !
+     #+END_EXAMPLE
+     
+     the first equation is therefore satisfied, but it hasn't changed.
+
+     #+BEGIN_EXAMPLE
+     3*1 + 9*2 = 21 ?
+     3 + 18 = 21 ?
+     21 = 21 !
+     #+END_EXAMPLE
+
+     OK for the second equation.
+
+     #+BEGIN_EXAMPLE
+     -3*1 - 8*2 = -19 ? 
+     -3 - 16 = -19 ? 
+     -19 = -19 !
+     #+END_EXAMPLE
+     
+     OK for the third and final.
+
+   - Develop subtract. The function consumes two lists of numbers of
+     equal length. It subtracts the first from the second, item by
+     item, as many times as necessary to obtain 0 in the first
+     position. The result is the rest of this list.
+
+     #+BEGIN_SRC scheme
+     ;; subtract : (listof number) (listof number) -> (listof number)
+     ;; accepts two (listof number) of equal length, lon1 and lon2. 
+     ;; It then subtracts a multiple of lon1 from lon2. The multiple is the 
+     ;; leading coefficient of lon1 multiplied by the leading coefficient of 
+     ;; lon2 divided by the leading coefficient of lon1. This will result in 
+     ;; the first element of lon2 becoming 0. The function returns the resulting 
+     ;; list, without the first element, which is 0.
+     (define (subtract lon1 lon2) ...)
+
+     ;; examples:
+     (equal? 
+      (subtract (list 1 2 3) (list 1 3 4))
+      (list 1 1))
+     (equal?
+      (subtract (list 4 5 6) (list 4 8 8))
+      (list 3 2))
+     (equal? 
+      (subtract (list 2 2 3 10) (list 2 5 12 31))
+      (list 3 9 21))
+     (equal?
+      (subtract empty empty)
+      empty)
+     (equal? 
+      (subtract (list 1) (list 2))
+      empty)
+     (equal?
+      (subtract (list 23) (list 444))
+      empty)
+     ;; questions:
+     #+END_SRC
+
+     We can see
+     
+
+   
 
 
 
