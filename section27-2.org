@@ -1,0 +1,155 @@
+* 27
+** 27.5 Extended Exercise: Gaussian Elimination
+   Mathematicians not only search for solutions of equations in one
+   variable; they also study whole systems of linear equations. Here
+   is a sample system of equations in three variables, x, y, and z:
+
+   #+BEGIN_EXAMPLE
+   2*x + 2*y + 3*z = 10
+   2*x + 5*y + 12*z = 31
+   4*x + 1*y - 2*z = 1
+   #+END_EXAMPLE
+
+   A solution to a system of equations is a series of numbers, one per
+   variable, such that if we replace the variable with its
+   corresponding number, the two sides of each equation evaluate to
+   the same number. In our running example, the solution is x = 1, y =
+   1, and z = 2, as we can easily check:
+
+   #+BEGIN_EXAMPLE
+   2*1 + 2*1 + 3*2 = 10
+   2*1 + 5*1 + 12*2 = 31
+   4*1 + 1*1 - 2*2 = 1
+   #+END_EXAMPLE
+
+   The first equation now reads as 10 = 10, the second one as 31 = 31,
+   and the last one as 1 = 1. 
+
+   One of the most famous methods for finding a solution is Gaussian
+   elimination. It consists of two steps. The first is to transform
+   the system of equations into a system of different shape but with
+   the same solution. The second step is to find solutions to one
+   equation at a time. Here we focus on the first step because it is
+   another interesting instance of generative recursion.
+
+   The first step of the Gaussian elimination algorithm is called
+   ``triangulation'' because the result is a system of equations in
+   the shape of a triangle. In contrast, the original system is
+   typically a rectangle. To understand this terminology, take a look
+   at this representation of the original system:
+
+   This representation captures the essence of the system, namely, the
+   numeric coefficients of the variables and the right-hand sides. The
+   names of the variables don't play any role.
+
+   The generative step in the triangulation phase is to subtract the
+   first row (list) of numbers from all the other rows. Subtracting
+   one row from another means subtracting the corresponding items in
+   the two rows. With our running example, this step would yield
+
+   #+BEGIN_EXAMPLE
+   (list (list 2 2 3 10)
+         (list 0 3 9 21)
+         (list 4 1 -2 1))
+   #+END_EXAMPLE
+
+   when we subtract the first row from the second.
+
+   The goal of these subtractions is to put 0 into the first column of
+   all but the first row. To achieve this for the last row, we
+   subtract the first row twice from the second one:
+
+   #+BEGIN_EXAMPLE
+   (list (list 2 2 3 10)
+         (list 0 3 9 21)
+	 (list 0 -3 -8 -19))
+   #+END_EXAMPLE
+
+   Put differently, we first multiply each item in the first row with
+   2 and then subtract the result from the last row. It is easy to
+   check that the solutions for the original system of equations and
+   for this one are identical.
+
+   - Exercise 27.5.1. Check that the following system of equations
+     
+     #+BEGIN_EXAMPLE
+     2*x + 2*y + 3*z = 10
+           3*y + 9*z = 21
+          -3*y - 8*z = -19
+     #+END_EXAMPLE
+
+     has the same solution as the one labeled with (+/-).
+
+     We check this by simply plugging in the previously mentioned
+     solution - x = 1, y = 1, z = 2, into the equation.
+
+     #+BEGIN_EXAMPLE
+     2*1 + 2*1 + 3*2 = 10 ?
+     2 + 2 + 6 = 10 ?
+     4 + 6 = 10 ?
+     10 = 10 !
+     #+END_EXAMPLE
+     
+     the first equation is therefore satisfied, but it hasn't changed.
+
+     #+BEGIN_EXAMPLE
+     3*1 + 9*2 = 21 ?
+     3 + 18 = 21 ?
+     21 = 21 !
+     #+END_EXAMPLE
+
+     OK for the second equation.
+
+     #+BEGIN_EXAMPLE
+     -3*1 - 8*2 = -19 ? 
+     -3 - 16 = -19 ? 
+     -19 = -19 !
+     #+END_EXAMPLE
+     
+     OK for the third and final.
+
+   - Develop subtract. The function consumes two lists of numbers of
+     equal length. It subtracts the first from the second, item by
+     item, as many times as necessary to obtain 0 in the first
+     position. The result is the rest of this list.
+
+     #+BEGIN_SRC scheme
+     ;; subtract : (listof number) (listof number) -> (listof number)
+     ;; accepts two (listof number) of equal length, lon1 and lon2. 
+     ;; It then subtracts a multiple of lon1 from lon2. The multiple is the 
+     ;; leading coefficient of lon1 multiplied by the leading coefficient of 
+     ;; lon2 divided by the leading coefficient of lon1. This will result in 
+     ;; the first element of lon2 becoming 0. The function returns the resulting 
+     ;; list, without the first element, which is 0.
+     (define (subtract lon1 lon2) ...)
+
+     ;; examples:
+     (equal? 
+      (subtract (list 1 2 3) (list 1 3 4))
+      (list 1 1))
+     (equal?
+      (subtract (list 4 5 6) (list 4 8 8))
+      (list 3 2))
+     (equal? 
+      (subtract (list 2 2 3 10) (list 2 5 12 31))
+      (list 3 9 21))
+     (equal?
+      (subtract empty empty)
+      empty)
+     (equal? 
+      (subtract (list 1) (list 2))
+      empty)
+     (equal?
+      (subtract (list 23) (list 444))
+      empty)
+     ;; questions:
+     #+END_SRC
+
+     We can see
+     
+
+   
+
+
+
+   
