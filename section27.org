@@ -1,0 +1,2457 @@
+* Section 27
+** Variations on a Theme
+   As we have seen in the previous two sections, the design of an
+   algorithm usually starts with an informal description of a
+   mechanism. The kernel of this description is about how to create a
+   problem that is more easily solvable than the given one and whose
+   solution contributes to the solution of the given problem. Coming
+   up with such ideas requires studying many different examples. This
+   section presents several illustrative examples of the design recipe
+   for generative recursion. Some are directly drawn from mathematics,
+   which is the source of many ideas for general problem-solving
+   processes; others come from computational contexts. The important
+   point is to understand the generative ideas behind the algorithms
+   so that they can be applied in other contexts.
+
+   The first example is a graphical illustration of our principle: the
+   Sierpinski triangle. The second one concerns ``parsing,'' that is,
+   the process of dissecting sequences of symbols. The third one
+   explains the divide-and-conquer principle with a simple
+   mathematical example: finding the root of a function. Many
+   mathematical processes exploit this idea, and it is important to
+   understand the idea for applied mathematics. In the fourth section,
+   we discuss yet another way of finding a root, this time based on
+   Newton's method. The last section is an extended exercise; it
+   introduces Gaussian elimination, the first step in solving a system
+   of equations.
+
+** 27.1 Fractals
+   Fractals play an important role in computational geometry. Flake
+   (_The computational Beauty of Nature_, the MIT Press, 1998) says
+   that ``geometry can be extended to account for objects with a
+   fractional dimension. Such objects, known as _fractals_, come very
+   close to capturing the richness and variety of forms found in
+   nature. Fractals possess structural self-similarity on multiple
+   ... scales, meaning that a piece of a fractal will often look lik
+   the whole.''
+
+   Figure 71 displays an example of a fractal, widely known as the
+   Sierpinski triangle. The basic shape is an (equilateral) triangle,
+   as shown in the left-most picture. In the right-most example we see
+   that the triangle is repeated many times and in many sizes inside
+   of the outermost triangle. The picture in the middle is a snapshot
+   from the middle of the drawing process. 
+
+   The middle picture also suggests what the generative step might
+   look like. Given the three endpoints of a triangle, we draw the
+   triangle and then compute the midpoint of each side. If we were to
+   connect these midpoints to each other, we would divide the given
+   triangle into four triangles. The middle picture illustrates this
+   idea. The Sierpinski triangle is the result of repeating the
+   process for the three outer triangles and leaving the inner one
+   alone. 
+
+   A function that draws this nest of triangles must mirror this
+   process. Its input data must represent the triangle that we start
+   with. The process stops when the input data specifies a triangle
+   that is too small to be drawn. Since all of our drawing functions
+   produce true when they are done, we agree that our Sierpinski
+   function should also produce true.
+
+   If the given triangle is still large enough, the function must draw
+   the triangle and possibly some nested ones. The trick is to
+   translate the partitioning of the triangle into Scheme. Let us
+   summarize our discussion with a skeletal Scheme definition:
+
+   #+BEGIN_SRC scheme
+   ;; sierpinski : posn posn posn -> true
+   ;; to draw a Sierpinski triangle down at a, b, and c, 
+   ;; assuming it is large enough.
+   (define (sierpinski a b c)
+     (cond
+       [(too-small? a b c) true]
+       [else ... (draw-triangle a b c) ...]))
+   #+END_SRC
+
+   The function consumes three posn structures and returns true when
+   it is done. The *cond*-expression reflects the general outline of
+   an algorithm. It is our task to define too-small?, the function
+   that determines whether the problem is trivially solvable, and
+   draw-triangle. In addition, we must still add a Scheme expression
+   that formulates the partitioning of the triangle.
+
+   The partitioning step requires the function to determine the three
+   mid-points between the three end-points. Let us call these new
+   mid-points a-b, b-c, and c-a. Together with the given endpoints, a,
+   b, and c, they determine four triangles: a, a-b, c-a; b, a-b, b-c;
+   c, c-a, b-c; a-b, b-c, c-a. Thus, if we wanted to create the
+   Sierpinski triangle for, say the first listed triangle, we would
+   use (sierpinski a a-b c-a).
+
+   Since each midpoint is used twice, we use a *local*-expression to
+   translate the generative step into Scheme. The *local*-expression
+   introduces the three new midpoints. Its body contains three
+   recursive applications of sierpinski and the draw-triangle
+   application mentioned earlier. To combine the solutions of the
+   three problems, we use an *and*-expression, which ensures that all
+   three recursions must succeed. Figure 72 collects all the relevant
+   definitions, including two small functions based on domain
+   knowledge from geometry.
+
+   #+BEGIN_SRC scheme
+   ;; sierpinski : posn posn posn -> true
+   ;; to draw a Sierpinski triangle down at a, b, and c,
+   ;; assuming it is large enough
+   (define (sierpinski a b c)
+     (cond
+       [(too-small? a b c) true]
+       [else
+        (local ((define a-b (mid-point a b))
+                (define b-c (mid-point b c))
+                (define c-a (mid-point a c)))
+          (and 
+           (draw-triangle a b c)
+           (sierpinski a a-b c-a)
+           (sierpinski b a-b b-c)
+           (sierpinski c c-a b-c)))]))
+
+   ;; mid-point : posn posn -> posn
+   ;; to compute the mid-point between a-posn and b-posn
+   (define (mid-point a-posn b-posn)
+     (make-posn 
+      (mid (posn-x a-posn) (posn-x b-posn))
+      (mid (posn-y a-posn) (posn-y b-posn))))
+
+   ;; mid : number number -> number
+   ;; to compute the average of x and y
+   (define (mid x y)
+     (/ (+ x y) 2))
+   #+END_SRC
+
+   Since sierpinski is based on generative recursion, collecting the
+   code and testing it is not the last step. We must also consider why
+   the algorithm terminates for any given legal input. The inputs of
+   sierpinski are three positions. The algorithm terminates if the
+   corresponding triangle is too small. But, each recursive step
+   subdivides the triangle so that the sum of its sides is only half
+   of the given triangle. Hence the size of the triangles indeed
+   decreases and sierpinski is bound to produce true. 
+
+   - Exercise 27.1.1. Develop the functions
+     1. ;; draw-triangle : posn posn posn -> true
+	
+	#+BEGIN_SRC scheme
+	(define (draw-triangle a b c)
+          (and 
+           (draw-line a b 'red)
+           (draw-line a c 'red)
+           (draw-line c b 'red)))
+        #+END_SRC
+
+     2. ;; too-small? : posn posn posn -> bool
+     to complete the definitions in figure 72. 
+
+     #+BEGIN_SRC scheme
+     (define THRESHOLD-AREA 2)
+     (define (too-small? a b c)
+     (< (area-triangle a b c) THRESHOLD-AREA))
+     (define (area-triangle a b c)
+     (local ((define base (distance c b))
+     (define height 
+     (distance (a (mid-point b c))))
+     (define (distance a b)
+     (sqrt
+     (+ 
+     (sqr (- (posn-x b) (posn-x a)))
+     (sqr (- (posn-y b) (posn-y a)))))))
+     (* 1/2 base height)))
+     #+END_SRC
+
+   - Exercise 27.1.2. The process of drawing a Sierpinski triangle
+     usually starts from an equilateral shape. To compute the
+     endpoints of an equilateral Sierpinski triangle, we can pick a
+     large circle and three points on the circle that are 120 degrees
+     apart. For example, they could be at 0, 120, and 240:
+
+     #+BEGIN_SRC scheme
+     (define CENTER (make-posn 200 200))
+     (define RADIUS 2000)
+
+     ;; circle-pt : number -> posn
+     ;; to compute a position on the circle with CENTER and RADIUS as
+     ;; defined above
+     (define (circle-pt factor) ...)
+
+     (define A (circle-pt 120/360))
+     (define B (circle-pt 240/360))
+     (define C (circle-pt 360/360))
+     #+END_SRC
+
+     Develop the function circle-pt.
+
+     Hints: Recall that DrScheme's sin and cos compute the sine and
+     cosine in terms of radians, not degrees. Also keep in mind that
+     on-screen positions grow downwards and not upwards.
+
+     #+BEGIN_SRC scheme
+     (define PI 3.14159)
+     
+     (define (circle-pt factor)
+       (local ((define (theta (* 2 PI factor)))
+               (define (delta-x (* RADIUS (cos theta))))
+               (define (delta-y (* RADIUS (sin theta)))))
+         (make-point (+ (posn-x CENTER) delta-x)
+                     (- (posn-y CENTER) delta-y))))
+     #+END_SRC
+
+   - Exercise 27.1.3. Rewrite the function in figure 72 to use
+     structures for the representation of triangles. Then apply the
+     new function to a list of triangles and observe the effect.
+
+     #+BEGIN_SRC scheme
+     ;; a circle is a structure:
+     (define-struct circle (a b c))
+     ;; where a, b, and c are all posn structures.
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; template: 
+     (define (fun-for-circle a-circle)
+       ... (circle-a) ...
+       ... (circle-b) ...
+       ... (circle-c) ...)
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     (define (sierpinski a-triangle)
+       (cond
+         ((too-small? a-triangle) true)
+         (else
+       (local ((define a-b (mid-point 
+                             (triangle-a a-triangle)
+                             (triangle-b a-triangle)))
+               (define a-c (mid-point
+                            (triangle-a a-triangle)
+                            (triangle-c a-triangle)))
+               (define b-c (mid-point
+                            (triangle-b a-triangle)
+                            (triangle-c a-triangle)))
+               (define tri1 (make-triangle a a-b a-c))
+               (define tri2 (make-triangle b b-c a-b))
+               (define tri3 (make-triangle c b-c a-c)))
+         (and
+          (draw-triangle a-triangle)
+          (sierpinski tri1)
+          (sierpinski tri2)
+          (sierpinski tri3))))))
+     #+END_SRC
+
+   - Exercise 27.1.4. Take a look at the following two pictures:
+
+     The left one is the basic step for the generation of the
+     ``Savannah'' tree on the right. This is analogous to the middle
+     picture on page 34. Develop a function that draws trees like one
+     in the right picture.
+
+     Hint: Think of the problem as drawing a straight line, given its
+     starting point and angle in, say, radians. Then, the generative
+     step diides a single straight line into three pieces and uses the
+     two intermediate points as new starting points for straight
+     lines. The angle changes at each step in a regular manner. 
+
+     #+BEGIN_SRC scheme
+     ;; savannah : posn posn -> true
+     ;; recursively draws a savannah tree
+     (define (savannah a len theta)
+       (cond
+         ((too-small? a b) true)
+         (else
+            ... (draw-solid-line a b 'red) ...)))
+     #+END_SRC
+
+     Our generative step will be drawing two savannah trees on our
+     line that are of a smaller length, and at some angle. The length
+     reduction will be called LENGTH-FRACTION. The angle will be
+     BRANCH-ANGLE. At each step we will compute smaller trees to draw.
+
+     new-theta will be either positive or negative BRANCH-ANGLE added
+     to the old theta. 
+
+     end-point: (make-posn (* len (cos theta)) (* len (sin theta)))
+     
+     #+BEGIN_SRC scheme
+     (define SMALLEST-LEN 5)
+     ;; savannah posn n n -> true
+     (define (savannah a len theta)
+       (cond
+        ((< len SMALLEST-LEN) true)
+        (else
+         (local ((define end-point (make-posn 
+                                    (* len (cos theta))
+                                    (* len (sin theta))))
+                 (define branch1-point
+                         (make-posn
+                          (* (* LENGTH-FRACTION len) (cos theta))
+                          (* (* LENGTH-FRACTION len) (sin theta))))
+                 (define branch1-angle
+                         (+ theta BRANCH-ANGLE))
+                 (define branch2-point
+                         (make-posn
+                          (* (* 2 LENGTH-FRACTION len) (cos theta))
+                          (* (* 2 LENGTH-FRACTION len) (sin theta))))
+                 (define branch2-angle
+                         (- theta BRANCH-ANGLE)))
+            (and
+             (draw-solid-line a end-point 'red)
+             (savannah branch1-point 
+                       branch1-angle 
+                       (* 2 LENGTH-FRACTION len))
+             (savannah branch2-point
+                       branch2-angle
+                       (* 2 LENGTH-FRACTION len)))))))
+     #+END_SRC
+
+   - Exercise 27.1.5. In mathematics an dcomputer graphics, people
+     must often connect some given points with a smooth curve. One
+     popular method for this purpose is due to Bezier. Here is a
+     sequence of pictures to illustrate the idea:
+
+     For simplicity, we start with three points: p1, p2, and p3. The
+     goal is to draw a smooth curve from p1 to p3, viewed from p2. The
+     original triangle is shown on the left; the desired curve appears
+     on the right. 
+
+     To draw the curve from a given triangle, we proceed as
+     follows. If the triangle is small enough, draw it. It appears as
+     a large point. If not, generate two smaller triangles as
+     illustrated in the center picture. The outermost points, p1 and
+     p3, remaind the respective outermost points. The replacements for
+     the point in the middle are r2 and q2, which are the midpoints
+     between p1 and p2 and between p2 and p3, respectively. The
+     midpoint between r2 and q2 (marked with *) is the new left-most
+     and right-most endpoint, respectively, for the two new triangles.
+
+     #+BEGIN_SRC scheme
+     ;; bezier : posn posn posn -> true
+     ;; draw a bezier curve on the canvas starting and ending at a and
+     ;; b respectively and 'controlled' from c.
+     (define (bezier a b c)
+       (cond
+         ((too-small? a b c) (draw-triangle a b c))
+         (else
+           (combine-solutions
+             ... (bezier (generate-subproblem 1)) ...
+             .
+             .
+             .
+             ... (bezier (generate-subproblem N)) ...))))
+     #+END_SRC
+
+     To generate a smaller subproblem, we generate a smaller triangle,
+     since the bounding condition is when the triangle gets too
+     small. We need to generate two triangles, in fact, per the
+     problem description. We will need the midpoinds between a and b
+     and b and c, and we will need the midpiont between a-b and b-c.
+
+     Then, we will create two new subproblems:
+     1. the triangle a a-b a-b-b-c
+     2. the triangle a-b-b-c b-c c
+
+     and solve these. The trivial solution is when the triangle is
+     small, in which case we will just draw the triangle as a solid
+     shape.
+
+     #+BEGIN_SRC scheme
+     (define (bezier a b c)
+       (cond
+         ((too-small? a b c) (draw-triangle a b -c))
+         (else 
+          (local ((define a-b (midpoint a b))
+                  (define b-c (midpoint b c))
+                  (define a-b-b-c (midpoint a-b b-c)))
+            (and
+             (bezier a a-b a-b-b-c)
+             (bezier a-b-b-c b-c c))))))
+     (define (midpoint a b)
+       (make-posn
+        (mid (posn-x a) (posn-x b))
+        (mid (posn-y a) (posn-y b))))
+     (define (mid a b)
+       (/ (+ a b) 2))
+
+     (define (too-small? a b c)
+       (< (area-triangle a b c) THRESHOLD))
+
+     (define (area-triangle a b c)
+       (local ((define base (distance b a))
+               (define height (distance c (mid b a))))
+         (* 1/2 base height)))
+     (define (distance a b)
+       (sqrt (+ (sqr (- (posn-x b) (posn-x a)))
+                (sqr (- (posn-y b) (posn-y a))))))
+      #+END_SRC
+     
+     After some edits that didn't really change fundamental program structure:
+      #+BEGIN_SRC scheme
+      (define (bezier a b c)
+       (cond
+         ((too-small? a b c) (draw-triangle a b -c))
+         (else 
+          (local ((define a-b (midpoint a b))
+                  (define b-c (midpoint b c))
+                  (define a-b-b-c (midpoint a-b b-c)))
+            (and
+             (bezier a a-b a-b-b-c)
+             (bezier a-b-b-c b-c c))))))
+      (define (midpoint a b)
+       (make-posn
+        (mid (posn-x a) (posn-x b))
+        (mid (posn-y a) (posn-y b))))
+      (define (mid a b)
+       (/ (+ a b) 2))
+
+     (define (too-small? a b c)
+       (< (area-triangle a b c) THRESHOLD))
+
+     (define (area-triangle a b c)
+       (local ((define base (distance b a))
+               (define height (distance c (mid b a))))
+         (* 1/2 base height)))
+     (define (distance a b)
+       (sqrt (+ (sqr (- (posn-x b) (posn-x a)))
+                (sqr (- (posn-y b) (posn-y a))))))
+      #+END_SRC
+
+     
+** 27.2 From Files to Lines, from Lists to Lists of Lists
+   In section 16, we discussed the organization of computer files,
+   which is one way to equip a computer with permanent memory. We did
+   not discuss the nature of files per se. Roughly put, we can think
+   of a _file_ as a list of symbols:
+
+   A _file_ is either:
+   1. empty, or
+   2. (cons s f) where s is a symbol and f is a file
+
+   A fully faithful representation of files should include only
+   symbols that correspond to characters, but for our purposes we may
+   ignore this distinction.
+
+   Following a tradition that predates computers, one symbol is almost
+   always treated differently: 'NL. The symbol stands for newline and
+   separates two lines from each other. That is, 'NL indicates the end
+   of one line and the beginning of another. In most cases, it is
+   therefore better to think of files as data with more structure. In
+   particular, a file could be represented as a list of lines, where
+   each line is a list of symbols.
+
+   For example, the file
+
+   #+BEGIN_SRC scheme
+   (list 'how 'are 'you 'NL
+         'doing '? 'NL
+         'any 'progress '?)
+   #+END_SRC
+
+   should be processed as a list of three lines:
+
+   #+BEGIN_SRC scheme
+   (list (list 'how 'are 'you)
+         (list 'doing '?)
+         (list 'any 'progress '?))
+   #+END_SRC
+   
+   Similarly, the file
+   
+   #+BEGIN_SRC
+   (list 'a 'b 'c 'NL
+         'd 'e 'NL
+	 'f 'g 'h 'NL)
+   #+END_SRC
+
+   is also represented as a list of three lines, because, by
+   convention, an empty line at the end is ignored:
+
+   #+BEGIN_SRC scheme
+   (list (list 'a 'b 'c)
+         (list 'd 'e)
+	 (list 'f 'g 'h))
+   #+END_SRC
+
+   - Exercise 27.2.1. Determine what the list-of-lines representation
+     for empty, (list 'NL) and (list 'NL 'NL) should be. Why are these
+     examples important test cases?
+
+     Hint: Keep in mind that an empty line at the end is ignored.
+
+     empty -> empty
+     (list 'NL) -> empty
+     (list 'NL 'NL) -> empty
+
+   Here are the contract, purpose statement, and header:
+
+   #+BEGIN_SRC scheme
+   ;; file->list-of-lines : file -> (listof (listof symbols))
+   ;; to convert a file into a list of lines
+   (define (file->list-of-lines afile) ...)
+   #+END_SRC
+
+   Describing the process of separating a file into a list of lines is
+   easy. The problem is trivially solvable if the file is empty; in
+   that case, the file doesn't contain a line. Otherwise, the file
+   contains at least one symbol and thus at least one line. This line
+   must be separated from the rest of the file, and then the rest of
+   the file must be translated into a list of lines.
+
+   Let us sketch this process description in Scheme:
+
+   #+BEGIN_SRC scheme
+   (define (file->list-of-lines afile)
+     (cond
+       [(empty? afile) ...]
+       [else
+        ... (first-line afile) ...
+	... (file->list-of-lines (remove-first-line afile)) ...]))
+   #+END_SRC
+   
+   Because the separation of the first line from the rest of the file
+   requires a scan of an arbitrarily long list of symbols, we add two
+   auxiliary functions to our wish list: first-line, which collects
+   all symbols up to, but excluding, the first occurrence of 'NL or
+   the end of the list; and remove-first-line, which removes all those
+   symbols and produces the remainder of afile.
+
+   #+BEGIN_SRC scheme
+   ;; file->list-of-lines : file -> (listof (listof symbol))
+   ;; to convert a file into a list of lines
+   (define (file->list-of-lines afile)
+     (cond
+       [(empty? afile) empty]
+       [else (cons (first-line afile)
+                   (file->list-of-lines (remove-first-line afile)))]))
+		   
+   ;; first-line : file -> (listof symbol)
+   ;; to compute the prefix of afile up to the first occurrence of
+   ;; NEWLINE
+   (define (first-line afile)
+     (cond
+       [(empty? afile) empty]
+       [else (cond
+               [(symbol=? (first afile) NEWLINE) empty]
+               [else (cons (first afile) (first line (rest afile)))])]))
+
+   ;; remove-first-line : file -> (listof symbol)
+   ;; to compute teh suffix of afile behind th efirst occurrence of NEWLINE
+   (define (remove-first-line afile)
+     (cond
+       [(empty? afile) empty]
+       [else (cond
+               [(symbol=? (first afile) NEWLINE) (rest afile)]
+               [else (remove-first-line (rest afile))])]))
+   (define NEWLINE 'NL)
+   #+END_SRC
+
+   From here, we can fill the gaps easily. In file->list-of-lines, the
+   answer in the first clause must be empty because an empty file does
+   not contain any lines. The answer in the second clause must cons
+   the value of (first-line afile) onto the value (file->list-of-lines
+   (remove-first-line afile)), because the first expression computes
+   the first line and the second one computes the rest of the
+   lines. Finally, the auxiliary functions process their inputs in a
+   structurally recursive manner; their development is a
+   straightforward exercise. Figure 73 collects the three function
+   definitions and a variable definition for NEWLINE.
+
+   Let us take a look at the process of turning the first file from
+   above into a list of lines:
+
+   #+BEGIN_SRC scheme
+     (file->list-of-lines (list 'a 'b 'c 'NL 'd 'e 'NL 'f 'g 'h 'NL))
+   
+   = (cons (list 'a 'b 'c) (file->list-of-lines (list 'd 'e 'NL 'f 'g
+   'h 'NL))
+   = (cons (list 'a 'b 'c)
+           (cons (list 'd 'e)
+                 (cons (list 'f 'g 'h)
+                       (file->list-of-lines empty))))
+   = (cons (list 'a 'b 'c)
+           (cons (list 'd 'e)
+                 (cons (list 'f 'g 'h)
+                       (cons empty))))
+   = (list (list 'a 'b 'c)
+           (list 'd 'e)
+           (list 'f 'g 'h))
+   #+END_SRC
+
+   From this evaluation we can easily tell that the argument of the
+   recursive application of file->list-of-lines is almost never the
+   rest of the given file. That is, it is basically never an immediate
+   component of the given file but always a proper suffix. The only
+   exception occurs when 'NL occurs twice in a row.
+
+   Finally, the evaluation and the definition of file->list-of-lines
+   show that its generative recursion is simple. Every recursive
+   application consumes a list that is shorter than the given
+   one. Hence the recursive process eventually stops because the
+   function consumes empty.
+
+   - Exercise 27.2.2. Organize the program in figure 72 using *lcoal*.
+
+     #+BEGIN_SRC scheme
+     ;; file->list-of-lines : file -> (listof (listof symbol))
+     ;; to convert a file into a list of lines
+     (define (file->list-of-lines afile)
+       (cond
+         [(empty? afile) empty]
+         [else (local ((define (first-line afile)
+                         (cond ((empty? afile) empty)
+                               (else (cond
+                                       [(symbol=? (first afile)
+                                                  NEWLINE)
+                                        empty]
+                                       [else (cons (first afile)
+                                                    (first-line (rest afile)))]))))
+                       (define (remove-first-line afile)
+                         (cond ((empty? afile) empty)
+                               (else (cond
+                                       [(symbol=? (first afile)
+                                                   NEWLINE)
+                                        (rest afile)]
+                                       [else (remove-first-line (rest afile))]))))
+                       (define NEWLINE 'NL))
+                  (cons (first-line afile)
+                        (file->list-of-lines (remove-first-line afile))))]))
+  
+     #+END_SRC
+     Abstract the functions first-line and remove-first-line. Then
+     organize the resulting program using *local* again.
+
+     #+BEGIN_SRC scheme
+     (define (first-line afile)
+       (cond ((empty? afile) empty)
+             (else
+               (cond ((symbol=? (first afile) NEWLINE) empty)
+                     (else (cons (first afile) (first-line (rest afile))))))))
+     (define (remove-first-line afile)
+       (cond ((empty? afile) empty)
+              (cond ((symbol=? (first afile) NEWLINE) (rest afile))
+                    (else (remove-first-line (rest afile))))))
+     #+END_SRC
+
+     Boxed differences:
+     
+     #+BEGIN_SRC scheme
+     (define (first-line afile)
+       (cond ((empty? afile) empty)
+             (else
+               (cond ((symbol=? (first afile) NEWLINE) |empty|)
+                     (else |(cons (first afile)| (first-line (rest afile))))))))
+     (define (remove-first-line afile)
+       (cond ((empty? afile) empty)
+              (cond ((symbol=? (first afile) NEWLINE) |(rest afile)|)
+                    (else ||(remove-first-line (rest afile))))))
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; abstracted-line : file ((listof symbol) -> (listof symbol)) ((listof symbol) (listof symbol) -> (listof symbol)) -> (listof symbol)
+     (define (abstracted-line afile newline-return-fun combine-fun)
+       (cond ((empty? afile) empty)
+             (else
+              (cond ((symbol=? (first afile) NEWLINE) 
+                     (newline-return-fun afile))
+                    (else (combine-fun (first afile) 
+                                       (abstracted-line (rest afile))))))))
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; file->list-of-lines : file -> (listof (listof symbol))
+     ;; to convert a file into a list of lines
+     (define (file->list-of-lines afile)
+       (cond
+         [(empty? afile) empty]
+         [else (local ((define (abstracted-line afile newline-return-fun combine-fun)
+                           (cond ((empty? afile) empty)
+                             (else
+                              (cond ((symbol=? (first afile) NEWLINE) 
+                                     (newline-return-fun afile))
+                                    (else (combine-fun (first afile) 
+                                                       (abstracted-line (rest afile))))))))
+                       (define (remove-first-line afile)
+                         (abstracted-line afile 
+                                          (lambda (afile) (rest afile))
+                                          (lambda (first rest) rest)))
+                       (define (first-line afile)
+                         (abstracted-line afile
+                                          (lambda (afile) empty)
+                                          (lambda (first rest) (cons first rest))))
+                       (define NEWLINE 'NL))
+                 (cons (first-line afile)
+                       (file->list-of-lines (remove-first-line afile))))]))
+     #+END_SRC
+
+     - Exercise 27.2.3. Design file->list-of-checks. The function
+       consumes a file of numbers an outputs a list of restaurant
+       records.
+
+       A _file of numbers_ is either
+       1. empty
+       2. (cons N F) where N is a number and F is a file or
+       3. (cons 'NL F) where F is a file
+
+       The output of file->list-of-checks is a list of restaurant
+       structures with two fields:
+
+       #+BEGIN_SRC scheme
+       (define-struct rr (table costs))
+       #+END_SRC
+
+       They are: a table number and a list of amounts charged to that
+       table.
+
+       Example:
+
+       #+BEGIN_SRC scheme
+       (equal? (file->list-of-checks
+       (list 1 2.30 4.00 12.50 13.50 'NL
+       2 4.00 18.00 'NL
+       4 2.30 12.50))
+       (list (make-rr 1 (list 2.30 4.00 12.50 13.50))
+       (make-rr 2 (list 4.00 18.00))
+       (make-rr 4 (list 2.30 12.50))))
+       #+END_SRC
+
+       #+BEGIN_SRC scheme
+       ;; file->list-of-checks : a-file -> (listof rr)
+       (define (file->list-of-checks a-file)
+       (cond
+       ((empty? a-file) ...)
+       ((symbol=? 'NL (first a-file)) 
+       ... (file->list-of-checks (simpler-to-solve a-file)) ...)
+       (else
+       (combine-solutions
+       ... (file->list-of-checks (simpler-to-solve1 a-file)) ...
+       ... (intermediate-solution a-file) ...
+       ... (file->list-of-checks (simpler-to-solven a-file)) ...))))
+       #+END_SRC
+
+       If the file is empty, we should return empty. If the file
+       starts with a newline, we should just return the
+       file->list-of-checks of the rest of the file. Otherwise, we
+       need a function to generate a rr struct from the file, and
+       another to remove that rr struct.
+
+       #+BEGIN_SRC scheme
+       ;; file->list-of-checks : a-file -> (listof rr)
+       (define (file->list-of-checks a-file)
+       (cond
+       ((empty? a-file) ...)
+       ((symbol=? 'NL (first a-file)) 
+       (file->list-of-checks (rest a-file)))
+       (else
+       (cons
+       (get-first-rr a-file)
+       (file->list-of-checks (remove-first-rr a-file))))))
+       #+END_SRC
+
+       The get-first-rr and remove-first-rr lines are very similar to
+       what went before. We look at the format for a single rr:
+
+       a file-rr is:
+       1. (cons TN lop) where TN is an integer and lop is a
+          list-of-prices.
+
+       a list-of-prices is:
+       1. empty
+       2. (cons 'NL empty)
+       3. (cons p lop) where p is a price and lop is a list-of-prices.
+
+       #+BEGIN_SRC scheme
+       (define (get-first-rr a-file)
+       (make-rr (first a-file)
+       (get-lop a-file)))
+       (define (get-lop a-file)
+       (cond
+       ((empty? a-file) empty)
+       ((symbol=? 'NL (first a-file)) empty)
+       (else (cons (first a-file) (get-lop (rest a-file))))))
+       (define (remove-first-rr a-file)
+       (remove-lop (rest a-file)))
+       (define (remove-lop a-file)
+       (cond
+       ((empty? a-file) empty)
+       ((symbol=? 'NL (first a-file)) (rest a-file))
+       (else (remove-lop (rest a-file)))))
+       #+END_SRC
+
+     - Exercise 27.2.4. Develop the function create-matrix. It
+       consumes a number n and a list of n^2 numbers. It produces a
+       list of n lists of n numbers.
+
+       Example:
+       #+BEGIN_SRC scheme
+       (equal? (create-matrix 2 (list 1 2 3 4))
+               (list (list 1 2)
+                     (list 3 4)))
+       #+END_SRC
+       
+       Example:
+       #+BEGIN_SRC scheme
+       (create-matrix 3 (list 1 2 3 4))
+       ;; error - not enough numbers
+       (create-matrix 4 (list 1 2 3 4))
+       ;; error - not enough numbers
+       (create-matrix 2 (list 1 2 3 4 5))
+       ;; error - too many numbers
+       (equal? (create-matrix 3 (list 1 2 3 4 5 6 7 8 9))
+               (list (list 1 2 3)
+                     (list 4 5 6)
+                     (list 7 8 9)))
+       (create-matrix 1 (list 1))
+       (list (list 1))
+       (create-matrix 0 empty)
+       empty
+       #+END_SRC
+       
+       Template:
+       #+BEGIN_SRC scheme
+       (define (create-matrix n alon)
+         (cond
+           ((done? n alon) (list alon))
+           (else
+            (combine-solutions
+             (create-matrix (subproblem1 n alon))
+             .
+             .
+             .
+             (create-matrix (subproblemn n alon))))))
+       #+END_SRC
+
+       We can do this an easy way: combine the first 'row' taken from
+       the list with the rest of the nxn matrix. create-matrix itself
+       is not therefore recursive since not all recursive applications
+       would work. We see that this could be thought of as taking a
+       linear list and converting it ta list-of-lists with some number
+       of rows and some number of columns.
+
+       #+BEGIN_SRC scheme
+       (define (list->lol n-rows n-cols alon) ...)
+
+       (list->lol 2 2 (list 1 2 3 4))
+       (list (list 1 2)
+             (list 3 4))
+       (list->lol 1 1 (list 1))
+       (list (list 1))
+       (list->lol 0 0 empty)
+       empty
+       (list->lol 1 2 (list 1 2))
+       (list (list 1 2))
+       (list->lol 1 4 (list 1 2 3 4))
+       (list (list 1 2 3 4))
+       (list->lol 2 3 (list 1 2 3 4 5 6))
+       (list (list 1 2 3)
+             (list 4 5 6))
+       (list->lol 0 3 (list 1 2 3))
+       ;; expect an error
+       (list->lol 0 3 empty)
+       empty
+       (list->lol 1 0 (list 1))
+       ;; expect an error
+       #+END_SRC
+
+       We see there are is one very trivial solution: rows is 0, cols
+       can be any number. If we have 0 rows of n cols, this is the
+       empty list. Otherwise, we should take the first n-cols numbers
+       from alon.
+
+       #+BEGIN_SRC scheme
+       (define (list->lol n-rows n-cols alon)
+         (cond
+          ((trivial? n-rows n-cols)
+           (solve-trivial n-rows n-cols alon))
+          (else
+           (combine
+            (list->lol1 (generate-subproblem n-rows  n-cols alon))
+             .
+             .
+            (solve-problem n-rows n-cols alon)
+            (list->loln (generate-subproblem n-rows n-cols alon))))))
+      #+END_SRC
+
+       
+
+       The problem is trivial if there are no rows, and alon is
+       empty. This is empty. Otherwise, we should remove n-cols
+       elements from alon and call list->lol on that, while keeping
+       these and adding them as another row to the lol.
+
+       #+BEGIN_SRC scheme
+       (define (create-matrix n alon)
+         (list->lol n n alon))
+
+       (define (list->lol n-rows n-cols alon)
+         (cond
+          ((and (empty? alon) (= 0 n-rows))
+           empty)
+          (else
+           (cons
+            (first-row n-cols alon)
+            (list->lol (sub1 n-rows) (take-first-row n-cols alon))))))
+       #+END_SRC
+
+       We should add other cases for the changing elements in case
+       they are invalid.
+       
+       #+BEGIN_SRC scheme
+       (define (list->lol n-rows n-cols alon)
+         (cond
+          ((and (empty? alon) (= 0 n-rows))
+           empty)
+          ((and (empty? alon) (> n-rows 0))
+           (error 'list->lol "Too few elements in list"))
+          ((and (cons? alon) (= 0 n-rows))
+           (error 'list->lol "Too many elements in list"))
+          (else
+           (cons
+            (first-row n-cols alon)
+            (list->lol (sub1 n-rows) (take-first-row n-cols alon))))))
+       #+END_SRC
+       
+       #+BEGIN_SRC scheme
+       (define (first-row n-cols alon)
+         (cond
+           ((and (= 0 n-cols) (empty? alon))
+            empty)
+           ((and (> 0 n-cols) (empty? alon))
+            (error 'first-row "Too few elements in list"))
+           ((and (= 0 n-cols) (cons? alon))
+            empty)
+           (else
+            (cons (first alon) 
+                  (first-row (sub1 n-cols) (rest alon))))))
+       #+END_SRC
+
+       #+BEGIN_SRC scheme
+       (define (take-first-row n-cols alon)
+         (cond
+          ((and (= 0 n-cols) (empty? alon)) empty)
+          ((and (= 0 n-cols) (cons? alon)) alon)
+          ((and (> 0 n-cols) (empty? alon))
+           (error 'take-first-row "Too few elements in list"))
+          ((and (> 0 n-cols) (cons? alon))
+           (take-first-row (sub1 n) (rest alon)))))
+       #+END_SRC
+** 27.3 Binary Search
+   Applied mathematicians model the real-world with non-linear
+   equations and then try to solve them. Here is a simplistic example:
+
+   Given a perfect cube that encloses 27m^3, what area do its six
+   walls cover?
+
+   We know from geometry that if the length of a cube's side is x, the
+   enclosed space is x^3. Hence we need to know the possible values of
+   x such that
+
+   x^3 = 27.
+
+   Once we have solved the equation, the covered area is 6*x^2.
+
+   In general, we are given a function f from numbers to numbers, and
+   want to know some number r such that 
+   
+   f(r) = 0.
+
+   The value r is called the _root_ of f. In our above example, f(x) =
+   x^3 - 27, and the value r is the length of the side of the cube.
+
+   For the past few centuries, mathematicians have developed many
+   methods for finding the root of different types of functions. In
+   this section, we study a solution that is based on the Intermediate
+   Value Theorem, an early result of mathematical analysis. The
+   resulting algorithm is a primary example of generative recursion
+   based on a deep mathematical theorem. It has been adapted to other
+   uses and has become known as the binary search algorithm in
+   computer science.
+
+   The Intermediate Value Theorem says that a continuous function f
+   has a root in an interval [a,b] if the signs of f(a) and f(b)
+   differ. By continuous we mean a function that doesn't ``jump,''
+   that doesn't have gaps, and that aways continues in a ``smooth''
+   fashion. The theorem is best illustrated with the graph of a
+   function. The function f in figure 74 is below the x axis at a and
+   above the x axis at b. It is a continuous function, which we can
+   tell from the uninterrupted, smooth line. And indeed, the function
+   intersects the x axis somewhere between a and b.
+   
+   Now take a look at the midpoint between a and b:
+
+   #+BEGIN_EXAMPLE
+   m = (a+b)/2
+   #+END_EXAMPLE
+
+   It partitions the interval [a,b] into two smaller, equally large
+   intervals. We can now compute the value of f at m and see whether
+   it is below or above 0. Here f(m) < 0, so according to the
+   Intermediate Value Theorem, the root is in the right interval:
+   [m,b]. Our picture confirms this because the root is in the right
+   half of the interval, labeled ``range 2'' in figure 74. 
+
+   The abstract description of the Intermediate Value Theorem and the
+   illustrative example describe a process for finding a
+   root. Specifically, we use the halving step as many times as
+   necessary to determine a tolerably small range in which f must have
+   a root. Let us now translate this description into a Scheme
+   algorithm, which we call find-root.
+
+   To begin with, we must agree on the exact task of find-root. It
+   consumes a function, let's call it f, for which we need to find a
+   root. In addition, it must consume the boundaries of the interval
+   in which we expect to find root. For simplicity, let's say that
+   find-root consumes two numbers: left and right. But these
+   parameters can't be just any two numbers. For our algorithm to work
+   we must assume that
+
+   #+BEGIN_SRC scheme
+   (or (<= (f left) 0 (f right))
+       (<= (f right) 0 (f left)))
+   #+END_SRC
+       
+   holds. The assumption expresses the condition of the Intermediate
+   Value Theorem that the function must have different signs for left
+   and right.
+
+   According to the informal process description, the task of
+   find-root is to find an interval that contains a root and is
+   tolerably small. The size of the given interval is (- right
+   left). For the moment, we assume that the tolerance is defined as a
+   top-level variable TOLERANCE. Given that, find-root can produce one
+   of the two boundaries of the interval because we know what its size
+   is; let's pick the left one.
+
+   Here is a translation of our discussion into a contract, a purpose
+   statement, and a header, including the assumption on the paramters:
+
+   #+BEGIN_SRC scheme
+   ;; find-root : (number -> number) number number -> number
+   ;; to determine R such that f has a root in [R,(+ R TOLERANCE)]
+   ;;
+   ;; ASSUMPTION: (or (<= (f left) 0 (f right)) (<= (f right) 0 (f left)))
+   (define (find-root f left right) ...)
+   #+END_SRC
+
+   At this stage, we should develop an example of how the function
+   works. We have already seen one; the following exercise develops a
+   second one.
+
+   - Exercise 27.3.1. Consider the following function definition:
+     #+BEGIN_SRC scheme
+     ;; poly : number -> number
+     (define (poly x)
+       (* (- x 2) (- x 4)))
+     #+END_SRC
+
+     It defines a binomial for which we can determine its roots by
+     hand -- they are 2 and 4. But it is also a non-trivial input for
+     find-root, so that it makes sense to use it as an example.
+
+     Mimic the root-finding process based on the Intermediate Value
+     Theorem for poly, starting with the interval 3 and 6. Tabulate
+     the information as follows:
+
+     | #step | left | (f left) | right | (f right) | mid | (f mid) |
+     |-------+------+----------+-------+-----------+-----+---------|
+     | n = 1 | 3    | -1       | 6.00  | 8.00      | 4.5 | 1.25    |
+     | n = 2 | 3    | -1       | 4.5   | 1.25      | ?   | ?       |
+
+     Find an interval of size .5 (or less) in which poly contains a
+     root.
+
+     Interval: 3 and 6.
+
+     | step# |   left | (f left) | right | (f right) |    mid |  (f mid) |
+     |-------+--------+----------+-------+-----------+--------+----------|
+     |     1 |      3 |       -1 |     6 |         8 |    4.5 |     1.25 |
+     |     2 |      3 |       -1 |   4.5 |      1.25 |   3.75 |  -0.4375 |
+     |     3 |   3.75 |  -0.4375 |   4.5 |      1.25 |  4.125 |   0.2656 |
+     |     4 |   3.75 |  -0.4375 | 4.125 |    0.2656 | 3.9375 | -0.12109 |
+     |     5 | 3.9375 | -0.12109 | 4.125 |    0.2656 |      - |        - |
+
+     Our interval is [3.75,4.125], which is smaaller than .5. I went a
+     step further and narrowed it to (3.9375,4.125).
+
+   Next we turn our attention to the definition of find-root. We start
+   from generative-recursive-fun and ask the four relevant questions:
+
+   1. We need a condition that describes when the problem is solved
+      and a matching answer. This is straightforward. The problem is
+      solved if the distance from left to right is smaller than or
+      equal to TOLERANCE:
+
+      #+BEGIN_SRC scheme
+      (<= (- right left) TOLERANCE)
+      #+END_SRC
+      
+      The matching result is left.
+
+   2. We must formulate an expression that generates new problems for
+      find-root. According to our informal process description, this
+      step requires determining the midpoint and choosing the next
+      interval. THe midpoint is used several times, so we use a
+      *local*-expression to introduce it:
+
+      #+BEGIN_SRC scheme
+      (local ((define mid (/ (+ left right) 2)))
+       ...)
+      #+END_SRC
+
+      Choosing an interval is more complicated than that.
+
+      Consider the Intermediate Value Theorem again. It says that a
+      given interval is an interesting candidate if the function
+      values at the boundaries have different signs. For the
+      function's purpose statement, we expressed this constraint using
+
+      #+BEGIN_SRC scheme
+      (or (<= (f left) 0 (f right)) (<= (f right) 0 (f left)))
+      #+END_SRC
+
+      Accordingly, the interval between left and mid is the next
+      candidate if
+
+      #+BEGIN_SRC scheme
+      (or (<= (f left) 0 (f mid)) (<= (f mid) 0 (f left)))
+      #+END_SRC
+
+      And, the interval between mid and right is it, if
+      
+      #+BEGIN_SRC scheme
+      (or (<= (f mid) 0 (f right)) (<= (f right) 0 (f mid)))
+      #+END_SRC
+
+      In short, the body of the *local*-expression must be a
+      conditional:
+
+      #+BEGIN_SRC scheme
+      (local ((define mid (/ (+ left right) 2)))
+        (cond
+          [(or (<= (f left) 0 (f mid)) (<= (f mid) 0 (f left)))
+           (find-root left mid)]
+          [(or (<= (f mid) 0 (f right)) (<= (f right) 0 (f mid)))
+           (find-root mid right)]))
+      #+END_SRC
+      
+      In both clauses, we use find-root to continue the search.
+
+   The completed function is displayed in figure 75. The following
+   exercises suggest some tests and a termination argument.
+
+   #+BEGIN_SRC scheme
+   ;; find-root : (number -> number) number number -> number
+   ;; to determine a number R such that f has a root between R and 
+   ;; (+ R TOLERANCE) 
+   ;; 
+   ;; ASSUMPTION: f is continuous and monotonic
+   (define (find-root f left right)
+     (cond
+       [(<= (- right left) TOLERANCE) left]
+       [else
+        (local ((define mid (/ (+ left right) 2)))
+          (cond
+            [(<= (f mid) 0 (f right))
+             (find-root mid right)]
+            [else
+             (find-root left mid)]))]))
+   #+END_SRC
+
+   - Exercise 27.3.2. Use poly from 27.3.1. to test
+     find-root. Experiment with different values for TOLERANCE. Use
+     the strategy of section 17.8 to formulate the tests as
+     boolean-valued expressions.
+
+   - Exercise 27.3.3. Suppose the original arguments of find-root
+     describe an interval of size S1. How large is the distance
+     between the left and right for the first recursive call to
+     find-root? The second one? And the third? After how many
+     evaluation steps is the distance between left and right smaller
+     than or equal to TOLERANCE? How does the answer to this question
+     show that find-root produces an answer for all inputs that
+     satisfy the assumption?
+
+     The interval always is halved, since we take a midpoint. So, S2,
+     the second interval, is S1/2. The third interval, S3, is
+     S2/2. This will cause the distance between left and right, SN, to
+     constantly get smaller (closer to 0 for (abs (- left right))) for
+     every recursive application of find-root, thus, the function will
+     eventually terminate, since the terminating condition is based on
+     how close the two values are.
+
+   - Exercise 27.3.4. For every midpoint m, except for the last one,
+     the function find-root needs to determine the value of (f m)
+     twice. Validate this claim for one example with a
+     hand-evaluation.
+
+     Since the evaluation of (f m) may be time-consuming, programmers
+     often implement a variant of find-root that avoids this
+     recomputation. Modify find-root in figure 75 so that it does not
+     need to recompute the value of (f mid).
+
+     #+BEGIN_SRC scheme
+     (define (find-root f left right)
+       (cond
+         [(<= (- right left) TOLERANCE) left]
+         [else
+          (local ((define mid (/ (+ left right 2))))
+            (cond 
+             [(or (<= (f mid) 0 (f right)) (<= (f right) 0 (f mid)))
+              (find-root f mid right)]
+             [else (find-root f right mid)]))]))
+     (define (poly x)
+       (* (- x 2) (- x 4)))
+
+     (find-root poly 0 3)
+     = (cond
+        [(<= (- 3 0) TOLERANCE) 0]
+        [else (local ((define mid (/ (+ 0 3) 2)))
+                (cond
+                 [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                  (find-root poly mid 3)]
+                 [else (find-root poly 3 mid)]))])
+     = (cond
+         [(<= 3 TOLERANCE) 0]
+         [else (local ((define mid (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                   (find-root poly mid 3)])
+                 (else (find-root poly 3 mid)))])
+     = (cond
+        [(<= 3 0.5) 0]
+        [else (local ((define mid (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                   (find-root poly mid 3)])
+                 (else (find-root poly 3 mid)))])
+     = (cond
+        [false 0]
+        [else (local ((define mid (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                   (find-root poly mid 3)])
+                 (else (find-root poly 3 mid)))])
+     = (cond
+        [else (local ((define mid (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                   (find-root poly mid 3)])
+                 (else (find-root poly 3 mid)))])
+     =  (local ((define mid (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid) 0 (poly 3)) (<= (poly 3) 0 (poly mid)))
+                   (find-root poly mid 3)])
+                 (else (find-root poly 3 mid)))
+     =  (local ((define mid_0 (/ (+ 0 3) 2)))
+                 (cond
+                  [(or (<= (poly mid_0) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+                   (find-root poly mid_0 3)])
+                 (else (find-root poly 3 mid_0)))   
+
+     =  (define mid_0 (/ (+ 0 3) 2))
+        (cond
+          [(or (<= (poly mid_0) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 (/ 3 2))
+        (cond
+          [(or (<= (poly mid_0) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])       
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= (poly mid_0) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= (poly 1.5) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= (* (- 1.5 2) (- 1.5 4)) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= (* -.5 (- 1.5 4)) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= (* -.5 -2.5) 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= 1.25 0 (poly 3)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= 1.25 0 (* (- 3 2) (- 3 4))) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= 1.25 0 (* 1 (- 3 4))) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= 1.25 0 (* 1 -1)) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or (<= 1.25 0 -1) (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= (poly 3) 0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= (* (- 3 2) (- 3 4))  0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= (* 1 (- 3 4))  0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= (* 1 -1)  0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= -1  0 (poly mid_0)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= -1  0 (poly 1.5)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= -1  0 (* (- 1.5 2) (- 1.5 4))))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= -1  0 (* -.5 -2.5)))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false (<= -1  0 1.25))
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [(or false true)
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+        (cond
+          [true
+           (find-root poly mid_0 3)]
+          [else (find-root poly 3 mid_0)])
+     = (define mid_0 1.5)
+       (find-root poly mid_0 3)
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     (define (find-root f left right)
+       (cond
+        ((<= (- right left) TOLERANCE) left)
+        (else (local ((define mid (/ (+ left right) 2))
+                      (define f-at-mid (f mid))
+                      (define f-at-right (f right))
+                      (define f-at-left (f left)))
+                (cond 
+                  ((or (<= f-at-mid 0 f-at-right)
+                       (<= f-at-right 0 f-at-mid))
+                   (find-root f mid right))
+                  (else
+                   (find-root f left mid)))))))
+     #+END_SRC
+
+   - Exercise 27.3.5. A _table_ is a function that consumes natural
+     numbers between 0 and VL (exclusive) and produces numbers:
+
+     #+BEGIN_SRC scheme
+     ;; g : N -> num
+     ;; ASSUMPTION: i is between 0 and VL
+     (define (g i)
+       (cond
+         [(= i 0) -10] 
+         [(= i 1) ...]
+         ...
+         [(= i (- VL 1)) ...]
+         [else (error 'g "is define only between 0 and VL (exclusive)")]))
+     #+END_SRC
+     
+     The number VL is called the _table's length_. The _root of a
+     table_ is the number in the table that is closest to 0. Even if
+     we can't read the definition of a table, we can find its root
+     with a search function. 
+
+     Develop the function find-root-linear, which consumes a table,
+     the table's length, and finds the root of the table. Use
+     structural induction on natural numbers. This kind of
+     root-finding process is often called LINEAR SEARCH.
+
+     A table t is sorted in ascending order if (t 0) is less than (t
+     1), (t 1) is less than (t 2), and so on. If a table is monotonic,
+     we can determine the root using binary search. Specifically, we
+     can use binary search to find an interval of size 1 such that
+     either the left or the right boundary is the root's
+     index. Develop find-root-discrete, which cnosumes a table and its
+     length, and finds the table's root. 
+
+     Hints: (1) The interval boundary arguments for find-root-discrete
+     must always be natural numbers. Consider how this affects the
+     midpoint computation. (2) Also contemplate how the first hint
+     affects the discovery of trivially solvable problem
+     instances. (3) Does the termination argument from exercise 27.3.3
+     apply?
+
+     If the tabulating function is defined on all natural numbers
+     between 0 and 1024, and if its root is at 0, how many recursive
+     applications are needed with find-root-discrete and find-root-lin
+     to determine the root interval?
+
+     #+BEGIN_SRC scheme
+     ;; find-root-linear : find the root of f, which has a maximum
+     ;; index of n, using the linear method
+     (define (find-root-linear f n) ...)
+     
+     ;; examples:
+     (define (g i)
+      (cond
+       [(= i 0) -10]
+       [(= i 1) 0]
+       [(= i 2) 10]
+       [(= i 3) 11]))
+
+     (define (h i)
+      (cond
+       [(= i 0) -10]
+       [(= i 1) -8]
+       [(= i 2) -3]
+       [(= i 3) 0]
+       [(= i 4) 10]
+       [(= i 5) 6]))
+     (equal? (find-root-linear g 3) 0)
+     (equal? (find-root-linear h 5) 3)
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     (define (find-root-linear f n)
+      (cond
+        ((= 0 n)
+         (cond ((= (f n) 0) n)
+               (else (error 'find-root-linear "Can't find root"))))
+        (else
+         (cond ((= (f n) 0) n)
+               (else (find-root-linear f (sub1 n)))))))
+     (define (find-root-linear f n)
+      (cond
+        ((= (f n) 0) n)
+        ((= 0 n)
+         (error 'find-root-linear "Can't find root"))
+        (else (find-root-linear f (sub1 n)))))
+     #+END_SRC
+
+     For the generatively recursive function, we will answer the
+     questions.
+
+     1. trivally solvable solution - The interval is 1. If the
+        interval is 1, either (f left) or (f right) is 0. We return
+        whichever one that is.
+
+     2. Solution in this case - i
+
+     3. Generate a smaller problem - if the function is monotonic,
+        than (f left) is < 0 and (f right) is > 0. So we need to find
+        a midpoint. Assuming left and right are integers, The midpoint
+        will either be:
+	1. an integer
+	2. N+.5, where N is an integer.
+
+	in (1.), we will do the standard midpoint, binary search
+        'thing': 
+	#+BEGIN_SRC
+        (cond
+        ((or (<= (f mid) 0 (f left)) (<= (f left) 0 (f mid)))
+        (find-root-discreet f left mid))
+        (else
+        (find-root-discreet f mid right)))
+	#+END_SRC
+
+	Otherwise, we should add or subtract 0.5 to N. It doesn't
+        really matter which we do since both ways will narrow the
+        input. 
+
+	If we choose N-.5, but N+.5 was the root, then since the
+        function was monotonic, N+.5 will be in the new
+        interval. Likewise, if we choose N+.5 but N-.5 was a root, we
+        will still get the root eventually since it's in the interval.
+
+     #+BEGIN_SRC scheme
+     (define (find-root-discreet f left right)
+     (cond
+     ((or (= 0 (f left))
+     (= 0 (f right))) 
+     (cond ((= 0 (f left)) left)
+     (else right)))
+     (else
+     (local ((define mid-1 (/ (+ left right) 2))
+     (define mid (cond ((integer? mid-1) mid-1)
+     (else (ceil mid-1))))
+     (define f-of-mid (f mid)))
+     (cond
+     ((or (<= f-of-mid 0 (f left))
+     (<= (f left) 0 f-of-mid))
+     (find-root-discreet f left mid))
+     (else (find-root-discreet f mid right)))))))
+     #+END_SRC
+
+     find-root-discreet takes 0 recursive applications since we test
+     both the left and the right. find-root-lin would take 1024
+     recursive applications.
+
+   - Exercise 27.3.6. We mentioned earlier in section 23.4 that
+     mathematicians are interested not only about the roots of
+     functions, but also in the area that a function encloses between
+     two points. Mathematically put, we are interested in
+     _integrating_ functions over some interval. Take another look at
+     the graph in figure 64 on page 29. Recall that the area of
+     interest is that enclosed by the bold vertical lines at _a_ and
+     _b_, the x axis, and the graph of the function.
+
+     In section 23.4, we learned to approximate the area by computing
+     and adding up the area of rectangles like the two above. Using
+     the divide-and-conquer strategy, we can also design a function
+     that computes the area based on generative recursion. Roughly
+     speaking, we split the interval in two pieces, compute the area
+     of each piece, and add the two areas together.
+
+     Step 1: Develop the algorithm integrate-dc, which integrates a
+     function f between the boundaries left and right via the
+     divide-and-conquer strategy employed in find-root. Use rectangle
+     approximations when an interval has become small enough.
+
+     Although the area of a rectangle is easy to compute, a rectangle
+     is often a bad approximation of the area under a function
+     graph. A better geometric shape is the trapezoid limited by _a_,
+     (f a), _b_, and (f b). Its area is:
+
+     #+BEGIN_EXAMPLE
+     (right - left)*(f (right) + f (left)) / 2
+     #+END_EXAMPLE
+     
+     Questions:
+     1. trivially solvable - a small interval, below a threshold. 
+     2. the solution -  will just be (* (- right
+        left) (f (/ (+ left right) 2))).
+     3. breaking it into a smaller problem - there are two problems:
+        the area to the left and the area to the right.
+     4. Is this the solution to the whole - no, we need to combine the
+        area in the left and the right with the + function.
+
+     #+BEGIN_SRC scheme
+     (define (integrate-dc f left right)
+       (local ((define mid (/ (+ right left) 2)))
+         (cond 
+           ((< (- right left) THRESHOLD) 
+            (* (- right left) (f mid)))
+           (else 
+               (+ (integrate-dc f left mid)
+                  (integrate-dc f mid right))))))
+     #+END_SRC
+
+     Step 2: Modify integrate-dc so that it uses trapezoids instead of
+     rectangles. 
+
+     #+BEGIN_SRC scheme
+     (define (integrate-dc-trap f left right)
+       (local ((define mid (/ (+ right left) 2)))
+         (cond 
+           ((< (- right left) THRESHOLD) 
+            (* (- right left) (/ (+ (f right) (f left)) 2)))
+           (else 
+               (+ (integrate-dc-trap f left mid)
+                  (integrate-dc-trap f mid right))))))
+     #+END_SRC     
+
+     The plain divide-and-conquer approach is wasteful. Consider that
+     a function graph is level in one part and rapidly changes in
+     another. Consider that a function graph is level in one part and
+     rapidly changes in another. For the level part it is pointless to
+     keep splitting the interval. We could just compute the trapezoid
+     over a and b instead of the two halves.
+
+     To discover when f is level, we can change the algorithm as
+     follows. Instead of just testing how large the interval is, the
+     new algorithm computes the area of three trapezoids: the given
+     one, and the two halves. Suppose the difference between the two
+     is less than
+
+     #+BEGIN_EXAMPLE
+     TOLERANCE * (right - left)
+     #+END_EXAMPLE
+     
+     This area represents a small rectangle, of height TOLERANCE, and
+     represents the error margin of our computation. In other words,
+     the algorithm determines whether f changes enough to affect the
+     error margin, and if not, it stops. Otherwise, it continues with
+     the divide-and-conquer approach.
+
+     Step 3: Develop integrate-adaptive, which integrates a function f
+     between left and right according to the suggested method. Do not
+     discuss the termination of integrate-adaptive.
+
+     #+BEGIN_SRC scheme
+     (define TOLERANCE 0.05)
+     (define (integrate-adaptive f left right)
+       (local ((define mid (/ (+ right left) 2))
+               (define (trap-area width b1 b2)
+                 (* width (/ (+ b1 b2) 2))))
+         (cond 
+           ((< (- right left) THRESHOLD) 
+            (trap-area (- right left) (f right) (f left)))
+           (else 
+               (local ((define a1 (trap-area (- right left) (f left) (f right)))
+                       (define a2 (+ (trap-area (- right mid) (f mid) (f right)))
+                                     (trap-area (- mid left) (f left) (f mid))))
+                 (cond
+                   ((< (abs (- a2 a1)) (* TOLERANCE (- right left)))
+                    a1)
+                   (else
+                    (+ (integrate-adaptive f left mid)
+                       (integrate-adaptive f mid right)))))))))
+     #+END_SRC          
+** 27.4 Newton's Method
+   Newton invented another method for finding the root of a
+   function. Newton's method exploits the idea of approximation. To
+   search a root of some function f, we start with a guess, say
+   r1. Then we study the tangent of f at r1, that is, the line that
+   goes through the cartesian point (r1, f(r1)) and has the same slope
+   as f. This tangent is a linear approximation of f and it has a root
+   that is in many cases closer to the root of f than our original
+   guess. Hence, by repeating this process sufficiently often, we can
+   find an r for which (f r) is close to 0.
+
+   To translate the process description into Scheme, we follow the
+   familiar process. The function -- let's call it newton in honor of
+   its inventor -- consumes a function f and a number r0, the current
+   guess. If (f r0) is close to 0, the problem is solved. Of course,
+   close to 0 could be mean (f r0) is a small positive number or a
+   small negative number. Hence we translate this idea into
+
+   (<= (abs (f r0)) TOLERANCE)
+
+   That is, we determine whether the absolute value is small. The
+   answer in this case is r0. 
+
+   The generative step of the algorithm consists of finding the root
+   of the tangent of f at r0. It generates a new guess. By applying
+   newton to this new guess, we resume the process with what we hope
+   is a better guess:
+
+   #+BEGIN_SRC scheme
+   ;; newton : (number -> number) number -> number
+   ;; to find a number r such that (< (abs (f r)) TOLERANCE)
+   (define (newton f r0)
+     (cond
+       [(<= (abs (f r0)) TOLERANCE) r0]
+       [else (newton f (find-root-tangent f r0))]))
+   #+END_SRC
+
+   Since finding the root of a tangent is domain knowledge, we define
+   a separate function for this purpose:
+
+   #+BEGIN_SRC scheme
+   ;; find-root-tangent : (number -> number) number -> number
+   ;; to find the root of the tangent of f at r0.
+   (define (find-root-tangent f r0)
+     (local ((define fprime (d/dx f)))
+       (- r0
+          (/ (f r0)
+             (fprime r0)))))
+   #+END_SRC
+
+   The function first computes (d/dx f), that is, the derivative of f
+   at r0 (see section 23.5) at r0. The body of the *local*-expression
+   computes the root from the current guess, (f r0), and the slope of
+   f at r0.
+
+   The most interesting aspect of newton is that, unlike all other
+   functions we have discussed, it does *not* always
+   terminate. Consider the following function:
+
+   #+BEGIN_SRC scheme
+   ;; f : number -> number
+   (define (f x)
+     (- (* x x) x 1.8))
+   #+END_SRC
+
+   A simple hand-calculation shows that its derivative is
+
+   #+BEGIN_SRC scheme
+   ;; fprime : number -> number
+   (define (fprime x)
+     (- (* 2 x) 1))
+   #+END_SRC
+
+   If we were to use 1/2 as the initial guess, we would have to find
+   the root of a tangent with slope 0, that is, a tangent that is
+   parallel to the x axis. Of course, such a tangent doesn't have a
+   root. As a result, find-root-of-tangent cannot find a tangent and
+   newton won't find a root.
+
+   - Exercise 27.4.1. Test newton with f. Use the initial guesses 1,
+     2, and 3. Also use find-root from the preceding section to find a
+     root. 
+
+     Use a hand-evaluation to determine how quickly newton finds a
+     value close to the root (if it finds one). Compare newton's
+     behavior with find-root's behavior.
+
+     Employ the strategy of section 17.8 to formulate the tests as
+     boolean-valued expressions.
+
+     #+BEGIN_SRC scheme
+       (newton f 1)
+     = (cond
+         [(<= (abs (f 1)) TOLERANCE) 1]
+         [else (newlton f (find-root-tangent f 1))])
+     = (cond
+         [(<= (abs (- (* 1 1) 1 1.8)) TOLERANCE) 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [(<= (abs (- 1 1 1.8)) TOLERANCE) 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [(<= (abs -1.8) TOLERANCE) 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [(<= 1.8 TOLERANCE) 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [(<= 1.8 .5) 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [false 1]
+         [else (newton f (find-root-tangent f 1))])
+     = (cond
+         [else (newton f (find-root-tangent f 1))])
+     =  (newton f (find-root-tangent f 1))
+     =  (newton f (local ((define fprime (d/dx f)))
+                    (- 1 (/ f 1)
+                         (fprime 1))))
+     =  (newton f (local ((define fprime_0 (d/dx f)))
+                    (- 1 (/ f 1)
+                         (fprime_0 1))))
+        (define fprime_0 (d/dx f))
+     =  (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+
+     =   (define fprime_0 (local  ((define (fprime x)
+                                    (/ (- (f (+ x EPSILON))
+                                          (f (- x EPSILON)))
+                                       (* 2 EPSILON))))
+                           fprime))
+         (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+     =   (define fprime_0 (local  ((define (fprime_1 x)
+                                    (/ (- (f (+ x EPSILON))
+                                          (f (- x EPSILON)))
+                                       (* 2 EPSILON))))
+                           fprime_1))
+         (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+
+        (define fprime_0 fprime_1)
+        (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ (f 1)
+                         (fprime_0 1)))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ (f 1)
+                          (fprime_0 1))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ (- (* 1 1) 1 1.8) (fprime_0 1))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ (- 1 1 1.8) (fprime_0 1))))                      
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (fprime_0 1))))                      
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (fprime_0 1))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (fprime_1 1))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (f (+ 1 EPSILON)) (f (- x
+     EPSILON)))
+                                   (* 2 EPSILON)))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (f (+ 1 EPSILON)) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (f (+ 1 EPSILON)) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (f (+ 1 .5)) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (f 1.5) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (- (* 1.5 1.5) 1.5 1.8) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- (- 2.25 1.5 1.8) 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                     (f (- 1 EPSILON)))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                     (f (- 1 .5)))
+                                   (* 2 EPSILON)))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                     (f 0.5))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                     (- (* .5 .5) .5 1.8))
+                                   (* 2 EPSILON)))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                  (- .25 1.8))
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ (- -1.05 
+                                  -1.55)
+                                   (* 2 EPSILON)))))
+
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ .5
+                                   (* 2 EPSILON)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ .5
+                                   (* 2 .5)))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 (/ .5
+                                   1))))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 (/ -1.8 1)))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f (- 1 -1.8))
+     =  (define (fprime_1 x)
+          (/ (- (f (+ x EPSILON)) (f (- x EPSILON)))
+             (* 2 EPSILON)))
+        (define fprime_0 fprime_1)
+
+        (newton f 2.8)
+     = (cond
+         [(<= (abs (f 2.8)) TOLERANCE) 2.8]
+         [else
+          (newton f (find-root-tangent f 2.8))])
+    =  (cond
+         [(<= (abs 3.23) TOLERANCE) 2.8]
+         [else
+          (newton f (find-root-tangent f 2.8))])
+    =  (cond
+         [(<= (abs 3.23) 0.5) 2.8]
+         [else
+          (newton f (find-root-tangent f 2.8))])
+    =  (cond
+         [false 2.8]
+         [else
+          (newton f (find-root-tangent f 2.8))])
+    =  (cond
+         [else
+          (newton f (find-root-tangent f 2.8))])
+    =  (newton f (find-root-tangent f 2.8))
+    =  (newton f 2.09)
+    =  (cond
+         [(<= (abs (f 2.09)) TOLERANCE) 2.09]
+         [else (newton f (find-root-tangent f 2.09))])
+    =  (cond
+         [(<= (abs .478) TOLERANCE) 2.09]
+         [else (newton f (find-root-tangent f 2.09))])
+    =  (cond
+         [(<= (abs .478) .5) 2.09]
+         [else (newton f (find-root-tangent f 2.09))])
+    =  (cond
+         [(<= .478 .5) 2.09]
+         [else (newton f (find-root-tangent f 2.09))])
+    =  (cond
+         [true 2.09]
+         [else (newton f (find-root-tangent f 2.09))])
+    = 2.09
+    #+END_SRC
+
+     Newton's method takes fewer recursive calls to converge on the
+     same level of accuracy for this function, roughly, but the local
+     definitions are expensive. It's just different, in a lot of
+     ways - rather than search a range, you just start approximating
+     at a certain point. It is not as deterministic and is prone to
+     failure at 'inflection points', where the function's slope = 0,
+     and of course, it may or may not converge on a solution. But it
+     can be quicker.
+
+** 27.5 Extended Exercise: Gaussian Elimination
+   Mathematicians not only search for solutions of equations in one
+   variable; they also study whole systems of linear equations. Here
+   is a sample system of equations. Here is a sample system of
+   equations in three variables, x, y, and z:
+
+   #+BEGIN_EXAMPLE
+   2*x + 2*y + 3*z = 10
+   2*x + 5*y + 12*z = 31
+   4*x + 1*y - 2*z = 1
+   #+END_EXAMPLE
+
+   A solution to a system of equations is a series of numbers, one per
+   variable, such that if we replace the variable with its
+   corresponding number, the two sides of each equation evaluate to
+   the same number. In our running example, the solution is x = 1, y =
+   1, and z = 2, as we can easily check:
+
+   #+BEGIN_EXAMPLE
+   2*1 + 2*1 + 3*2 = 10
+   2*1 + 5*1 + 12*2 = 31
+   4*1 + 1*1 - 2*2 = 1
+   #+END_EXAMPLE
+
+   The first equation now reads as 10 = 10, the second one as 31 = 31,
+   and the last one as 1 = 1.
+
+   One of the most famous methods for finding a solution is called
+   Gaussian elimination. It consists of two steps. The first step is
+   to transform the system of equations into a system of different
+   shape but with the same solution. The second step is to find
+   solutions to one equation at a time. Here we focus on the first
+   step because it is another interesting instance of generative
+   recursion.
+
+   The first step of the Gaussian elimination algorithm is called
+   ``triangulation'' because the result is a system of equations in
+   the shape of a triangle. In contrast, the original system is
+   typically a rectangle. To understand this terminology, take a look
+   at this representation of the original system:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2 3 10)
+         (list 2 5 12 31)
+         (list 4 1 -2 1))
+   #+END_SRC
+
+   This representation captures the essence of the system, namely, the
+   numeric coefficients of the variables and the right-hand sides. The
+   names of the variables don't play any role.
+
+   The generative step in the triangulation phase is to subtract the
+   first row (list) of numbers from all other rows. Subtracting one
+   row from another means subtracting the corresponding items in the
+   two rows. With our running example, this step would yield
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2 3 10)
+         (list 0 3 9 21)
+         (list 4 1 -2 1))
+   #+END_SRC
+
+   when we subtract the first row from the second.
+
+   The goal of these subtractions is to put a 0 into the first column
+   of all but the first row. To achieve this for the last row, we
+   subtract the first row twice from the second one:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2 3 10)
+         (list 0 3 9 21)
+         (list 0 -3 -8 -19))
+   #+END_SRC
+   
+   Put differently, we first multiply each item in the first row with
+   2 and then subtract the result from the last row. It is easy to
+   check that the solutions for the original system of equations and
+   for this new one are identical.
+
+   - Exercise 27.5.1. Check that the following system of equations
+
+     #+BEGIN_EXAMPLE
+     2*x + 2*y + 2*z = 10
+           3*y + 9*z = 21
+         - 3*y - 8*z = -19
+     #+END_SRC
+
+     has the same solution as the one labeled with (+/-).
+
+     the solution was x = 1, y = 1, z = 2.
+
+     #+BEGIN_EXAMPLE
+     2*1 + 2*1 + 2*2 = 10
+           3*1 + 9*2 = 21
+         - 3*1 - 8*2 = -19
+     #+END_SRC
+
+   - Exercise 27.5.2. Develop subtract. The function consumes two
+     lists of numbers of equal length. It subtracts the first from the
+     second, item by item, as many times as necessary to obtain 0 in
+     the first position. The result is the rest of this list.
+
+     #+BEGIN_SRC scheme
+     ;; subtract : (listof number) (listof number) -> (listof number)
+     ;; subtracts the items of the first list from the items of the second 
+     ;; as many times as necessary, return the rest of the second list.
+     (define (subtract lon1 lon2) ...)
+     #+END_SRC 
+
+     Examples:
+     #+BEGIN_SRC scheme
+     (equal?
+      (subtract (list 1 2 3) (list 2 3 4))
+      (list 1 2))
+     (equal?
+      (subtract (list 4 5 6) (list 2 3 4))
+      (list 1/2 1))
+     #+END_SRC
+
+     We can see two steps already:
+     1. find out how many times the first element of the first list
+        goes into the first of the second: (/ (first lon2) (first lon1))
+
+     2. subtract all items in the first list, times this multiplier,
+        from all items in the second list.
+
+     #+BEGIN_SRC scheme
+     (define (subtract lon1 lon2)
+       (local ((define multiple (/ (first lon2) (first lon1))))
+         (rest (subtract-each-item-multiplied lon1 lon2 multiple))))
+     #+END_SRC
+
+     subtract-each-item-multiplied multiplies each item in it's first
+     argument list by multiple, and then subtracts that item from the
+     corresponding item in lon2, and returns the result.
+
+     #+BEGIN_SRC scheme
+     ;; subtract-each-item-multiplied : (listof number) (listof number) number -> (listof number)
+     ;; subtract ech item from lon1 from lon2 after multiplying it by mul.
+     (define (subtract-each-item-multiplied lon1 lon2 mul) ...)
+ 
+     (equal? (subtract-each-item-multiplied
+              (list 1 1 1 1)
+              (list 2 2 2 2) 
+              2)
+              (list 0 0 0 0))
+ 
+     (equal? (subtract-each-item-multiplied
+              empty
+              empty
+              2) 
+              empty)
+     (equal? (subtract-each-item-multiplied
+              (list 1)
+              (list 3)
+              2)
+              (list 1))
+     #+END_SRC
+
+     We see this is a structural recursion based on two complex items
+     that we assume have the same structure.
+
+     #+BEGIN_SRC scheme
+     (define (subtract-each-item-multiplied alon1 alon2 mul)
+       (cond
+         ((empty? alon1) ...)
+         (else
+          ... (first alon1) ...
+          ... (first alon2) ...
+          ... (subtract-each-item-multiplied
+               (rest alon1) (rest alon2) mul))))
+     #+END_SRC
+
+     We know that empty? should return empty. Next, we assume the
+     function returns the correct result: What more do we need to do?
+     Multiply (first alon1) by mul, and subtract it from (first
+     alon2), and cons that onto the return list.
+
+     #+BEGIN_SRC scheme
+     (define (subtract-each-item-multiplied alon1 alon2 mul)
+       (cond
+         ((empty? alon1) empty)
+         (else
+          (cons
+           (- (first alon2)
+              (* (first alon1) mul))
+           (subtract-each-item-multiplied
+            (rest alon1) (rest alon2) mul)))))
+     #+END_SRC
+
+   Following convention, we drop the leading 0's from the last two
+   equations: 
+   
+   #+BEGIN_SRC scheme
+   (list (list 2 2  3  10)
+         (list   3  9  21)
+         (list  -3 -8 -19))
+   #+END_SRC
+     
+   If, in addition, we use the same process for the remainder of the
+   system to generate shorter rows, the final representation has a
+   triangular shape.
+
+   Let us study this idea with our running example. For the moment we
+   ignore the first row and focus on the rest of the equations:
+
+   #+BEGIN_SRC scheme
+   (list (list 3 9 21)
+         (list -3 -8 -19))
+   #+END_SRC
+
+   By subtracting the first row now -1 times from the second one, we
+   get
+
+   #+BEGIN_SRC scheme
+   (list (list 3 9 21)
+         (list   1 2))
+   #+END_SRC
+
+   after dropping the leading 0. The remainder of this system is a
+   single equation, which cannot be simplified further.
+
+   Here is the result of adding this last system to the first
+   equation:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2 3 10)
+         (list   3 9 21)
+         (list     1 2))
+   #+END_SRC
+
+   As promised, the shape of this system of equations is (rougly) a
+   triangle, as we can easily check, it has the same solution as the
+   original system.
+
+   - Exercise 27.5.3. Check that the following system of equations
+
+     #+BEGIN_EXAMPLE
+     2*x + 2*y + 3*z = 10
+           3*y + 9*z = 21
+                 1*z = 2
+     #+END_EXAMPLE
+
+     has the same solution as the original.
+
+     If we just plug in the numbers (x = 1, y = 1, z = 2), all the
+     equations are satisfied.
+
+     - Exercise 27.5.4. Develop the algorithm triangulate, which
+       consumes a rectangular representation of a system of equations
+       and produces a triangular version according to the Gaussian
+       algorithm.
+
+
+       #+BEGIN_SRC scheme
+       ;; triangulate : (listof (listof N)) -> (listof (listof N))
+       ;; Consumes a rectangular matrix and triangulates it.
+       (define (triangulate mat1 mat2) ...)
+
+       (equal? (triangulate (list (list 1 1 3)
+                                  (list 1 2 4)
+                                  (list 3 4 5)))
+               (list (list 1 2 3)
+                     (list 1 1)
+                     (list -5)))
+       (equal? (triangulate (list (list 6 8 2)
+                                  (list 3 1 5)
+                                  (list 10 1 4)))
+               (list (list 6 8 2)
+                     (list 0 -3 4)
+                     (list 0 0 (* 4 (/ 37 9)))))
+       #+END_SRC
+
+       a matrix is:
+       1. empty
+       2. (cons lon mat) where lon is a (listof number) and
+          mat is a matrix.
+
+       a (rectangular-matrix N) is:
+       1. empty
+       2. (cons lon (rectangular-matrix N)) where lon is a (listof
+          number) that is exactly N long.
+
+       When we triangulate a matrix, we :
+       1. for each row below the first, multiply the first by a number
+          and subtract it from each of these rows such that the first
+          number in each row below the first is 0.
+       2. Do this same procedure for the sub-matrix that is N-1xN-1,
+          where we take out the first column and row.
+
+       A trivial solution is a 1x2 matrix, which we would just return
+       without any modification. A non-trivial solution is a larger
+       matrix. A matrix with one row and more than two columns is
+       unsolvable.
+
+       The solution for the 1x2 matrix is just that matrix, this is
+       not the solution for the whole.
+
+       To generate a subproblem we must first create the sub-matrix to
+       triangulate. We do this by subtracting the first row from all
+       subsequent rows using the same procedure. Then, we must have
+       some function to generate a matrix without the first column or
+       first row, and solve that matrix. That triangulated matrix,
+       with the first row consed-on, is the solution.
+
+       The algorithm should terminate because we will constantly be
+       removing rows, no matter what. So eventually there will be only
+       one row. If that row has too many columns, the algorithm
+       terminates in error. Otherwise, it continues.
+ 
+       #+BEGIN_SRC scheme
+       (define (triangulate mat)
+         (cond
+           ((and
+             (= (length mat) 1)
+             (= (length (first mat)) 2))
+            mat)
+           (else
+            (local ((define (subtract-each row other-rows)
+                      (map (lambda (a-row) (subtract row a-row)) 
+                           other-rows))
+                    (define subtracted (subtract-each 
+                                        (first mat)
+                                        (rest mat)))
+                    (define submatrix (map (lambda (elem) (rest elem))
+                                           subtracted)))
+              (cons (first mat)
+                    (triangulate submatrix))))))
+       #+END_SRC
+
+     Unfortunately, the current version of the triangulation algorithm
+     occasionally fails to produce the solution. Consider the
+     following (representation of a) system of equations:
+
+     #+BEGIN_SRC scheme
+     (list (list 2  3  3 8)
+           (list 2  3 -2 3)
+           (list 4 -2  2 4))
+     #+END_SRC
+
+     Its solution is x = 1, y = 1, and z = 1.
+
+     The first step is to subtract the first row from the second and
+     to subtract it twice from the last one, which yields the
+     following matrix:
+
+     #+BEGIN_SRC scheme
+     (list (list 2  3  3  8)
+           (list    0 -5 -5)
+           (list   -8 -4 -12))
+     #+END_SRC
+
+     Next our algorithm would focus on the rest of the matrix:
+
+     #+BEGIN_SRC scheme
+     (list (list  0 -5 -5)
+           (list -8 -4 -12))
+     #+END_SRC
+
+     but the first item of this matrix is 0. Since we cannot divide by
+     0,  we are stuck.
+
+     To overcome this problem, we need to use another piece of
+     knowledge from our problem domain, namely, that we can switch
+     equations around without changing the solution. Of course, as we
+     switch rows, we must make sure that the first item of the row to
+     be moved is not 0. Here we can simply swap the two rows:
+
+     #+BEGIN_SRC scheme
+     (list (list -8 -4 -12)
+           (list  0 -5 -5))
+     #+END_SRC
+
+     From here we may continue as before, subtracting the first
+     equation from the remaining ones a sufficient number of
+     times. The final triangular matrix is:
+
+     #+BEGIN_SRC scheme
+     (list (list  2   3   3   8)
+           (list     -8 -14 -12)
+           (list         -5  -5))
+     #+END_SRC
+
+     It is easy to check that this system of equations still has the
+     solution x = 1, y = 1, and z = 1.
+
+     - Exercise 27.5.5. Revise the algorithm triangulate from exercise
+       27.5.4. so that it switches rows when the first item of the
+       matrix is 0.
+
+       Hint: DrScheme provides the function remove. It consumes an
+       item I and a list L and produces a list like L but with the
+       first occurrence of I removed. For example,
+
+       #+BEGIN_SRC
+       (equal? (remove (list 0 1) (list (list 2 1) (list 0 1)))
+               (list (list 2 1)))
+       #+END_SRC
+
+       We see right off the bat that we want to examine the input data
+       before conducting a subtract and, if the current first item
+       starts with 0, 
+
+     - Exercise 27.5.6. Some systems
+     
+     
+
+     
+
+	

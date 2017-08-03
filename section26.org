@@ -639,14 +639,1087 @@
         #+END_SRC
 
 	#+BEGIN_SRC scheme
-	(define (merge-sort alon)
-	  (cond ((empty? alon) alon)
-	        (else (merge-all-neighbors 
-                       
+	(define (merge-singles alos)
+	 (cond ((empty? (rest alon)) (first alon))
+	       (else (merge-singles (merge-all-neighbors alon)))))
+        (define (merge-sort alon)
+          (merge-singles (make-singles alon)))
+	#+END_SRC
+** Structural versus Generative Recursion
+   The template for algorithms is so general that it even covers
+   functions based on structural recursion. Consider the version with
+   one termination clause and one generation step:
 
+   #+BEGIN_SRC scheme
+   (define (generative-recursive-fun problem)
+     (cond
+       [(trivially-solvable? problem)
+        (determine-solution problem)]
+       [else
+        (combine-solutions
+	 problem
+	 (generative-recursive-fun (generate-problem problem)))]))
+    #+END_SRC
 
+    - Exercise 26.2.1. Define determine-solution and combine-solutions
+      so that the function generative-recursive-fun computes the
+      length of its input.
 
-	
+      #+BEGIN_SRC scheme
+      (define (determine-solution a-problem) 0)
+      
+      (define (combine-solution a-problem solved-subproblem)
+        (+ 1 solved-subproblem))
+      
+      (define (generative-recursive-fun problem)
+        (cond
+          [(empty? a-problem) (determine-solution problem)]
+          [else
+           (combine-solutions
+            problem
+            (generative-recursive-fun (rest problem)))]))
+       #+END_SRC
 
+    This discussion raises the question of whether there is a
+    difference between functions based on structural recursion and
+    those based on generative recursion. The answer is ``it depends.''
+    Of course we could say that all functions using structural
+    recursion are just special cases of generative recursion. This
+    ``everything is equal'' attitude, however, is of no help if we
+    wish to understand the process of designing functions. It confuses
+    two classes of functions that are designed with different
+    approaches and that have different consequences. One relies on a
+    systematic data analysis and not much more; the other requires a
+    deep, often mathematical, insight into the problem-solving process
+    itself. One leads programmers to naturally terminating functions;
+    the other requires a termination argument. 
 
+    A simple inspection of a function's definition quickly shows
+    whether a function uses structural or generative recursion. All
+    self-applications of a structurally recursive function always
+    receive an immediate component of the current input for further
+    processing. For example, for a constructed list, the immediate
+    components are the first item and the rest of the constructed
+    list. Hence, if a function consumes a plain list and its recursive
+    use does not consume the rest of the list, its definition is not
+    structural but generative. Or, put positively, properly recursive
+    algorithms consume newly generated input, which may or may not
+    contain components of the input. In any case, the new piece of
+    data represents a different problem than the given one, but still
+    a problem of the same general class of problems. 
 
+** 26.3    Making Choices
+   A user cannot distinguish sort and quick-sort. Both consume a list
+   of numbers; both produce a list that consists of the same numbers
+   arranged in ascending order. To an observer, the functions are
+   completely equivalent. This raises the question of which of the two
+   a programmer should provide. More generally, if we can develop a
+   function using structural recursion and an equivalent one using
+   generative recursion, what should we do?
+
+   To understand this choice better, let's discuss another classical
+   example of generative recursion from mathematics: the problem of
+   finding the greatest common divisor of two positive natural
+   numbers. All such numbers have at least one divisor in
+   common: 1. On occasion, this is also the only common divisor. For
+   example, 2 and 3 have only 1 as common divisor because 2 and 3,
+   respectively, are the only other divisors. Then again, 6 and 25 are
+   both numbers with several divisors:
+
+   1. 6 is evenly divisible by 1, 2, 3, and 6;
+   2. 25 is evenly divisible by 1, 5, and 25. 
+
+   Still, the greatest common divisor of 25 and 6 is 1. In contrast,
+   18 and 24 have many common divisors:
+
+   1. 18 is evenly divisible by 1, 2, 3, 6, 9, and 18;
+   2. 24 is evenly divisible by 1, 2, 3, 4, 6, 8, 12, and 24.
+
+   The greatest common divisor is 6. 
+
+   Following the design recipe, we start with a contract, a purpose
+   statement, and a header:
+
+   #+BEGIN_SRC scheme
+   ;; gcd : N[>= 1] N[>= 1] -> N
+   ;; to find the greatest common divisor of n and m
+   (define (gcd n m)
+    ...)
+   #+END_SRC
+
+   The contract specifies the precise inputs: natural numbers that are
+   greater or equal to 1 (not 0).
+   
+   Now we need to make a decision whether we want to pursue a design
+   based on structural or on generative recursion. Since the answer is
+   by no means obvious, we develop both. For the structural version,
+   we must consider which input the function should process: n, m, or
+   both. A moment's consideration suggests that what we really need is
+   a function that starts with the smaller of the two and outputs the
+   first number smaller or equal to this input that evenly divides
+   both n and m.
+
+   #+BEGIN_SRC scheme
+   ;; gcd-structural : N[>=1] N[>=1] -> N
+   ;; to find the greatest common divisor of n and m
+   ;; structural recursion using data definition of N[>=1].
+   (define (gcd-structural n m)
+     (local ((define (first-divisor-<= i)
+               (cond
+	         [(= i 1) 1]
+		 [else (cond
+		         [(and (= (remainder n i) 0)
+			       (= (remainder m i) 0)) i]
+			 [else (first-divisor-<= (- i 1))])])))
+        (first-divisor-<= (min m n))))
+   #+END_SRC
+
+   We use *local* to define an appropriate auxiliary function: see
+   figure 70. The conditions ``evenly divisible'' have been encoded as
+   (= (remainder n i) i) and (= (remainder m i) 0). The two ensure
+   that i divides n and m without a remainder. Testing gcd-structural
+   with examples shows that it finds the expected answers.
+
+   Although the design of gcd-structural is rather straightforward, it
+   is also naive. It simply tests for every number whether it divides
+   both n and m evenly and returns the first such number. For small
+   natural numbers, this process works just fine. Consider the
+   following example, however:
+
+   (gcd-structural 101135853 45014640)
+
+   The result is 177 and to get there gcd-structural had to compare
+   101135676, that is, 101135853 - 117, numbers. This is a large
+   effort and even reasonably fast computers spend several minutes on
+   this task.
+
+   - Exercise 26.3.1. Enter the definition of gcd-structural into the
+     Definitions window and evaluate (time (gcd-structural 101135853
+     45014640)) in the Interactions window.
+
+    Since mathematicians recognized the inefficiency of the
+    ``structural algorithm'' a long time ago, they studied the
+    problem of finding divisors in more depth. The essential insight
+    is that for two natural numbers larger and smaller, the greatest
+    common divisor is equal to the greatest common divisor of smaller
+    and the remainder of larger divided into smaller. Here is how we
+    can put this insight into equational form:
+     
+       (gcd larger smaller)
+     = (gcd smaller (remainder larger smaller))
+
+     Since (remainder larger smaller) is smaller than both larger and
+     smaller, the right-hand side use of gcd consumes smaller first. 
+
+     Here is how this insight applies to our small example:
+
+     1. The given numbers are 18 and 24
+
+     2. According to the mathematician's insight, they have the same
+        greatest common divisor as 18 and 6.
+
+     3. And these two have the greatest common divisor as 6 and 0. 
+
+     And here we seem stuck because 0 is nothing expected. But, 0 can
+     be evenly divided by every number, so we have found our
+     answer: 6. 
+
+     Working through the example not only explains the idea but also
+     suggests how to discover the case with a trivial solution. When
+     the smaller of the two numbers is 0, the result is the larger
+     number. Putting everything together, we get the following
+     definition:
+
+     #+BEGIN_SRC scheme
+     ;; gcd-generative : N[>= 1] N[>=1] -> N
+     ;; to find the greatest common divisor of n and m
+     ;; generative recursion: (gcd n m) = (gcd n (remainder m n)) if
+     ;; (<= m n)
+     (define (gcd-generative n m)
+     (local ((define (clever-gcd larger smaller
+     (cond
+     [(= smaller 0) larger]
+     [else (clever-gcd smaller (remainder larger
+     smaler))]))))
+     (clever-gcd (max m n) (min m n))))
+     #+END_SRC
+
+     The local definition introduces the workhorse of the function:
+     clever-gcd, a function based on generative recursion. Its first
+     line discovers the trivially solvable case by comparing smaller
+     to 0 and produces the matching solution. The generative step uses
+     smaller as the new first argument and (remainder larger smaller)
+     as the new second argument to clever-gcd, exploiting the above
+     equation. 
+
+     If we now use gcd-generative with our complex example from above:
+
+     (gcd-generatie 101135853 45014640)
+
+     we see that the response is nearly instantaneous. A
+     hand-evaluation shows that clever-gcd recurs only nine times
+     before it produces the solution: 177. In short, generative
+     recursion has helped find us a much faster solution to our
+     problem.
+
+     - Exercise 26.3.2. Formulate informal answers to the four key
+       questions for gcd-generative.
+
+       Four key questions:
+
+       1. What is a trivially solvable problem?
+	  A trivially solvable problem is a problem where one of the
+          numbers - the smaller - is 0. Then the GCD is the larger
+          number since 0 is divisible by anything.
+
+       2. What is the corresponding solution? the larger number.
+
+       3. How do we generate new problems that are more easily
+          solvable than the original problem? Is there one new problem
+          that we generate or are there several? 
+
+	  We generate a new problem by finding the remainder of larger
+          and smaller. Then we solve the gcd of the remainder, and
+          smaller. 
+
+       4. Is the solution of the given problem the same as the
+          solution of (one of) the new problems? Or, do we need to
+          combine the solutions to create a solution for the original
+          problem? And, if so, do we need anything from the original
+          problem data?
+
+          We do not need to combine the solutions. The solution we 
+          find if smaller is 0 is the entire solution.
+
+     - Exercise 26.3.3. Define gcd-generative and evaluate
+       
+       (time (gcd-generative 101135853 45014640))
+       
+       in the INteractions window.
+
+       Evaluate (clever-gcd 101135853 45014640) by hand. Show only
+       those lines that introduce a new recursive call to clever-gcd.
+
+       #+BEGIN_SRC scheme
+       (define (clever-gcd m n)
+         (local ((define (clever-gcd larger smaller)
+                   (cond
+                     [(= smaller 0) larger]
+                     [else (clever-gcd smaller (remainder larger smaller))])))
+           (clever-gcd (max m n) (min m n))))
+
+         (clever-gcd 101135853 45014640)
+       = (local ((define (clever-gcd larger smaller)
+                   (cond 
+                     [(= smaller 0) larger]
+                     [else (clever-gcd smaller (remainder larger smaller))])))
+           (clever-gcd (max 101135853 ) (min 101135853 45014640)))
+       = (local ((define (clever-gcd_0 larger smaller)
+                   (cond 
+                     [(= smaller 0) larger]
+                     [else (clever-gcd_0 smaller (remainder larger smaller))])))
+           (clever-gcd_0 (max 101135853 45014640) (min 101135853 45014640)))
+       = (define (clever-gcd_0 larger smaller)
+           (cond
+             [(= smaller 0) larger]
+             [else (clever-gcd_0 smaller (remainder larger smaller))]))
+       (clever-gcd_0 (max 101135853 45014640) (min 101135853 45014640))
+       = (clever-gcd_0 101135853 45014640)
+       = (cond
+           [(= 45014640 0) 101135853]
+           [else (clever-gcd_0 45014640 (remainder 101135853 45014640))])
+       = (cond
+           [false 101135853]
+           [else (clever-gcd_0 45014640 (remainder 101135853 45014640))])
+       = (cond
+           [else (clever-gcd_0 45014640 (remainder 101135853 45014640))])
+       = (clever-gcd_0 45014640 (remainder 101135853 45014640))
+       = (clever-gcd_0 45014640 11106573)
+       = (cond
+           [(= 11106573 0) 11106573]
+           [else (clever-gcd_0 11106573 (remainder 45014640 11106573))])
+       = (cond
+           [false 11106573]
+           [else (clever-gcd_0 11106573 (remainder 45014640 11106573))])
+       = (cond
+           [else (clever-gcd_0 11106573 (remainder 45014640 11106573))])
+       = (clever-gcd_0 11106573 (remainder 45014640 11106573))
+       = (clever-gcd_0 11106573 588348)
+       = (cond
+          [(= 11106573 0) 11106573]
+          [else (clever-gcd_0 588348 (remainder 11106573 588348))])
+       = (cond
+          [false 11106573]
+          [else (clever-gcd_0 588348 (remainder 11106573 588348))])
+       = clever-gcd_0 588348 (remainder 11106573 588348))
+       = (clever-gcd_0 588348 516309)
+       = (cond
+           [(= 516309 0) 588348]
+           [else (clever-gcd_0 516309 (remainder 588348 516309))])
+       = (cond
+           [false 588348]
+           [else (clever-gcd_0 516309 (remainder 588348 516309))])
+       = (cond
+           [else (clever-gcd_0 516309 (remainder 588348 516309))])
+       = (clever-gcd_0 516309 (remainder 588348 516309))
+       = (clever-gcd_0 516309 72039)
+       = (cond
+           [(= 72039 0) 516309]
+           [else (clever-gcd 72039 (remainder 516309 72039))])
+       = (cond
+           [false 516309]
+           [else (clever-gcd 72039 (remainder 516309 72039))])
+       = (cond
+           [else (clever-gcd 72039 (remainder 516309 72039))])       
+       =  (clever-gcd 72039 (remainder 516309 72039))
+       = (clever-gcd 72039 12036)
+       = (cond
+           [(= 12036 0) 72039]
+           [else (clever-gcd 12036 (remainder 72039 12036))])
+        = (cond
+            [false 72039]
+            [else (clever-gcd 12036 (remainder 72039 12036))])
+        = (cond
+            [else (clever-gcd 12036 (remainder 72039 12036))]) 
+        = (clever-gcd 12036 (remainder 72039 12036))
+        = (clever-gcd 12036 11859)
+        = (cond
+            [(= 0 11859) 12036]
+            [else (clever-gcd 11859 (remainder 12036 11859))])
+        = (cond
+            [false 12036]
+            [else (clever-gcd 11859 (remainder 12036 11859))])
+        = (cond
+            [else (clever-gcd 11859 (remainder 12036 11859))])
+        = (clever-gcd 11859 (remainder 12036 11859))
+        = (clever-gcd 11859 177)
+        = (cond
+            [(= 0 177) 11859]
+            [else (clever-gcd 177 (remainder 11859 177))])
+        = (cond
+            [false 11859]
+            [else (clever-gcd 177 (remainder 11859 177))])
+       = (cond
+           [else (clever-gcd 177 (remainder 11859 177))])
+       = (clever-gcd 177 0)
+       = (cond
+           [(= 0 0) 177]
+           [else (clever-gcd 177 (remainder 177 0))])
+       = 177
+       #+END_SRC
+
+     - Exercise 26.3.4. Formulate a termination argument for
+       gcd-generative. 
+
+       The trivial solution is when the smaller number is 0. At every
+       step, we take the former smaller number and make it the present
+       larger, and the remainder of the present larger and smaller
+       number and pass it as the smaller. Obviously the smaller number
+       can only get smaller, that is, closer to 0. Both numbers will
+       get smaller in each successive call, and eventually, one will
+       reach 0, smaller will reach it first. 
+
+   Considering the above example, it is tempting to develop functions
+   using generative recursion. After all, they produce answers faster!
+   This judgment is too rash for three reasons. First even a
+   well-designed algorithm isn't always faster than an equivalent
+   structurally recursive function. For example, quick-sort wins only
+   for large lists; for small ones, the standard sort function is
+   faster. Worse, a badly designed algorithm can wreak havoc on the
+   performance of a program. Second, it is typically easier to design
+   a function using the recipe for structural recursion. Conversely,
+   designing an algorithm requires an idea of how to generate new,
+   smaller problems, a step that often requires deep mathematical
+   insight. Finally, people who read functions can easily understand
+   structurally recursive functions, even without much
+   documentation. To understand an algorithm, the generative step must
+   be well explained, and even with a good explanation, it may still
+   be difficult to grasp the idea. 
+
+   Experience shows that most functions in a program employ structural
+   recursion; only a few exploit generative recursion. When we
+   encounter a situation where a design could use either the recipe
+   for structural or generative recursion, the best approach is often
+   to start with a structural version. If it turns out to be too slow,
+   the alternative design using generative recursion should be
+   explored. If it is chosen, it is important to document the problem
+   generation with good examples and give a good termination argument.
+
+   - Exercise 26.3.5. Evaluate
+
+     (quick-sort (list 10 6 8 9 14 12 3 11 14 16 2))
+
+     by hand. Show only those lines that introduce a new recursive
+     call to quick-sort. How many recursive applications of quick-sort
+     are required? How many recursive applications of append? Suggest
+     a general rule for a list of length N.
+
+     #+BEGIN_SRC scheme
+     (quick-sort (list 10 6 8 9 14 12 3 11 14 16 2))
+     = (append 
+        (quick-sort (list 6 8 9 3 2))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (quick-sort (list 3 2))
+         (list 6)
+         (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (append
+          (quick-sort (list 2))
+          (list 3)
+          (quick-sort empty))
+         (list 6)
+         (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (append
+          (append
+           (quick-sort empty)
+           (list 2)
+           (quick-sort empty))
+y          (list 3)
+          (quick-sort empty))
+         (list 6)
+        (quick-sort (list 8 9)))
+       (list 10)
+       (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (append
+          (append
+           empty
+           (list 2)
+           (quick-sort empty))
+          (list 3)
+          (quick-sort empty))
+         (list 6)
+        (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (append
+          (append
+           empty
+           (list 2)
+           empty)
+          (list 3)
+          (quick-sort empty))
+         (list 6)
+        (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+
+     = (append
+        (append
+         (append
+          (list 2)
+          (list 3)
+          (quick-sort empty))
+         (list 6)
+        (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))     
+     = (append
+        (append
+         (append
+          (list 2)
+          (list 3)
+          empty)
+         (list 6)
+        (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+        (quick-sort (list 8 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          (quick-sort empty)
+          (list 8)
+          (quick-sort (list 9))))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          empty
+          (list 8)
+          (quick-sort (list 9))))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          empty
+          (list 8)
+          (append
+           (quick-sort empty)
+           (list 9)
+           (quick-sort empty))))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          empty
+          (list 8)
+          (append
+           empty
+           (list 9)
+           (quick-sort empty))))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          empty
+          (list 8)
+          (append
+           empty
+           (list 9)
+           empty)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (append
+          empty
+          (list 8)
+          (list 9)))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (append
+         (list 2 3)
+         (list 6)
+         (list 8 9))
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (quick-sort (list 14 12 11 14 16)))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (quick-sort (list 12 11))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (quick-sort (list 11))
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (quick-sort (list 11))
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (quick-sort (list 11))
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (append 
+           (quick-sort empty)
+           (list 11)
+          (quick-sort empty))
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (append 
+           empty
+           (list 11)
+          (quick-sort empty))
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (append 
+           empty
+           (list 11)
+           empty)
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (list 11)
+          (list 12)
+          (quick-sort empty))
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (append
+          (list 11)
+          (list 12)
+          empty)
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (quick-sort (list 14 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          (quick-sort empty)
+          (list 14)
+          (quick-sort (list 16)))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          empty
+          (list 14)
+          (quick-sort (list 16)))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          empty
+          (list 14)
+          (append
+           (quick-sort empty)
+           (list 16)
+           (quick-sort empty)))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          empty
+          (list 14)
+          (append
+           empty
+           (list 16)
+           (quick-sort empty)))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          empty
+          (list 14)
+          (append
+           empty
+           (list 16)
+           empty))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (append
+          empty
+          (list 14)
+          (list 16))))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (append
+         (list 11 12)
+         (list 14)
+         (list 14 16)))
+     = (append
+        (list 2 3 6 8 9)
+        (list 10)
+        (list 11 12 14 14 16))
+     = (list 2 3 6 8 9 10 11 12 14 14 16)
+     #+END_SRC
+     22 calls to quicksort, 2*N, 11 calls to append, N. 
+     Evaluate
+     
+     (quick-sort (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+      
+     by hand. How many recursive applications of quick-sort are
+     required? How many recursive applications of append? does this
+     contradict the first part of the exercise?
+
+     #+BEGIN_SRC scheme
+     (define (quick-sort alon)
+       (local ((define (items->= n alon) 
+                 (filter (lambda (a-n) (>= a-n n)) alon))
+               (define (items-< n alon)
+                 (filter (lambda (a-n) (< a-n n)) alon)))
+         (cond
+           [(empty? alon) alon]
+           [else
+            (append (quick-sort 
+                     (items-< (first alon) (rest alon)))
+                    (list (first alon))
+                    (quick-sort 
+                     (items->= (first alon) (rest alon))))])))
+     (quick-sort (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+     =  (local ((define (items->= n alon) 
+                  (filter (lambda (a-n) (>= a-n n)) alon))
+                 (define (items-< n alon)
+                   (filter (lambda (a-n) (< a-n n)) alon)))
+         (cond
+           [(empty? (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+                    (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)]
+           [else
+            (append (quick-sort 
+                     (items-< 
+                      (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+                            (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))))
+                    (list (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+                    (quick-sort 
+                     (items->= (first 
+                                (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+                               (rest 
+                                (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))))]))
+
+     = (local ((define (items->=_0 n alon)
+                 (filter (lambda (a-n) (>= a-n n)) alon))
+               (define (items-<_0 n alon)
+                 (filter (lambda (a-n) (< a-n n)) alon)))
+        (cond
+          [(empty? (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+           (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)]
+          [else (append (quick-sort
+                         (items-<_0 
+                          (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+                          (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))))
+                        (list (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+                        (quick-sort
+                         (items->=_0 (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)) 
+                                     (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))))]))
+     = (define (items->=_0 n alon)
+         (filter (lambda (a-n) (>= a-n n)) alon))
+       (define (items-<_0 n alon)
+         (filter (lambda (a-n) (< a-n n)) alon))
+
+       (cond
+        [(empty? (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+         (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)]
+        [else 
+         (append
+          (quick-sort
+           (items-<_0
+            (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+            (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))))
+           (list (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+           (quick-sort 
+            (items->=_0
+             (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+             (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))))])
+      
+
+     = (append 
+        (quick-sort
+         empty)
+        (list (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+        (quick-sort
+         (items->=_0
+          (first (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+	  (rest (list 1 2 3 4 5 6 7 8 9 10 11 12 13 14)))))
+ 
+     = (append
+        empty
+        (list 1)
+        (quick-sort
+         (list 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+     = (append
+        empty
+        (list 1)
+        (append
+         (quick-sort empty)
+         (list 2)
+         (quick-sort (list  3 4 5 6 7 8 9 10 11 12 13 14))))
+     = (append
+        empty
+        (list 1)
+        (append
+         (quick-sort empty)
+         (list 2)
+         (append
+          (quick-sort empty)
+          (list 3)
+          (quick-sort (list 4 5 6 7 8 9 10 11 12 13 14)))))
+     
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+           (quick-sort empty)
+           (list 4)
+           (quick-sort (list 5 6 7 8 9 10 11 12 13 14))))))
+
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+	   empty
+           (list 4)
+           (append
+            (quick-sort empty)
+            (list 5)
+            (quick-sort (list 6 7 8 9 10 11 12 13 14)))))))
+
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+	   empty
+           (list 4)
+           (append
+            (quick-sort empty)
+            (list 5)
+            (append
+             (quick-sort empty)
+             (list 6)
+             (quick-sort (list 7 8 9 10 11 12 13 14))))))))
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+	   empty
+           (list 4)
+           (append
+            (quick-sort empty)
+            (list 5)
+            (append
+             (quick-sort empty)
+             (list 6)
+             (append
+              (quick-sort empty)
+              (list 7)
+              (quick-sort (list 8 9 10 11 12 13 14)))))))))
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+	   empty
+           (list 4)
+           (append
+            (quick-sort empty)
+            (list 5)
+            (append
+             (quick-sort empty)
+             (list 6)
+             (append
+              (quick-sort empty)
+              (list 7)
+              (append
+               (quick-sort empty)
+               (list 8)
+               (quick-sort (list 9 10 11 12 13 14))))))))))
+     = (append
+        empty
+        (list 1)
+        (append
+         empty
+         (list 2)
+         (append
+          empty
+          (list 3)
+          (append
+	   empty
+           (list 4)
+           (append
+            (quick-sort empty)
+            (list 5)
+            (append
+             (quick-sort empty)
+             (list 6)
+             (append
+              (quick-sort empty)
+              (list 7)
+              (append
+               (quick-sort empty)
+               (list 8)
+               (append
+                (quick-sort empty)
+                (list 9)
+                (append
+                 (quick-sort empty)
+                 (list 10)
+                 (append
+                 (quick-sort empty) ....)
+     #+END_SRC
+
+     2*N applications of quicksort and N applications of append for
+     each element of the list, always, no matter what. The variable is
+     in how much work has to be done by the filter functions. If the
+     list starts out as N, and each iteration gets smaller by 1, in a
+     pre-sorted list we do two passes over the list, each call does an
+     n-1 pass over the list, 2*N times.
+
+   - Exercise 26.3.6. Add sort and quick-sort to the Definitions
+     window. Test the functions and then explore how fast each works
+     on various lists. The experiment should confirm the claim that
+     the plain sort function wins (in many comparisons) over
+     quick-sort for short lists and vice versa. Determine the
+     cross-over point. Then build a sort-quick-sort function that
+     behaves like quick-sort for large lists and switches over to the
+     plain sort function for lists below the cross-over point.
+
+     Hints: (1) Use the ideas of exercise 26.3.5. to create test
+     cases. (2) Develop create-tests, a function that creates large
+     test cases randomly. Then evaluate
+
+     #+BEGIN_SRC
+     (define test-case (create-tests 10000))
+     (collect-garbage)
+     (time (sort test-case))
+     (collect-garbage)
+     (time (quick-sort test-case))
+     #+END_SRC
+     
+     The uses of collect-garbage helps DrScheme deal with large
+     lists. 
+
+     You can't tell - the time function displays 0 time for lists
+     under the size of ~100 for both functions, by the time you can
+     get a list large enough to measure, quick-sort is faster. 
+
+     #+BEGIN_SRC scheme
+     (define (sort-quick-sort alon)
+       (local ((define THRESHOLD 10)
+               (define (length<? n alon)
+                 (cond ((and (empty? alon) (= 0 n)) false)
+                       ((and (empty? alon) (> 0 n)) true)
+                       ((and (cons? alon) (= 0 n)) false)
+                       ((and (cons? alon) (> 0 n))
+                        (length<? (sub1 n) (rest alon)))))
+               (define (items-< alon)
+                 (filter (lambda (a-n) (< a-n n)) alon))
+               (define (items->= alon) 
+                 (filter (lambda (a-n) (>= a-n n)) alon))
+               (define (insert n alon)
+                 (cond ((empty? alon) (list n))
+                       (else (cond
+                               ((< n (first alon)) (cons n alon))
+                               (else (cons (first alon) 
+                                           (insert n (rest alon))))))))
+               (define (isort alon)
+                 (cond ((empty? alon) alon)
+                       (else (insert (first alon) (sort (rest alon))))))
+               (define (quick-sort alon)
+                 (cond
+                   ((length<? THRESHOLD alon) (isort alon))
+                   (else (append (quick-sort (items-< (first alon) alon))
+                                 (list (first alon))
+                                 (quick-sort (items->= (first alon) (rest alon))))))))
+        (quick-sort alon)))
+     #+END_SRC
