@@ -145,11 +145,186 @@
      ;; questions:
      #+END_SRC
 
-     We can see
+     We can see the simplest schenarios are for empty and a
+     single-element list.  perhaps the empty case should be an actual
+     error. It becomes relatively obvious though that what we really
+     want to do is related to actually subtracting a fixed multiple of
+     the rest of the first list from the rest of the last list and
+     returning that value.
+
+     #+BEGIN_SRC scheme
+     ;; subtract : (listof number) (listof number) -> (listof number)
+     (define (subtract lon1 lon2)
+       (local ((define factor (/ (first lon2) (first lon1))))
+         (subtract-multiple factor (rest lon1) (rest lon2))))
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; subtract-multiple : number (listof number) (listof number) -> (listof number) 
+     ;; multiplies each number in lon1 by factor and subtracts that number
+     ;; from the corresponding element in the second list.
+     (define (subtract-multiple factor lon1 lon2) ...) 
+
+     ;; example:
+     (equal? (subtract-multiple 2 (list 1 1) (list 1 1)) (list -1 -1))
+     (equal? (subtract-multiple 300 empty empty) empty)
+     (equal? (subtract-multiple 300 (list 2 2) (list 100 100)) (list -500 -500))
+     #+END_SRC
+
+     the base case is when it's empty. This is clearly well-suited to
+     structural recursion.
+     #+BEGIN_SRC scheme
+     (define (subtract-multiple factor lon1 lon2)
+       (cond
+         ((empty? lon1) empty)
+         (else (cons (- (first lon2) (* factor (first lon1)))
+                     (subtract-multiple factor (rest lon1) (rest lon2))))))
+     #+END_SRC
+
+     Now, we have the complete implementation.
+
+   Following convention, we drop the leading 0's from the last two
+   equations:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2  3  10)
+         (list   3  9  21)
+         (list  -3 -8 -19))
+   #+END_SRC
+
+   If, in addition, we use the same process for the remainder of the
+   system to generate shorter rows, the final representation has a
+   triangular shape.
+
+   Let us study this idea with our running example. For the moment we
+   ignore the first row and focus on the rest of the equations:
+
+   #+BEGIN_SRC scheme
+   (list (list  3  9  21)
+         (list -3 -8 -19))
+   #+END_SRC
+
+   By subtracting the first row now -1 times from the second one, we
+   get
+
+   #+BEGIN_SRC scheme
+   (list (list 3 9 21)
+         (list   1 2))
+   #+END_SRC
+   
+   after dropping the leading 0. The remainder of this system is a
+   single equation, which cannot be simplified any further.
+
+   Here is the result of adding this last system to the first
+   equation:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 2 3 10)
+         (list   3 9 21)
+         (list     1 2))
+   #+END_SRC	 
+
+   As promised, the shape of this system of equations is (roughly) a
+   triangle, and as we can easily check, it has the same solution as
+   the original system.
+
+   - Exercise 27.5.3. Check that the following system of equations
+
+     #+BEGIN_EXAMPLE
+     2*x + 2*y + 3*z = 10
+           3*y + 9*z = 21
+                 1*z = 2
+     #+END_EXAMPLE
+
+     again, I'll solve each equation individually. 
+     #+BEGIN_EXAMPLE
+     2*1 + 2*1 + 3*2 = 10 ? 
+     2 + 2 + 6 = 10 ? 
+     10 = 10 !
+     #+END_EXAMPLE
+
+     #+BEGIN_EXAMPLE
+     3*1 + 9*2 = 21 ?
+     3 + 18 = 21 ?
+     21 = 21 !
+     #+END_EXAMPLE
+
+     #+BEGIN_EXAMPLE
+     1*2 = 2 ? 
+     2 = 2 !
+     #+END_EXAMPLE
+
+   As promised, the shape of this system of equations is (roughly) a
+   triangle, and as we can easily check, it has the same solution as
+   the original system.
+
+   - Exercise 27.5.4. Develop the algorithm triangulate, which
+     consumes a rectangular representation of a system of equations
+     and produces a triangular version according to the Gaussian
+     algorithm.
+
+     #+BEGIN_SRC scheme
+     ;; triangulate : (listof (listof number)) -> (listof (listof number))
+     ;; takes an Nx(N+1) matrix and applies gaussian elimination to the matrix, 
+     ;; producing a triangulated version.
+     (define (triangulate mat) ...)
      
+     (equal? (triangulate (list (list 2 2 3 10)
+                                (list 2 5 12 31)
+                                (list 4 1 -2 1)))
+     (list (list 2 2 3 10)
+           (list   3 9 21)
+           (list     1  2)))
 
-   
+     (equal? (triangulate (list (list 2 2))) (list (list 2 2)))
 
 
+     #+END_SRC
 
-   
+     A 1x2 matrix is the trivial case or at any rate, the smallest
+     matrix possible, a 1x1 is not a valid system of equations, it
+     cannot represent both a coefficient and a value. Therefore, we
+     can say that a trivial solution is a 1x2 matrix. In this case, we
+     just return the matrix. 
+
+     #+BEGIN_SRC scheme
+     (define (triangulate mat)
+       (cond
+          ((is-1x2? mat) mat)
+          (else
+             (combine-solutions
+              ...
+              (subproblem-1 mat)
+              ...
+              (subproblem-n mat)))))
+     #+END_SRC
+
+     To generate a subproblem, we remember that we need to take the
+     first row, and run subtract on all subsequent rows. We then
+     actually want to cons this row onto the triangulated matrix made
+     by combining the subtracted rows into another matrix.
+
+     #+BEGIN_SRC scheme
+     (define (triangulate mat)
+       (cond
+          ((is-1x2? mat) mat)
+          (else
+            (local ((define subtracted 
+                            (subtract-row-from-rest-rows (first mat) (rest mat))))
+                   ((define (subtract-row-from-rest-rows row rest-rows)
+                      (cond
+                        ((empty? rest-rows) empty)
+                        (else (cons (subtract row (first rest-rows))
+                                    (subtract-row-from-rest-rows row (rest rest-rows)))))))
+             (cons (first mat)
+                   (triangulate subtracted))))))
+     #+END_SRC     
+
+     Next we define is-1x2?
+
+     #+BEGIN_SRC scheme
+     (define (is-1x2? mat)
+       (and (equal? (rest mat) empty)
+            (length (first mat) 2)))
+     #+END_SRC
+
