@@ -328,3 +328,370 @@
             (length (first mat) 2)))
      #+END_SRC
 
+     The algorithm works.
+   Unfortunately, the current version of the triangulation algorithm
+   occasionally fails to produce the solution. Consider the following
+   (representation of a) system of equations:
+
+   #+BEGIN_SRC scheme
+   (list (list 2  3  3 8)
+         (list 2  3 -2 3)
+         (list 4 -2  2 4))
+   #+END_SRC
+
+   Its solution is x = 1, y = 1, and z = 1. 
+
+   The first step is to subtract the first row from the second and to
+   subtract it twice from the last one, which yields the following
+   matrix:
+
+   #+BEGIN_SRC scheme
+   (list (list 2  3  3  8)
+         (list    0 -5 -5)
+         (list   -8 -4 -12))
+   #+END_SRC	 
+
+   Next our algorithm would focus on the rest of the matrix:
+
+   #+BEGIN_SRC scheme
+   (list (list  0 -5 -5)
+         (list -8 -4 -12))
+   #+END_SRC
+
+   but the first item of this matrix is 0. Since we cannot divide by
+   0, we are stuck.
+
+   To overcome this problem, we need to use another piece of knowledge
+   from our problem domain, namely, that we can switch equations
+   around without changing the solution. Of course, as we switch rows,
+   we must make sure that the first item of the row to be moved is
+   not 0. Here we can simply swap the first two rows:
+
+   #+BEGIN_SRC scheme
+   (list (list -8 -4 -12)
+         (list  0 -5 -5))
+   #+END_SRC
+
+   From here we may continue as before, subtracting the first equation
+   from the remaining ones a sufficient number of times. The final
+   triangular matrix is:
+
+   #+BEGIN_SRC scheme
+   (list (list 2 3  3  8)
+         (list  -8 -4 -12)
+         (list     -5 -5))
+   #+END_SRC
+
+   It is easy to check that this system of equations still has the
+   same solution x = 1, y = 1, and z = 1.
+
+   - Exercise 27.5.5. Revise the algorithm triangulate from exercise
+     27.5.4 so that it switches rows when the first item of the matrix
+     is 0.
+
+     Hint: DrScheme provides the function remove. It consumes an item
+     I and a list L and produces a list like L but with the first
+     occurrence of I removed. For example:
+
+     #+BEGIN_SRC scheme
+     (equal? (remove (list 0 1) (list (list 2 1) (list 0 1)))
+             (list (list 2 1)))
+     #+END_SRC
+
+     Here is our old algorithm:
+
+     #+BEGIN_SRC scheme
+     (define (is-1x2? mat)
+       (and (equal? (rest mat) empty)
+            (length (first mat) 2)))
+
+     (define (triangulate mat)
+       (cond
+          ((is-1x2? mat) mat)
+          (else
+            (local ((define subtracted 
+                            (subtract-row-from-rest-rows (first mat) (rest mat))))
+                   ((define (subtract-row-from-rest-rows row rest-rows)
+                      (cond
+                        ((empty? rest-rows) empty)
+                        (else (cons (subtract row (first rest-rows))
+                                    (subtract-row-from-rest-rows row (rest rest-rows)))))))
+             (cons (first mat)
+                   (triangulate subtracted))))))
+     #+END_SRC
+     
+     We need to perform the following test:
+
+     does our very first row start with 0?  
+
+     when it does, we need to swap it down. From there we can just
+     continue with the rest of the algorithm.
+
+     #+BEGIN_SRC scheme
+     (define (is-1x2? mat)
+       (and (equal? (rest mat) empty)
+            (length (first mat) 2)))
+
+     (define (triangulate mat)
+       (cond
+          ((is-1x2? mat) mat)
+          (else
+            (local ((define mat (cond
+                                  ((= (first mat) 0) 
+                                   (cons (first (rest mat))
+                                         (first mat)
+                                         (rest (rest mat))))
+                                  (else mat)))
+                    (define subtracted 
+                            (subtract-row-from-rest-rows (first mat) (rest mat))))
+                   ((define (subtract-row-from-rest-rows row rest-rows)
+                      (cond
+                        ((empty? rest-rows) empty)
+                        (else (cons (subtract row (first rest-rows))
+                                    (subtract-row-from-rest-rows row (rest rest-rows)))))))
+             (cons (first mat)
+                   (triangulate subtracted))))))
+     #+END_SRC
+
+   - Exercise 27.5.6 Some systems of equations don't have a
+     solution. Consider the following example:
+
+     #+BEGIN_EXAMPLE
+     2*x + 2*y + 2*z = 6
+     2*x + 2*y + 4*z = 8
+     2*x + 2*y + 1*z = 2
+     #+END_EXAMPLE
+
+     Try to produce a triangular system by hand and with
+     triangulate. What happens? Modify the function so that it signals
+     an error if it encounters this situation.
+
+     #+BEGIN_EXAMPLE
+     If we just subtract and start out normally:
+
+     2*x + 2*y + 2*z = 6
+                 2*z = 2
+                -1*z = -4
+     #+END_EXAMPLE
+     
+     after only one step. The problem is we can't go further because
+     we have two rows that have two columns. If we try to use
+     triangulate, it gives a divide-by-zero error when it tries to
+     make the factor, it's calls are like:
+
+     #+BEGIN_SRC scheme
+     (list (list 2 2 2 6)
+           (list 2 2 4 8)
+           (list 2 2 1 2))
+     (list (list 0 4 8)
+           (list 0 -1 -4))
+     #+END_SRC
+    
+     It then swaps the first and second rows, but they still both
+     start with zero, so we end up dividing by zero. The problem is
+     that if we ever end up with two rows that both start with zero,
+     we can't find a solution or at least, we can't triangulate. So we
+     should signal an error if we make a swapped matrix and it still
+     starts with zero. This means, no matter what, that we cannot
+     triangulate.
+
+   - Exercise 27.5.7 After we obtain a triangular system of equations
+     such as (*) on page 34 (or exercise 27.5.3) we can solve the
+     equations. In our specific example, the last equation says that z
+     is 2. Equipped with this knowledge, we can eliminate z from the
+     second equation through a substitution:
+
+     #+BEGIN_EXAMPLE
+     3*y + 9*2 = 21
+     #+END_EXAMPLE
+
+     Determine the value for y. Then repeat the substitution step for
+     y and z in the first equation and find the value for x.
+
+     #+BEGIN_EXAMPLE
+     We can find the solution simply by using normal algebra.
+
+     3*y + 9*2 = 21
+     3*y + 18 = 21
+     3*y = 21 - 18
+     3*y = 3
+     y = 1
+     #+END_EXAMPLE
+
+     Develop the function solve, which consumes triangular systems of
+     equations and produces a solution. A triangular system of
+     equations has the shape:
+
+     #+BEGIN_SRC scheme
+     (list (list a_11 ... ... b_1)
+           (list     a_21 ... b_2)
+           (list      .   .   .)
+           (list      .   .   .)
+           (list      .   .   .)
+           (list         a_nn b_n))
+     #+END_SRC
+
+     where a_ij and b_i are numbers. That is, it is a list of lists
+     and each of the lists is one item shorter than the preceding
+     one. A solution is a list of numbers. The last number on the list
+     is
+
+     #+BEGIN_EXAMPLE
+     b_n/a_nn
+     #+END_EXAMPLE
+
+     Hint: Developing solve requires a solution for the following
+     problem. Suppose we are given a row:
+     
+     #+BEGIN_SRC scheme
+     (list 3 9 21)
+     #+END_SRC
+
+     and a list of numbers that solve the remainder of the system:
+
+     #+BEGIN_SRC scheme
+     (list 2)
+     #+END_SRC
+
+     In the world of equations, these two pieces of data represent the
+     following knowledge:
+     
+     #+BEGIN_SRC scheme
+     3*x + 9*y = 21
+     #+END_SRC
+
+     and
+     
+     #+BEGIN_SRC
+     y = 2
+     #+END_SRC
+
+     which in turn means we must solve the following equation:
+
+     #+BEGIN_SRC
+     3*x + 9*2 = 21
+     #+END_SRC
+
+     Develop the function evaluate, which evaluates the rest of the
+     left-hand side of an equation and subtracts the right-hand side
+     from this sum. Equivalently, evaluate consumes (list 9 21) and
+     (list 2) and produces -3, that is 9*2 - 21. Now use evaluate for
+     the intermediate step in solve.
+
+     #+BEGIN_SRC scheme
+     ;; evaluate : (listof number) (listof number) -> number
+     ;; consumes lon1, which represents coefficients of an equation,
+     ;; and the solution, and lon2, which represents values for
+     ;; them. It then will return the sum of the coefficients
+     ;; multiplied by their respective variable values, minus the last
+     ;; number on the list. 
+     (define (evaluate lon1 lon2) ...)
+
+     ;; examples:
+     (equal? (evaluate (list 9 21) (list 2))
+             3)
+     (equal? (evaluate (list 1 2) (list 3))
+             -1)
+
+     (equal? (evaluate (list 1 2 3 4 5 6) (list 3 2 1 4 5))
+             -45)
+     #+END_SRC
+     
+     This will work for structural recursion basically, although it is
+     good to think of it in a more generative fashion.
+
+     1. Base case/trivial case: two element lon1, one element lon2.
+     2. Solution thereof: 
+        #+BEGIN_SRC scheme
+        (- (first (rest lon1)) 
+                             (* (first  lon1)
+                                (first lon2)))
+	#+END_SRC
+     3. Smaller subproblem: just take the rest of the first list and
+        also the rest of the second, and pass these to a recursive call.
+     4. Combination: subtract (* (first lon2)  (first lon1)) from the
+        solution returned by the recursive step.
+     5. Termination: We take the rest of both lists at each step, and
+        look for a small case, so it gets closer every time. Assuming
+        correctly formed input data was given to us, it will always be
+        correct. 
+     #+BEGIN_SRC scheme
+     (define (evaluate alon1 alon2)
+     (cond
+     ((and (empty? (rest lon2))
+     (= 2 (length lon1)))
+     (- (first (rest lon1))
+     (* (first lon1)
+     (first lon2))))
+     (else
+     (- (evaluate (rest alon1) (rest alon2))
+     (* (first alon1) (first alon2)))))) 
+     #+END_SRC
+
+     #+BEGIN_SRC scheme
+     ;; solve : (listof (listof number)) -> (listof number) 
+     ;; solves a system of linear equations represented by a list of
+     ;; lists. Returns a list of numbers representing the variables, 
+     ;; the solution.
+     (define (solve mat) ...)
+
+     (equal? (solve (list (list 2 1)))
+     (list 1/2))
+     (equal? (solve (list (list 4 5))
+     (list 5/4)))
+     (equal? (solve (list (list 1 2 3)
+     (list 4 5 6)))
+     (list -1 2))
+     (equal? (solve (list (list 2 2 3 10)
+     (list 2 5 12 31)
+     (list 4 1 -2 1)))
+     (list 1 1 2))
+     #+END_SRC
+
+     Plainly we first need to triangulate the matrix, and then pass it
+     to another function that takes a triangulated matrix and solves
+     it. 
+
+
+     #+BEGIN_SRC
+     (define (solve mat)
+       (solve-triangulated (triangulate mat)))
+     ;; solve-triangulated: (listof (listof number)) -> (listof number)
+     ;; solves an already triangulated system of equations.
+     (define (solve-triangulated mat) ...)
+
+     (equal? (solve-triangulated (list (list 2 1)))
+     (list 1/2))
+     (equal? (solve-triangulated (list (list 4 5))
+     (list 5/4)))     
+     #+END_SRC
+
+     1. Trivial case - 1x2 matrix.
+     2. Solution for said case - the second number divided by the
+        first.
+     3. Breaking down the cases/generation - if you just take a row
+        off of a triangular matrix, the result is a triangular
+        matrix. Eventually this will become a 1x2 matrix with a
+        trivial solution.
+     4. Combination - The solve-triangulated recursive step returns a
+        list of variables that solve the equation. We should then,
+        therefore, use our evaluate function with the current row and
+        the previous list of solutions to generate the right-hand side
+        for the new equation. We can then divide the new right-hand
+        side by the first element of the list and this is the next
+        variable solution. Add this to the list of solutions and
+        return.
+
+      #+BEGIN_SRC scheme
+      (define (solve-triangulated mat)
+        (cond 
+          ((is-1x2? mat) 
+           (list (/ (first (rest (first mat)))
+                 (first (first mat)))))
+          (else
+           (local ((define subsolution (solve-triangulated (rest mat)))
+                   (define rhs (evaluate (rest (first mat)) subsolution))
+                   (define new-variable (/ (first (first mat)) rhs)))
+             (cons new-variable subsolution)))))
+      #+END_SRC
+
