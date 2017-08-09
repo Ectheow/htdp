@@ -504,51 +504,335 @@
       (define (board-row-ref j) ...)
       #+END_SRC
 
+      For column and row numbering, how the actual data is layed out
+      doesn't matter so long  as the function gets the right numbers
+      and we return the same 'cell' that the function generated in
+      subsequent calls to board-ref. 
+
+      When building a board in a general, structurally-recursive way
+      for creating a list we end up with something like:
+
+      #+BEGIN_EXAMPLE
+           N ...  ... 1
+      N ( (             )
+       .  (             )
+       .  (             )
+      1   (             ) )
+      #+END_EXAMPLE
+      
+      But if create a naive, simple implementation of board-ref, we'd
+      have a problem if we ask for 1x1, we would get 3x3 or 4x4,
+      because we'd subtract recursively. The solution isn't trivial;
+      since although we could solve it by using the complement of those numbers
+      with respect to the total number of columns/rows, this requires
+      adding to the data definition or to the parameters passed by
+      board-ref.
+
+      An alternative fix would be to find a way to give the 1, 1
+      number at a different location, so the scheme is like this:
+
+      #+BEGIN_EXAMPLE
+             1 2 3 4        number passed to function
+             4 3 2 1        number in recursive loop
+      1 4 ( (        )
+      2 3   (        )
+      3 2   (        )
+      4 1   (        ) )
+      #+END_EXAMPLE
+      
+      We see a pattern: The number passed to the function is always
+      (n+1) - i, where n is the total number of rows or columns and i
+      is the index in the recursive loop.
+
+      This doesn't require any extra information to build-board
+      althouh it may require reorganization; since build-board takes
+      initially the total number of columns and rows. 
+
+      An initial design of build board might go like this:
       #+BEGIN_SRC scheme
+      ;; data analysis:
+      ;; we are passed two N[>=1].
+
+      ;; build-board : number, number (number number -> piece) -> board
+      ;; creates a chessboard that is ixj cells, filling cell i,j with 
+      ;; (f i j). 
+      (define (build-board i j) ...)
+   
+      ;; examples:
+      (equal? 
+       (build-board 1 1 (lambda (i j) 'empty))
+       (list (list 'empty)))
+      (equal? 
+       (build-board 2 2 (lambda (i j) (+ i j)))
+       (list (list 2 3
+             (list 3 4))))
+       
+      ;; it seems after a small analysis that the board is made up of two 
+      ;; principal aspects corresponding to our two principal inputs:
+      ;; 1. columns
+      ;; 2. rows.
+      ;; in our data definition the total board is made of a list of rows.
+      ;; therefore, we should have a function producing a row and another
+      ;; producing the board, the row function should be auxiliary. 
+
       (define (build-board i j f)
-        (cond
-          ((= 0 i) empty)
-          (else (cons (build-board-row j 
-                       (lambda (j) (f i j)) )
-                      (build-board (sub1 i) j f)))))
+        (local ((define (param-num->column# n)
+                  (- (+ j 1) n))
+                (define (param-num->row# n)
+                  (- (+ i 1) n))
+                (define (build-board i j m n)
+                  (cond
+                    ((= i 1) (list (build-row 
+                                    j n (lambda (colnum) (f (param-num->row# i) 
+                                                            (param-num->column# colnum))))))
+                    (else (cons (build-row 
+                                 j n (lambda (colnum) (f (param-num->row# i)
+                                                         (param-num->column# colnum))))
+                                (build-board (sub1 i) j f))))))
+           (build-board i j i j f)))
 
-      (define (board-ref a-board i j)
+      (define (build-row j f)
         (cond
-          ((= i 0) (error 'board-ref "the board is too small for that"))
-          ((= i 1) (board-row-ref (first a-board) j))
-          (else
-           (board-ref (rest a-board) (sub1 i) j))))
-
-      (define (build-board-row n f)
-        (cond
-          ((= 0 n) empty)
-          (else (cons (f n) (build-board-row (sub1 n) f)))))
-
-      (define (board-row-ref row j)
-        (cond
-          ((= 0 j) (error 'board-row-ref
-                          "row doesn't have that index"
-                           row))
-          ((= 1 j) (first row))
-          (else (board-row-ref (rest row) (sub1 j)))))
-
-      (equal? (build-board 2 2 (lambda (i j)
-                                (cond
-                                 ((= i j) 'X)
-                                 (else 'O))))
-              '((X O)
-                (O X)))
-      (equal? (build-board 4 4 (lambda (i j)
-                                 (cond
-                                  ((= (remainder i (+ j 1)) 0)
-                                   'X)
-                                  (else 'O))))
-              '((X X X X)
-                (O X O X)
-                (O X O X)
-                (O X O X)))
+          ((= j 1) (list (f j)))
+          (else (cons (list (f j)) (build-row (sub1 j) f)))))
       #+END_SRC
 
+      After some edits in DrScheme we get:
+
+      #+BEGIN_SRC scheme
+      ;; examples:
+      
+             
+      ;; it seems after a small analysis that the board is made up of two 
+      ;; principal aspects corresponding to our two principal inputs:
+      ;; 1. columns
+      ;; 2. rows.
+      ;; in our data definition the total board is made of a list of rows.
+      ;; therefore, we should have a function producing a row and another
+      ;; producing the board, the row function should be auxiliary. 
+      
+      (define (build-board i j f)
+        (local ((define (param-num->column# n)
+                  (- (+ j 1) n))
+                (define (param-num->row# n)
+                  (- (+ i 1) n))
+                (define (build-board i j m n)
+                  (cond
+                    ((= i 1) (list (build-row 
+                                    j (lambda (colnum) (f (param-num->row# i) 
+                                                            (param-num->column# colnum))))))
+                    (else (cons (build-row 
+                                 j (lambda (colnum) (f (param-num->row# i)
+                                                         (param-num->column# colnum))))
+                                (build-board (sub1 i) j m n))))))
+          (build-board i j i j)))
+      
+      (define (build-row j f)
+        (cond
+          ((= j 1) (list (f j)))
+          (else (cons (f j) (build-row (sub1 j) f)))))
+      
+      (equal? 
+       (build-board 1 1 (lambda (i j) 'empty))
+       (list (list 'empty)))
+      (equal? 
+       (build-board 2 2 (lambda (i j) (+ i j)))
+       (list (list 2 3)
+                   (list 3 4)))
+      #+END_SRC
+
+      board-ref can now be a trivial implementation. Because the
+      function was passed 1,1 for the (first (first board)) and so on,
+      we can do a simple, structurally-recursive implementation of the
+      function with no fuss, based on the same pattern.
+
+      #+BEGIN_SRC scheme
+      ;; template:
+      ;; a board is:
+      ;; 1. empty
+      ;; 2. (cons board-row board)
+     
+      ;; a board-row is:
+      ;; 1. empty
+      ;; 2. (cons piece board-row)
+
+      (define (fun-for-board a-board)
+        (cond
+          ((empty? a-board) ...)
+          (else
+           ... (fun-for-row (first a-board)) ...
+           ... (fun-for-board (rest a-board)) ...)))
+
+      (define (fun-for-row a-row)
+        (cond
+          ((empty? a-row) ...)
+          (else 
+           ... (fun-for-piece (first a-row)) ...
+           ... (fun-for-row (rest a-row)) ...)))
+      #+END_SRC
+
+      But now we realize that board-ref actually takes two integers in
+      addition to a board, so it is consuming two non-complex peices
+      of data that are not part of the same data definition, and
+      neither of which are static. We can divide ttwo into row-index
+      and column-index though, which makes the processing easier: with
+      respect to fun-for-board, column-index is static and just a
+      parameter to fun-for-row, and fun-for-row doesn't even need to
+      know about the row index at all. And we can also see that the
+      parameters will vary in lockstep. Nonetheless we will develop a
+      table.
+
+      #+BEGIN_SRC scheme
+      ;; board-ref : number number board -> piece
+      ;; reference a piece in a board by row and column number, indexed
+      ;; from 1. 
+      (define (board-ref i j a-board) ...)
+      
+      ;; examples
+      (define trivial-board (list (list 1))
+      (define board1 (list (list 'empty 'empty)
+                           (list 'threatened 'empty)))
+      (define board2 (list (list 'empty 'empty 'threatened)
+                           (list 'threatened 'empty 'empty)
+                           (list 'empty 'threatened 'empty)))
+      (equal? (board-ref 1 1 trivial-board) 1)
+      (equal? (board-ref 2 1 board1) 'threatened)
+      (equal? (board-ref 3 1 board2) 'empty)
+      (equal? (board-ref 3 3 board2) 'empty)
+      (equal? (board-ref 1 3 board2) 'threatened)
+      #+END_SRC
+
+      |                | (= 1 i)                      | (> 1 i)                      |
+      | (empty? board) | (and (= 1 i) (empty? board)) | (and (> 1 i) (empty? board)) |
+      | (cons? board)  | (and (= 1 i) (cons? board))  | (and (> 1 i) (cons? board))  |
+
+      This same table works for row/j in board-row-ref.
+
+      #+BEGIN_SRC scheme
+      (define (board-ref i j a-board)
+        (cond
+          ((and (= 1 i) (empty? board))
+           ...)
+          ((and (> i 1) (empty? board))
+           ... (board-ref (sub1 i) board) ...)
+          ((and (= i 1) (cons? board))
+           ... (board-ref i (rest board)) ...)
+          ((and (> i 1) (cons? board))
+           ... (board-ref (sub1 i) (rest board)) ... ;; OR
+           ... (board-ref i (rest board)) ... ;; OR 
+           ... (board-ref (sub1 i) board) ...)))
+      #+END_SRC
+
+      We can answer that if i == 1 and the board is empty, this should
+      be an error, because the 1st index doesn't exist. Next, if i is
+      greater than 1 and the board is still emtpy, we should answer
+      the same way. And if i is equal to one and the board is a cons,
+      we should then process that row.  next item is the recursive
+      step that does the magic.
+
+      #+BEGIN_SRC scheme
+      (board-ref 2 1 (list (list 'empty 'empty)
+                           (list 'threatened 'empty)))
+      1. (board-ref 1  1 (1ist (list 'threatened 'empty)))  -> 'threatened ;; correct
+          ;; ^^ assumes that the row-referencing worked correctly. 
+      2. (board-ref 2 1 (list (list 'threatened 'empty))) -
+         (board-ref 2 1 empty) -> error, not correct
+      3. (board-ref 1 1 (list (list 'empty 'empty) (list 'threatened 'empty))) -> 'empty ;;incorrect
+         ;; ^^ assumes that when we try to reference a column the function works, although
+         ;; it's not yet been written.
+      #+END_SRC
+
+      It seems recursion (1) is correct.
+      #+BEGIN_SRC scheme
+      (define (board-ref i j a-board)
+        (cond
+          ((and (= 1 i) (empty? board))
+           (error 'board-ref "board is too small"))
+          ((and (> i 1) (empty? board))
+           (error 'board-ref "board is too small"))
+          ((and (= i 1) (cons? board))
+           (board-row-ref j (first board)))
+          ((and (> i 1) (cons? board))
+           (board-ref (sub1 i) (rest board)))))
+      #+END_SRC      
+
+      Now, we need to implement board-row-ref. This will reference a
+      column in a row.
+
+      #+BEGIN_SRC scheme
+      ;; board-row-ref : number board -> piece 
+      ;; indexes the jth column of the board row.
+      (define (board-row-ref j a-board-row) ...)
+
+      ;; examples
+      (equal? (board-row-ref 3 (list 'empty 'empty 'threatened 'empty))
+              'threatened)
+      (equal? (board-row-ref 1 (list 'empty))
+              'empty)
+      ;; error: (board-row-ref 3 (list 'empty))
+      ;; error: (board-row-ref 3 (list 'threatened))
+      ;; error: (board-row-ref 1 empty)
+      #+END_SRC
+
+      The same cases are valid for this function since it also
+      processes a list and a number dynamically, so we will fill out
+      the template that way. 
+
+      #+BEGIN_SRC scheme
+      (define (board-row-ref j a-board-row)
+        (cond
+          ((and (empty? a-board-row) (= j 1))
+           ...)
+          ((and (cons? a-board-row) (= j 1))
+           ... (board-row-ref j (rest a-board-row)) ...)
+          ((and (empty? a-board-row) (> j 1))
+           ... (board-row-ref (sub1 j) a-board-row) ...)
+          ((and (cons? a-board-row) (> j 1))
+           ... (board-row-ref (rest a-board-row) (sub1 j)) ... ;; OR
+           ... (board-row-ref a-board-row (sub1 j)) ... ;; OR
+           ... (board-row-ref (rest a-board-row) j) ...)))
+      #+END_SRC
+
+      for the first case, as per our examples, this should be an
+      error. For the second, we should actually take the first
+      element of the list, again per the examples. For the third, we
+      should signal and error. Finally, we have three types of
+      recursion to choose from.
+
+      #+BEGIN_SRC scheme
+      1. (board-row-ref 2 (list 'empty 'threatened)) -> 
+         (board-row-ref 1 (list 'threatened)) -> 'threatened ;; correct-a-mundo
+
+      2. (board-row-ref 2 (list 'empty 'threatened)) -> p
+         (board-row-ref 1 (list 'empty 'threatened)) -> 'empty ;; nope
+
+      3. (board-row-ref 2 (list 'empty 'threatened)) -> 
+         (board-row-ref 2 (list 'threatened)) -> 
+         (board-row-ref 2 empty) -> error ;; nope
+      #+END_SRC
+
+      Recursion (1) works again!
+
+      #+BEGIN_SRC scheme
+      (define (board-row-ref j a-board-row)
+        (cond
+          ((and (empty? a-board-row) (= j 1))
+           (error 'board-row-ref "row too small"))
+          ((and (cons? a-board-row) (= j 1))
+           (first a-board-row))
+          ((and (empty? a-board-row) (> j 1))
+           (error 'board-row-ref "board row too small"))
+          ((and (cons? a-board-row) (> j 1))
+           (board-row-ref (sub1 j) (rest a-board-row)))))
+      #+END_SRC      
+
+      all tests pass.
+
+      
+
+
+      
+      
 
       
       
