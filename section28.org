@@ -828,7 +828,264 @@
 
       all tests pass.
 
+    - Exercise 28.2.3. Develop the function threatened?, which
+      computes whether a queen can reach a position on the board from
+      some given position. That is, the function consumes two
+      positions, given as posn structures, and produces true if a
+      queen on the first position can threaten the second position.
+
+      *Hint*: the exercise translates the chess problem of
+      ``threatening queens'' into the mathematic problem of
+      determining whether in some given grid, two positions are on the
+      same vertical, horizontal, or diagonal line. Keep in mind that
+      each position belongs to two diagonals and that the slope of a
+      diagonal is either +1 or -1. 
+
+      We can view this as a simple and: if, by moving in each possible
+      direction -  which can be represented by a posn as rise/run - we
+      can in any of these directions hit the peice, we're OK. We can
+      also simply assert that the peice is within the board dimensions
+      and solve an equation:
+
+      #+BEGIN_EXAMPLE
+      [q_r + (x*s_r), q_c + (y*s_c)] = [p_r, p_c]
+      #+END_SRC
       
+      where q_r stands for queen's row, s_r stands for 'slope row',
+      i.e. 0, 1, or -1, the slope, and q_c, s_c are the same, and p_r,
+      p_c are also the same. Solving this develops the following:
+
+      #+BEGIN_EXAMPLE
+      (p_r - q_r) / s_r  = x
+      #+END_SRC
+
+      We can see if it an integer by asking whether the remainder
+      is 0. If the slope is 0 in a direction, we should test if the
+      piece is on the same row/column, if not then return false,
+      otherwise true.
+
+      #+BEGIN_SRC scheme
+      (define (is-solution? queenpos piecepos slope)
+        (and
+         (cond
+             ((= (posn-x slope) 0) 
+              (= (posn-x piecepos) (posn-x queenpos)))
+             (else
+              (= (remainder (- (posn-x queenpos) (posn-x piecepos))
+                       (posn-x slope)) 0)))
+         (cond
+             ((= (posn-y slope) 0)
+              (= (posn-y piecepos) (posn-y queenpos)))
+             (else (= (remainder (- (posn-y queenpos) (posn-y piecepos))
+                                 (posn-y slope)) 0)))))
+
+      (is-solution? (make-posn 1 1) (make-posn 2 1) (make-posn 1 0))
+      (is-solution? (make-posn 1 1) (make-posn 3 3) (make-posn 1 1))
+      (not (is-solution? (make-posn 1 1) (make-posn 2 1) (make-posn 0 1)))
+      (not (is-solution? (make-posn 2 3) (make-posn 5 9) (make-posn 1 1)))
+      (is-solution? (make-posn 5 5) (make-posn 1 1) (make-posn -1 -1))
+      (is-solution? (make-posn 20 20) (make-posn 4 4) (make-posn -1 -1))
+      (not (is-solution? (make-posn 3 2) (make-posn 1 1) (make-posn -1 -1)))
+      #+END_SRC
+
+      There is a solution if any one of the slopes work.
+
+      #+BEGIN_SRC scheme
+      (define (threatened? queen piece)
+        (or (is-solution? queen piece (make-posn 1 1))
+            (is-solution? queen piece (make-posn -1 -1))
+            (is-solution? queen piece (make-posn 1 0))
+            (is-solution? queen piece (make-posn 0 1))))
+      (threatened? (make-posn 50 50) (make-posn 5 5))
+      (threatened? (make-posn 100 10) (make-posn 90 10))
+      (threatened? (make-posn 60 50) (make-posn 70 50))
+      (not (threatened? (make-posn 60 50) (make-posn 1 1)))
+      (not (threatened? (make-posn 8 8) (make-posn 2 3)))
+      (threatened? (make-posn 10 10) (make-posn 10 0))
+      (not (threatened? (make-posn 10 40) (make-posn 9 0)))
+      (threatened? (make-posn 5 5) (make-posn 10 10))
+      (not (threatened? (make-posn 4 4) (make-posn 5 6)))
+      (threatened? (make-posn 5 5) (make-posn 5 5))
+      #+END_SRC
+      
+    Once we have data definitions and functions for the ``language of
+    chessboards'', we can turn our attention to the main task: the
+    algorithm for placing a number of queens on some given board.
+
+    - Exercise 28.2.4. Develop placement. The function consumes a
+      natural number and a board and tries to place that many queens
+      on the board. If the queens can be placed, the function produces
+      an appropriate board. If not, false.
+
+      One thing we're going to need is a function that takes a list of
+      queens with positions already and tries to place them. 
+
+      ;; is-solution? : board (listof posn) -> true or false
+      
+      Our algorithm is going to have to try every possible placement
+      of queens, many queens. However, queens are not distinct. So
+      what we really want is an algorithm that generates all possible
+      distinct placements of N queens, we need to know when we're done
+      trying queens. A placement of queens is a list of posns. No two
+      posns will be alike. For each queen placement, a placement of N
+      queens is like a placement of N-1 queens, but with another queen
+      added to a position in which some queen is not. We can basically
+      exhaust a configuration of this by placing the Nth queen in all
+      possible positions where another queen isn't for a configuration
+      of N-1 queens. The smallest queen configuration is a
+      configuration of one queen, and the next configuration for that
+      queen is just to move it to the next column or up one row. 
+
+      ;; queen-configuration-generate : board (listof posn ) posn -> (listof
+      posn)
+
+      The function generates another configuration of N+1, if (listof
+      posn) is N long, with a new queen which _was_ at posn but now is
+      at the first element of the returned list.
+      
+      #+BEGIN_SRC scheme
+      ;; all-queen-configurations : board number ->  (listof posn)
+      (define (all-queen-configurations board number)
+        (cond ((
+      ;; queen-configurations : number -> (listof posn)
+      (define (queen-configurations board n)
+        (cond 
+         ((= n 1) (all-queen-configurations board n))
+         (else (cons (all-queen-configurations board n)
+                     (queen-configurations board (sub1 n))))))
+      #+END_SRC
+      
+      But there is probably a different way. What we can do is try
+      smaller and smaller configurations with fewer queens (same board
+      size) and try adding a queen. This is more easily recursive.
+
+      1. trivial solution - when there is only a single queen
+      2. answer - the queen at whichever position was given is a
+         correct solution
+      3. making the problem smaller - try to solve a problem with n-1
+         queens, then try all possible configurations with another
+         queen.
+      4. Generation of the new subproblem - simply subtract one from
+         the number of queens. Then generate a list of configurations
+         with another queen.
+
+      #+BEGIN_SRC scheme
+      ;; find-listof-placements : number posn -> (listof posn)
+      ;; finds a list of all possible placements for queens on a
+      ;; board that is (posn-x b)x(posn-y b).
+      (define (find-listof-placements n b)
+        (cond ((= n 1) 
+               (generate-list-of-all-placements b))
+              (else
+               (add-one-and-return-possible-solutions 
+                (find-listof-placements (sub1 n) b))
+                b 
+                (make-posn 1 1))))
+
+      ;; add-one-and-return-possible-solutions : (listof posn) posn posn
+      ;; given a board b which is (posn-x b)x(posn-y b) and a list of queen positions
+      ;; lop and a new queen at queenpos, return all possible additions of a new queen 
+      ;; to the board, that is, add all possible queen positions to lop that preserve
+      ;; the fact that no queens collide. It is assumed that within lop, no queens collide
+      ;; on the board b. 
+      (define (add-one-and-return-possible-solutions lop b queenpos)
+        (cond
+          ((is-queen-on-last-posn? queenpos) empty) ;; last-posn is false.
+          (else
+           (cond ((queen-works? queenpos lop b) 
+                  (cons (cons queenpos lop)
+                        (add-one-and-return-possible-solutions 
+                         lop b (generate-next-queenpos lop b queenpos))))
+                 (else 
+                  (add-one-and-return-possible-solutions lop b (generate-next-queenpos lop b queenpos)))))))
+
+      ;; queen-works? (listof posn) posn posn -> true or false
+      ;; given a new queen q and an already established list of queen placements
+      ;; lop, return true if the new queen q has no collisions with (i.e. does not
+      ;; threaten and is not threatened by) other queens on the board in lop.
+      (define (queen-works? lop q b) ...)
+
+      ;; generate-next-queenpos : posn posn (listof posn) -> posn or false
+      ;; given a current queen position q and board b and a list 
+      ;; of established queens q, return the next position on the board
+      ;; by incrementing first rows and then columns. returns false
+      ;; if q is at the maximum possible position already. 
+
+
+      ;; is-queen-on-last-posn? : posn or false -> true or false
+      ;; returns false if a is a posn, true if it is false, error otherwise.
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (is-queen-on-last-posn? a-posn)
+        (boolean? a-posn))
+
+      ;; the current queen position is one of:
+      ;; 1. at the end of a row - the 'x', or row, is equal to the board x or nrows.
+      ;; 2. between the beginning and end of the row
+      ;; 3. false
+      (define (generate-next-queenpos board queen)
+        (cond
+          ((= (posn-y queen) (posn-y board))
+           (cond 
+             ((= (posn-x queen) (posn-x board)) false)
+             (else (make-posn (+ (posn-x queen) 1) 1))))
+          ((boolean? queen) queen)
+          (else (make-posn (posn-x queen) (+ 1 (posn-y queen))))))
+                              
+      (equal? (generate-next-queenpos (make-posn 2 2) (make-posn 1 1))
+              (make-posn 1 2))
+      (equal? (generate-next-queenpos (make-posn 2 2) (make-posn 1 2))
+              (make-posn 2 1))
+      (equal? (generate-next-queenpos (make-posn 2 2) (make-posn 2 1))
+              (make-posn 2 2))
+      (equal? (generate-next-queenpos (make-posn 2 2) (make-posn 2 2))
+              false)
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      ;; queen-works? (listof posn) posn posn -> true or false
+      ;; given a new queen q and an already established list of queen placements
+      ;; lop, return true if the new queen q has no collisions with (i.e. does not
+      ;; threaten and is not threatened by) other queens on the board in lop.
+      (define (queen-works? lop q b) ...)
+
+      (equal? 
+       (queen-works? (list (make-posn 4 4)) (make-posn 2 2) (make-posn 8 8))
+       false)
+      (equal? 
+       (queen-works? (list (make-posn 4 4)) (make-posn 5 6) (make-posn 8 8))
+       true)
+      (equal? 
+       (queen-works? (list (make-posn 4 4) (make-posn 5 5)) 
+                     (make-posn 5 6)
+                     (make-posn 8 8))
+       false)
+      (equal? 
+       (queen-works? empty (make-posn 2 2) (make-posn 8 8))
+        true)
+
+      ;; we can see quickly a simple solution:
+      (define (queen-works? lop q b)
+        (andmap (lambda (a-queen) (threatened? q a-queen)) lop))
+
+      (define (generate-list-of-all-placements b)
+        (local ((define (generate-list-of-all-placements b q)
+                  (cond 
+                    ((is-queen-on-last-posn? q) empty)
+                    (else (cons q (generate-list-of-all-placements b (generate-next-queenpos q)))))))
+          (generate-list-of-all-placements b (make-posn 1 1)))) 
+      #+END_SRC
+      
+      
+
+    
+
+
+
+
+      
+
 
 
       
