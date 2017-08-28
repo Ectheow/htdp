@@ -1,0 +1,1004 @@
+* Section 29
+** Intermezzo 5: The Cost of Computing and Vectors
+
+   In section 26.3 we discussed the differences between a structurally
+   recursive program and an equivalent, generative recursion. The
+   comparison revlealed that the generative one is much faster than
+   structural the structural version. We used both informal arguments,
+   using the number of recursive calls, and measurements, using time
+   expressions, to support our conclusion.
+
+   While timing the application of a program to specific arguments can
+   help us understand a program's behavior in one situation, it is not
+   a fully convincing argument. After all, applying the same program
+   to some other inputs may require a radically different amount of
+   time. In short, timing programs for specific inputs has the same
+   status as testing programs for specific examples. Just as testing
+   may reveal bugs, timing may reveal anomalies concerning the
+   execution behavior for specific inputs. It does not provide a firm
+   foundation for general statements about the behavior of a program.
+
+   This intermezzo introduces a tool for making general statements
+   about the time that programs take to compute a result. The first
+   subsection motivates the tool and illustrates it with several
+   examples, though on an informal basis. The second one provides a
+   rigorous definition. The last one uses the tool to motivate an
+   additional class of Scheme data and some of its basic operations.
+
+*** 29.1 Concrete Time, Abstract Time
+    Let's study the behavior of how-many, a function that we
+    understand well:
+
+    #+BEGIN_SRC scheme
+    (define (how-many a-list)
+      (cond
+        [(empty? a-list) 0]
+        [else (+ (how-many (rest a-list)) 1)]))
+    #+END_SRC
+
+    It consumes a list and computes how many items the list contains.
+
+    Here is a sample evaluation:
+
+    #+BEGIN_SRC scheme
+      (how-many (list 'a 'b 'c))
+    = (+ (how-many (list 'b 'c)) 1)
+    = (+ (+ (how-many (list 'c)) 1) 1)
+    = (+ (+ (+ (how-many empty) 1) 1) 1)
+    = 3
+    #+END_SRC
+
+    It consists of only those steps that are natural recursions. The
+    steps in between are always the same. For example, to get from the
+    original application to the first natural recursion we go through
+    the following steps:
+
+    #+BEGIN_SRC scheme
+      (how-many (list 'a 'b 'c))
+    = (cond
+        [(empty? (list 'a 'b 'c)) 0]
+        [else (+ (how-many (rest (list 'a 'b 'c))) 1)])
+    = (cond 
+        [false 0]
+        [else (+ (how-many (rest (list 'a 'b 'c))) 1)])
+    = (cond
+        [else (+ (how-many (rest (list 'a 'b 'c))) 1)])
+    = (+ (how-many (rest (list 'a 'b 'c))) 1)
+    #+END_SRC
+
+    The steps between the remaining natural recursions differ only as
+    far as the substitution for a-list is concerned. 
+
+    If we apply how-many to a longer list, we need more natural
+    recursion steps. The number of steps between natural recursions
+    remains the same.
+
+    The example suggests that, not surprisingly, the number of
+    evaluation steps depends on the size of the input. More
+    importantly though, it also implies that the number of natural
+    recursions is a good measure of the size of an evaluation
+    sequence. After all, we can reconstruct the actual number of steps
+    from this measure and the function definition. For this reason,
+    programmers have come to express the ABSTRACT RUNNING TIME of a
+    program as a relationship between the size of the input and the
+    number of recursion steps in the evaluation.
+
+    In our first example, the size of the input is simply the size of
+    the list. More specifically, if the list contains one item, the
+    evaluation requires one natural recursion. For two items, we recur
+    twice. For a list of N items, the evaluation requires N steps. 
+
+    Not all functions have such a uniform measure for their abstract
+    running time. Take a look at our first recursive function:
+
+    #+BEGIN_SRC scheme
+    (define (contains-doll? a-list-of-symbols)
+      (cond
+        [(empty? a-list-of-symbols) false]
+        [else (cond
+                [(symbol=? (first a-list-of-symbols) 'doll) true]
+                [else (contains-doll? (rest a-list-of-symbols))])]))
+    #+END_SRC
+
+    If we evaluate 
+
+    (contains-doll? (list 'doll 'robot 'ball 'game-boy 'pokemon))
+
+    the application requires no natural recursion step. In contrast,
+    for the expression
+
+    (contains-doll? (list 'robot 'ball 'game-boy 'pokemon 'doll))
+
+    the evaluation requires as many natural recursion steps as there
+    are items in the list. Put differently, in the best case, the
+    function can find the answer  immediately; in the worst case, the
+    function must search the entire input list.
+
+    Programmers cannot assume that inputs are always of the best
+    possible shape; and they must hope that the inputs are not in the
+    worst possible shape. Instead, they must analyze how much time
+    their functions take on the average. For example, contains-doll?
+    may -- on the average -- find 'doll somewhere in the middle of the
+    list. Thus, we could say that if the input contains N items, the
+    abstract running time of contains-doll? is (roughly)
+
+    N/2
+
+    -- that is, it naturally recurs half as often as the number of
+    items in the input. If, instead, we use K/2 as the constant, we
+    can calculate
+
+    K*N/2 = K/2*N
+
+    which shows that we can ignore other constant factors. To
+    indicate that we are hiding such constants we say that
+    contains-doll? takes ``on the order of N steps'' to find 'doll in
+    a list of N items.
+
+    Now consider our standard sorting function in figure 33. Here is a
+    hand-evaluation for a small input:
+
+    #+BEGIN_SRC scheme
+      (sort (list 3 1 2))
+    = (insert 3 (sort (list 1 2)))
+    = (insert 3 (insert 1 (sort (list 2))))
+    = (insert 3 (insert 1 (insert 2 (sort empty))))
+    = (insert 3 (insert 1 (insert 2 empty)))
+    = (insert 3 (insert 1 (list 2)))
+    = (insert 3 (cons 2 (insert 1 empty)))
+    = (insert 3 (list 2 1))
+    = (insert 3 (list 2 1))
+    = (list 3 2 1)
+    #+END_SRC
+
+    The evaluation is more complicated than those for how-many or
+    contains-doll?. It also consists of two phases. During the first
+    one, the natural recursions for sort set up as many applications
+    of insert as there are items in the list. During the second phase,
+    each application of insert traverses a list of 1, 2, 3, ... up to
+    the number of items in the original list (minus one).
+
+    Inserting an item is similar to finding an item, so it is not
+    surprising that insert behaves like contains-doll?. More
+    specifically, the applications of insert to a list of N items may
+    trigger N natural recursions, or none. On the average, we assume
+    it requires N/2, which means on the order of N. Because there are
+    N applications of insert, we have an average of on the order of
+    N^2 natural recursions of insert.
+    
+    In summary, if l contains N items, evaluating (sort l) always
+    requires N natural recursions of sort and on the order of N^2
+    natural recursions of insert. Taken together, we get
+
+    N^2 + N
+
+    steps, but we will see in exercise 29.2.1. that this is equivalent
+    to saying that insertion sort requires on the order of N^2 steps.
+
+    Our final example is the function maxi:
+
+    #+BEGIN_SRC scheme
+    ;; maxi : ne-list-of-numbers -> number
+    ;; to determine the maximum of a non-empty list of numbers
+    (define (maxi alon)
+      (cond
+        [(empty? (rest alon)) (first alon)]
+        [else (cond
+                [(> (maxi (rest alon)) (first alon)) (maxi (rest alon))]
+                [else (first alon)])]))
+    #+END_SRC
+
+    In exercise 18.1.12, we investigated its behavior and the behavior
+    of an observationally equivalent function that uses local. Here we
+    study its abstract running time rather than just observe some
+    concrete running time. 
+
+    Let's start with a small example: (maxi (list 0 1 2 3)). We know
+    that the result is 3. Here is the first important step of
+    hand-evaluation:
+
+    #+BEGIN_SRC scheme
+      (maxi (list 0 1 2 3))
+    = (cond
+        [(> (maxi (list 1 2 3)) 0) (maxi (list 1 2 3))]
+        [else 0])
+    #+END_SRC
+
+    From here, we must evaluate the left of the two underlined natural
+    recursions. Because the result is 3 and the condition is true, we
+    must evaluate the second underlined natural recursion as well.
+
+    Focusing on just the natural recursion, we see that its
+    hand-evaluation begins with similar steps:
+
+    #+BEGIN_SRC scheme
+      (maxi (list 1 2 3))
+    = (cond
+        [(> (maxi (list 2 3)) 1) (maxi (list 2 3))]
+        [else 1])
+    #+END_SRC
+
+    Again, (maxi (list 2 3)) is evaluated twice because it produces
+    the maximum. Finally, even determining the maximum of (maxi (list
+    2 3)) requires two natural recursions:
+
+    #+BEGIN_SRC scheme
+      (maxi (list 2 3))
+    = (cond
+        [(> (maxi (list 3)) 2) (maxi (list 3))]
+        [else 2])
+    #+END_SRC
+
+    To summarize, maxi requires two natural recursions for each
+    application. The following table counts the instances for our
+    example:
+
+    | original expression   | requires 2 evaluations of |
+    |-----------------------+---------------------------|
+    | (maxi (list 0 1 2 3)) | (maxi (list 1 2 3))       |
+    | (maxi (list 1 2 3))   | (maxi (list 2 3))         |
+    | (maxi (list 2 3))     | (maxi (list 3))           |
+
+    Altogether the hand-evaluation requires eight natural recursions
+    for a list of four items. If we add 4 (or a larger number) at the
+    end of the list, we need to double the number of natural
+    recursions. Thus in general we need on the order of
+    
+    2^N
+
+    recursions for a list of N numbers when the last number is the
+    maximum. 
+
+    While the scenario we considered is the worst possible case, the
+    analysis of maxi's abstract running time explains the phenomenon
+    we studied in exercise 18.1.12. It also explains why a version of
+    maxi that uses a local expression to name the result of the
+    natural recursion is faster:
+
+    #+BEGIN_SRC scheme
+    ;; maxi2 : ne-list-of-numbers -> number
+    ;; to determine the maximum of a list of numbers
+    (define (maxi2 alon)
+      (cond
+        [(empty? (rest alon)) (first alon)]
+	[else (local ((define max-of-rest (maxi2 (rest alon))))
+                (cond
+                  [(> max-of-rest (first alon)) max-of-rest]
+                  [else (first alon)]))]))
+    #+END_SRC
+
+    Instead of recomputing the maximum of the rest of the list, this
+    version just refers to the variable twice when the variable stands
+    for the maximum of the rest of the list.
+
+    - Exercise 29.1.1. A number tree is either a number or a pair of
+      number trees. Develop the function sum-tree, which determines
+      the sum of the numbers in a tree. How should we measure the size
+      of a tree? What is the abstract running time?
+
+      A number tree is:
+      #+BEGIN_SRC scheme
+      1. a number
+      2. (cons T1 T2) where T1 and T2 are both number trees.
+      #+END_SRC
+
+      examples:
+      #+BEGIN_SRC scheme
+      (cons 
+       (cons (cons 1 (cons 2 (cons 3 4))) 4)
+       6)
+      (cons 1 2)
+      1
+      3
+      #+END_SRC
+
+      A (structural) template:
+
+      #+BEGIN_SRC scheme
+      (define (fun-for-tree a-tree)
+        (cond 
+          ((number? a-tree) ...)
+          (else
+           (combine ...
+            ... (fun-for-tree (first a-tree)) ...
+            ... (fun-for-tree (rest a-tree)) ...))))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      ;; examples:
+      (equal? (sum-tree 1) 1)
+      (equal? (sum-tree (cons 1 2)) 3)
+      (equal? (sum-tree (cons (cons 1 3) (cons 2 (cons 2 5))))
+              13)
+
+      (define (sum-tree a-tree)
+        (cond 
+          ((number? a-tree) a-tree)
+          (else
+            (+ (sum-tree (first a-tree))
+               (sum-tree (rest a-tree))))))
+      #+END_SRC
+
+      It would make sense to measure the tree in terms of the total
+      number of elements, but this ignores the depth of a tree, which
+      has a significant role to play in the total number of
+      recursions. A three that is symmetrical and deep like
+      (cons (cons (cons 1 3) (cons 4 5)) (cons (cons 5 6) (cons 3 7)))
+      (cons 1 (cons 3 (cons 4 (cons 5 (cons 5 (cons 6 (cons 3 7)))))))
+      actually takes the same number of recursive steps, except that
+      more are computed by the first step in the sum using (first
+      a-tree). 
+      (cons (cons (cons (cons (cons 2 3) 3) 1) 2)
+            (cons (cons (cons (cons 1 2) 1) 1) 1))
+
+      (cons 2 (cons 3 (cons 3 (cons 1 (cons 2 (cons 1 (cons 2 (cons 1
+      (cons 1 1)))))))))
+
+      also use the same number of pairs and therefore have the same
+      number of recursions. So, it will always actually end up taking
+      the same amount of time to traverse and do a computation with
+      the tree, no matter how it is organized.
+
+      Every cons cell must ultimately possess an item that we are
+      going to use in the computation. In order to use the same number
+      of numbers, you have to process the same number of
+      pairs. Splitting the tree like the first in the above two
+      examples will result in more of the 'work' being done by the
+      first call in the sum. So, if we were searching for a single
+      piece of data, it may take less time if the data structure were
+      organized this way, also, if we could parallelize the
+      computation in some way, this would help. But the total number
+      of steps required to compute the result is the same no matter
+      how you organize the data structure, so the most meaningful
+      measurement for sum-tree is the total number of items in the
+      number tree, not the depth or any other measurement. 
+
+      #+BEGIN_SRC scheme
+        (sum-tree (cons (cons (cons 1 2) 3) (cons 1 2)))
+      = (cond 
+          ((number? (cons (cons (cons 1 2) 3) (cons 1 2))) 
+           (cons (cons (cons 1 2) 3) (cons 1 2)))
+          (else
+           (+ (sum-tree (first (cons (cons (cons 1 2) 3) (cons 1 2))))
+              (sum-tree (rest  (cons (cons (cons 1 2) 3) 
+                                     (cons 1 2)))))))
+      = (cond
+          (false (cons (cons (cons 1 2) 3) (cons 1 2)))
+          (else (+ (sum-tree (first (cons (cons (cons 1 2) 3) (cons 1
+      2))))
+                   (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1
+      2)))))))
+      = (cond
+          (else (+ (sum-tree (first (cons (cons (cons 1 2) 3) (cons 1
+      2))))
+                   (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1
+      2)))))))
+      = (+ (sum-tree (first (cons (cons (cons 1 2) 3) (cons 1
+      2))))
+                   (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1
+      2)))))
+      = (+ (sum-tree (cons (cons 1 2) 3))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) 
+                                 (cons 1 2)))))
+      = (+ (cond
+             ((number? (cons (cons 1 2) 3))
+              (cons (cons 1 2) 3))
+             (else (+ (sum-tree (first (cons (cons 1 2) 3)))
+                      (sum-tree (rest (cons (cons 1 2) 3))))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) 
+                                 (cons 1 2)))))
+
+      = (+ (cond
+             (false
+              (cons (cons 1 2) 3))
+             (else (+ (sum-tree (first (cons (cons 1 2) 3)))
+                      (sum-tree (rest (cons (cons 1 2) 3))))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) 
+                                 (cons 1 2))))) 
+         
+      = (+ (cond
+              (else (+ (sum-tree (first (cons (cons 1 2) 3)))
+                      (sum-tree (rest (cons (cons 1 2) 3))))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) 
+                                 (cons 1 2))))) 
+      = (+ (+ (sum-tree (first (cons (cons 1 2) 3)))
+                      (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3)
+                                 (cons 1 2)))))
+      = (+ (+ (sum-tree (cons 1 2))
+              (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3)
+                                 (cons 1 2)))))
+      = (+ (+ (+ (sum-tree 1) (sum-tree (rest (cons 1 2))))
+              (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ (+ (+ 1 (sum-tree 2))
+              (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ (+ (+ 1 2)
+              (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ (+ 3
+              (sum-tree (rest (cons (cons 1 2) 3))))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ (+ 3
+              (sum-tree  3))
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ (+ 3 3)
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ 6
+           (sum-tree (rest (cons (cons (cons 1 2) 3) (cons 1 2)))))
+      = (+ 6
+           (sum-tree (cons 1 2)))
+      = (+ 6
+           (+ (sum-tree 1) (sum-tree 2)))
+      = (+ 6
+           (+ 1 (sum-tree 2)))
+      = (+ 6
+           (+ 1 2))
+      = (+ 6
+           3)
+      = 9
+      #+END_SRC
+      
+      There are a total of 9 recursive calls, which is equal to the
+      number of cons cells plus the number of numbers in the number
+      tree. In general, this will always be the case. Each cons cell
+      will be processed, and each number will be processed. The
+      interesting thing is that for the same number of numbers, no
+      matter how you organize the tree, there are the exact same
+      number of cons cells. If you try to construct a deep tree,
+      you'll end up using a number per cons-cell with two in the last
+      one for a total of N-1 cons cells. If you try to construct a
+      shallow tree, which is the other extreme, the shallowest
+      possible tree will end up with two numbers per cons cell for
+      multiple cons cells, so although there are more cons cells 'at
+      the top', there are fewer 'at the bottom', and you end up with
+      the exact same number of cons cells. This constant relationship
+      means that the entire algorithm is O(N), since it was N + N-1 =
+      2*N - 1. So the algorithm itself is on the order of N.
+
+      (cons (cons (cons 1 2) 3) (cons 1 2))
+      (cons 1 (cons 2 (cons 3 (cons 1 2))))
+
+    - Exercise 29.1.2. Hand evaluate (maxi2 (list 0 1 2 3)) in a
+      manner similar to our evaluation of (maxi (list 0 1 2 3)).
+      
+      #+BEGIN_SRC scheme
+        (maxi2 (list 0 1 2 3))
+      = (cond
+          [(empty? (rest (list 0 1 2 3))) (first (list 0 1 2 3))]
+          [else (local ((define max-of-rest (maxi2 
+                                             (rest (list 0 1 2 3)))))
+                  (cond
+                    [(> (first (list 0 1 2 3)) max-of-rest)
+                     (first (list 0 1 2 3))]
+                    [else max-of-rest]))])
+      #+END_SRC
+
+      This results in a single recursive call to maxi2. 
+
+      #+BEGIN_SRC scheme
+        (maxi2 (list 1 2 3))
+      = (cond
+          [(empty? (rest (list 1 2 3))) (first (list 1 2 3))]
+          [else (local ((define max-of-rest (maxi2
+                                             (rest (list 1 2 3)))))
+                  (cond
+                    [(> (first (list 1 2 3)) max-of-rest)
+                     (first (list 1 2 3))]
+                    [else max-of-rest]))])
+      #+END_SRC
+
+      In general, this pattern is followed. Each call of maxi2 will,
+      if the rest of the list is not empty, make a single call to
+      maxi2 on the rest of that list. This means there are exactly N
+      natural recursions. So, we only have N items to process. There
+      is no 'average case', we always process each item of the list.
+
+*** 29.2 The Definition of  ``on the Order of''
+    
+    It is time to introduce a rigorous description of the phrase ``on
+    the order of'' and to explain why it is acceptable to ignore some
+    constants. Any serious programmer must be thoroughly familiar with
+    this notion. It is the most fundamental method for analyzing and
+    comparing the behavior of programs. This intermezzo provides a
+    first glimpse at the idea; a second course on computing usually
+    provides some more in-depth considerations.
+
+    Let's consider a sample ``order of'' claim with concrete examples
+    before we agree on our definition. Recall that a function F may
+    require on the order of N steps and a function G N^2 steps, even
+    though both compute the same result for the same inputs. Now
+    suppose the basic time constants are 1000 for F and 1 for G. One
+    way to compare the two claims is to tabulate the abstract running
+    time:
+
+    | N          |    1 |    10 |    50 |    100 |    500 |    1000 |
+    |------------+------+-------+-------+--------+--------+---------|
+    | F (1000*N) | 1000 | 10000 | 50000 | 100000 | 500000 | 1000000 |
+    | G (N*N)    |    1 |   100 |  2500 |   1000 | 250000 | 1000000 |
+
+    At first glance the table seems to say that G's performance is
+    better than F's, because for inputs of the same size (N), G's
+    running time is always smaller than F's. But a closer look
+    reveals that as the inputs get larger, G's advantage
+    decreases. Indeed, for an input of size 1000, the two functions
+    need the same number of steps, and thereafter G is always slower
+    than F. 
+
+    The concrete example recalls two important facts about our
+    informal discussion of abstract running time. First, our abstract
+    description is always a claim about the relationship between two
+    quantities: the size of the input and the number of natural
+    recursions evaluated. More precisely, the relationship is a
+    (mathematical) function that maps an abstract size measure of the
+    input to an abstract measure of running time. Second, when we
+    compare ``on the order of'' properties of functions, such as
+
+    N, N^2 or 2^N,
+
+    we really mean to compare the corresponding functions that consume
+    N and produce the above results. In short, a statement concerning
+    the order of things compares two functions on natural numbers
+    (N). 
+
+    The comparison of functions of N is difficult because they are
+    infinite. If a function f produces larger outputs than some other
+    function g for all natural numbers, then f is clearly larger than
+    g. But what if this comparison fails for just a few inputs? Or for
+    1,000 such as the one illustrated on figure 80? Because we would
+    still like to make approximate judgments, programmers and
+    scientists adapt the mathematical notation of comparing functions
+    up to some factor and some finite number of exceptions.
+
+    ORDER-OF (BIG-O): Given a function g on all the natural numbers,
+    O(g) (pronounced: ``big-O of g'') is a class of functions on
+    natural numbers. A function f is O(g) if there exist numbers c and
+    bigEnough such that for all n >= bigEnough, it is true that
+
+    #+BEGIN_SRC scheme
+    f(n) <= c*g(n)
+    #+END_SRC
+
+    Recall the performance of F and G above. For the first, we assumed
+    that it consumed time according to the following function
+
+    #+BEGIN_EXAMPLE
+    f(N) = 1000*N
+    #+END_EXAMPLE
+
+    the performance of second one obeyed the function g:
+
+    #+BEGIN_EXAMPLE
+    g(N) = N^2
+    #+END_EXAMPLE
+
+    Using the definition of big-O, we can say that f is O(g), because
+    for all n >= 1000,
+
+    #+BEGIN_EXAMPLE
+    f(n) <= 1*g(n)
+    #+END_EXAMPLE
+
+    which means bigEnough = 1000 and c =1.
+
+    More important, the definition of big-O provides us with a
+    shorthand for stating claims about a function's running time. For
+    example, from now on, we say how-many's running time is O(N). Keep
+    in mind that N is the standard abbreviation of the (mathematical)
+    function g(N) = N. Similarly, we can say that, in the worst case,
+    sort's running time is O(N^2) and maxi's is O(2^N). 
+
+    Finally, the definition of big-O explains why we don't have to pay
+    attention to specific constants in our comparisons of abstract
+    running time. Consider maxi and maxi2. We know that maxi's
+    worst-case running time is O(2^N), maxi2's is in O(N). Say, we
+    need the maximum of a list of 10 numbers. Assuming maxi and maxi2
+    roughly consume the same amount of time per basic step, maxi will
+    need 2^10 = 1024 steps and maxi2 will need 10 steps, which means
+    maxi2 will be faster. Now even if maxi2's basic step requires
+    twice as much as maxi's basic step, maxi2 is still around 50 times
+    faster. Furthermore, if we double the size of the input list,
+    maxi's apparent disadvantage totally disappears. In general, the
+    larger the input is, the less relevant are the specific constants.
+
+    - Exercise 29.2.1. In the first subsection, we stated that the
+      function f(n) = n^2 + n belongs to the class O(n^2). Determine
+      the pair of numbers c and bigEnough that verify this claim.
+
+      c = 2, bigEnough = 1. 
+      n^2 + n <= 2*n^2 for all n >= 1.
+
+    - Exercise 29.2.2. Consider the functions f(n) = 2^n and g(n) =
+      1000*n. Show that g belongs to O(f), which means that f is
+      abstractly speaking more (or at least equally) expensive than
+      g. If the input size is guaranteed to be between 3 and 12, which
+      function is better?
+
+      For the second part of the question we can test the parameters.
+      2^12 = 4096 and 1000*12 = 12000, 2^3 = 8 and 1000*3 = 3000. So,
+      the function which has f running time is better for small
+      inputs, especially between 3 and 12. 
+
+      We can figure out that f is more expensive by trying to solve
+      the equation 2^n = 1000*n
+
+      2^n = 1000*n
+      2^n/n = 1000
+      log(2^n/n) = log(1000)
+      n*log2(2/n) = log(1000)
+
+      Obviously this is either not possible or I'm not good enough at
+      algebra. for n = 100 the 2^N function is clearly more, we can
+      figure this out by typing it into DrScheme. So clearly it
+      increases past 100 to be larger. I can solve it with a binary
+      search using a computer and the answer comes out to be
+      n=13.746. Take that to be n=14, since we use integers, and that
+      means that bigEnough is c = 14. After n=14, g will always be
+      smaller than n.
+
+    - Exercise 29.2.3. Compare f(n) = n log n and g(n) = n^2. Does f
+      belong to O(g) and/or g to O(f)? 
+
+      f belongs to O(g) since there is some constant c and some number
+      bigEnough such that for all n >= bigEnough
+
+      f(n) <= g(n). 
+
+      Actually, this happens very quickly. 
+
+      The reverse is not true. For very large n, a single constant c
+      will not work. 
+
+*** 29.3 A First look at Vectors
+
+    Until now we have paid little attention to how much time it takes
+    to retrieve data from structures or lists. Now that we have a tool
+    for stating general judgments, let's take a close look at this
+    basic computation step. Recall the last problem of the preceding
+    part: find a route in a graph. The program find-route requires two
+    auxiliaries: find-route/list and neighbors. We paid a lot of
+    attention to find-route/list and none to neighbors. Indeed,
+    developing neighbors was just an exercise, because looking up a
+    value in a list is by now a routine programming task.
+
+    Here is a possible definition for neighbors:
+
+    #+BEGIN_SRC scheme
+    ;; neighbors : node graph -> (listof node)
+    ;; to look up the node in the graph.
+    (define (neighbors node graph)
+      (cond
+        [(empty? graph) (error 'neighbors "can't happen")]
+        [else (cond
+                [(symbol=? (first (first graph)) node) (first (rest (first graph)))]
+                [else (neighbors node (rest graph))])]))
+    #+END_SRC
+
+    The function is similar to contains-doll? and has roughly the same
+    behavior. More concretely, neighbors is O(N) when we assume that
+    graph is a list of N nodes.
+
+    Considering that neighbors is used at every stage of the
+    evaluation to find-route, neighbors is possibly a bottleneck. As a
+    matter of fact, if the route we are looking for involves N nodes
+    (the maximum), neighbors is applied N times, so the algorithm
+    requires O(N^2) steps in neighbors.
+
+    In contrast to lists, structures deal with value extractions as a
+    constant time operation. At first glance this observation seems to
+    suggest that we use structures as representations of graphs. A
+    closer look, however, shows that this idea doesn't work
+    easily. The graph algorithm works best if we are able to work with
+    the names of nodes and access a node's neighbors based on the
+    name. A name could be a symbol or the node's number in the
+    graph. In general, what we really wish to have in a programming
+    language is:
+
+    A class of compound values size with constant lookup time, based
+    on ``keys''
+
+    Because the problem is so common, Scheme and most other languages
+    offer at least one built-in solution.
+
+    Here we study the class of vectors. A vector is a well-defined
+    mathematical class of data with specific basic operations. For our
+    purposes, it suffices to know how to construct them, how to
+    extract values, and how to recognize them:
+
+    1. The operation vector is like list. It consumes an arbitrary
+       number of values and creates a compound value from them: a
+       vector. For example, (vector V-0 ... V-n) creates a vector from
+       V-0 through V-n.
+    2. DrScheme also provides a vector analogue to build-list. It is
+       called build-vector. Here is how it works:
+
+       (build-vector N f) = (vector (f 0) ... (f (- N 1)))
+
+       That is, build-vector consumes a natural number N and a
+       function f on natural numbers. It then builds a vector of N
+       items by applying f to 0, ..., N-1.
+    3. The operation vector-ref extracts a value from a vector in
+       constant time, that is, for i between 0 and n (inclusive):
+
+       (vector-ref (vector V-0 ... V-n) i) = V-i
+
+       In short, extracting values from a vector is O(1). If
+       vector-ref is applied to a vector and a natural number that is
+       smaller than 0 and larger than n, vector-ref signals an error. 
+    4. The operation vector-length produces the number of items in a
+       vector:
+
+       (vector-length (vector V-0 ... V-n)) = (+ n 1)
+    5. The operation vector? is the vector-predicate:
+
+       (vector? (vector V-0 ... V-n)) = true
+       (vector? U) = false
+       
+       if U is a value that isn't created with vector.
+
+    We can think of vectors as functions on a small, finite range of
+    natural numbers. Their range is the full class of Scheme
+    values. We can also think of them as tables that associate a
+    small, finite range of natural numbers with Scheme values. Using
+    vectors we can represent graphs like those in figures 76 and 78 if
+    we use numbers as names. For example:
+
+    | A | B | C | D | E | F | G |
+    |---+---+---+---+---+---+---|
+    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 
+
+    Using this translation, we can also produce a vector-based
+    representation of the graph in figure 76:
+
+    #+BEGIN_SRC scheme
+    (define Graph-as-list
+      '((A (B E))
+        (B (E F))
+	(C (D))
+	(D ())
+	(E (C F))
+	(F (D G))
+	(G ())))
+
+    (define Graph-as-vector
+      (vector (list 1 4)
+              (list 4 5)
+              (list 3)
+              empty
+	      (list 2 5)
+              (list 3 6)
+	      empty))
+    #+END_SRC	     
+    
+    The definition above is the original list-based representation;
+    the one on the right is a vector representation. The vectors i-th
+    field contains the list of neighbors of the i-th node. 
+
+    The data definitions for node and graph change in the expected
+    manner. Let's assume that N is the number of nodes in the given
+    graph:
+
+    A *node* is a natural number between 0 and N - 1. 
+
+    A *graph* is a vector of nodes: (vectorof (listof node))
+
+    The notation (vectorof X) is similar to (listof X). It denotes a
+    vector that contains items from some undetermined class of data X.
+
+    Now we can redefine neighbors:
+
+    #+BEGIN_SRC scheme
+    ;; vector-sum-for-3 : (vector number number number) -> number
+    (define (vector-sum-for-3 v)
+      (+ (vector-ref v 0)
+         (vector-ref v 1)
+         (vector-ref v 2)))
+    #+END_SRC
+
+    The function vector-sum-for-3 consumes vectors of three numbers
+    and produces their sum. It uses vector-ref to extract the three
+    numbers and adds them up. What varies in the three selector
+    expressions is the index; the vector remains the same. 
+
+    Consider a second, more interesting example: vector-sum, a
+    generalization of vector-sum-for-3. It consumes an arbitrarily
+    large vector of numbers and produces the sum of the numbers:
+    
+    ;; vector-sum : (vectorof number) -> number
+    ;; to sum up the numbers in v.
+    (define  (vector-sum v) ...)
+
+    Here are some examples:
+
+    #+BEGIN_SRC scheme
+    (= (vector-sum (vector -1 3/4 1/4))
+       0)
+    (= (vector-sum (vector .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1))
+       1)
+    (= (vector-sum (vector)) 0)
+    #+END_SRC
+
+    The last example suggests that we want a reasonable answer even if
+    the vector is empty. As with empty, we use 0 as the answer in this
+    case. 
+
+    The last example suggests that we want a reasonable answer even if
+    the vector is empty. As with empty, we use 0 as the answer in this
+    case.
+
+    The problem is that the one natural number associated with v, its
+    length, is not an argument of vector-sum. The length of v is of
+    course just an indication of how many items in v are to be
+    processed, which in turn refers to the legal indices of v. This
+    reasoning forces us to develop an auxiliary function that consumes
+    the vector and a natural number:
+
+    #+BEGIN_SRC scheme
+    ;; vector-sum-aux : (vectorof number) N -> number
+    ;; to sum up the numbers in v relative to i.
+    (define (vector-sum-aux v i) ...)
+    #+END_SRC
+
+    The natural choice for the initial value of i is the length of v,
+    which suggests the following completion of vector-sum:
+
+    #+BEGIN_SRC scheme
+    (define (vector-sum v)
+      (vector-sum-aux v (vector-length v)))
+    #+END_SRC
+
+    Based on this definition, we can also adapt the examples for
+    vector-sum to vector-sum-aux:
+
+    (= (vector-sum-aux (vector -1 3/4 1/4) 3) 0)
+    (= (vector-sum-aux (vector .1 .1 .1 .1 .1 .1 .1 .1 .1 .1) 10) 1)
+    (= (vector-sum-aux (vector) 0))
+    
+    Unfortunately, this doesn't clarify the role of the second
+    argument. To do that, we need to proceed to the next stage of the
+    design process: template development. 
+
+    When we develop templates for functions of two arguments, we must
+    first decide which of the arguments must be processed, that is,
+    which of the two will vary in the course of a computation. The
+    vector-sum-for-3 example suggests that it is the second argument
+    in this case. Because this argument belongs to the class of
+    natural numbers, we follow the design recipe for those:
+
+    #+BEGIN_SRC scheme
+    (define (vector-sum-aux v i)
+      (cond
+        [(zero? i) ...]
+	[else ... (vector-sum-aux v (sub1 i)) ...]))
+    #+END_SRC
+
+    Although we considered i to be the length of the vector initially,
+    the template suggests that we should consider it the number of
+    items of v that vector-sum-aux must consider and thus as an index
+    into v.
+
+    The elaboration of i's use naturally leads to a better purpose
+    statement for vector-sum-aux:
+
+    #+BEGIN_SRC scheme
+    ;; vector-sum-aux : (vectorof number) N -> number
+    ;; to sum up the numbers in v with index in [0, i)
+    (define (vector-sum-aux v i)
+      (cond
+        [(zero? i) ...]
+	[else ... (vector-sum-aux v (sub1 i)) ...]))
+    #+END_SRC
+
+    To transform the template into a complete function definition, we
+    consider each clause of the cond:
+
+    1. If i is 0, there are no further items to be considered because
+       there are no vector fields between 0 and i with i
+       excluded. Therefore the result is 0.
+    2. Otherwise, (vector-sum-aux v (sub1 i)) computes the sum of the
+       numbers between 0 and (sub1 i) [exclusive]. This leaves out the
+       vector field with index (sub1 i), which according to the
+       purpose statement must be added. By adding (vector-ref v (sub1
+       i)), we get the desired result:
+
+       (+ (vector-ref v (sub1 i)) (vector-sum-aux v (sub1 i)))
+       
+    #+BEGIN_SRC scheme
+    ;; vector-sum : (vectorof number) -> number
+    ;; to compute the sum of the numbers in v
+    (define (vector-sum v)
+      (vector-sum-aux v (vector-length v)))
+    
+    ;; vector-sum-aux : (vectorof number) N -> number
+    ;; to sum the numbers in v with index in [0, i)
+    (define (vector-sum-aux v i)
+      (cond
+        [(zero? i) 0]
+	[else (+ (vector-ref v (sub1 i))
+	         (vector-sum-aux v (sub1 i)))]))
+    #+END_SRC
+
+    If we were to evaluate one of the examples for vector-sum-aux by
+    hand, we would see that it extracts the numbers from the vector in
+    a right to left order as i decreases to 0. A natural question is
+    whether we can invert this order. In other words: is there a
+    function that extracts the numbers in a left to right order?
+
+    The answer is to develop a function that processes the class of
+    natural numbers below (vector-length v) and to start at the first
+    feasible index: 0. Developing this function is just another
+    instance of the design recipe for variants of natural numbers from
+    section 11.4. The new function definition is shown in
+    figure 82. The new auxiliary function now consumes 0 and counts up
+    to (vector-length v). A hand-evaluation of 
+
+    (lr-vector-sum (vector 0 1 2 3))
+
+    shows that vector-sum-aux indeed extracts the items from  v from
+    left to right.
+
+    The definition of lr-vector-sum shows why we need to study
+    alternative definitions of classes of natural numbers. Sometimes
+    it is necessary to count down to 0. But at other times it is
+    equally useful, and natural, to count up from 0 to some other
+    number.
+
+    The two functions also show how important it is to reason about
+    intervals. The auxiliary vector-processing functions process
+    intervals of the given vector. A good purpose statement specifies
+    the exact interval that the function works on. Indeed, once we
+    understand the exact interval specification, formulating the full
+    function is relatively straightforward. We will see the importance
+    of this point when we return to the study of vector-processing
+    functions in the last section.
+
+    - Exercise 29.3.4. Evaluate (vector-sum-aux (vector -1 3/4 1/4) 3)
+      by hand. Show the major steps only. Check the evaluation with
+      DrScheme's stepper. In what order does the function add up the
+      numbers of the vector?
+
+      #+BEGIN_SRC scheme
+      (vector-sum-aux (vector -1 3/4 1/4) 3)
+      (+ 1/4 (vector-sum-aux (vector -1 3/4 1/4) 2))
+      (+ 1/4 (+ 3/4 (vector-sum-aux (vector -1 3/4 1/4) 1)))
+      (+ 1/4 (+ 3/4 (+ -1 (vector-sum-aux (vector -1 3/4 1/4) 0))))
+      (+ 1/4 (+ 3/4 (+ -1 0)))
+      0
+      #+END_SRC
+
+      - Exercise 29.3.5. Evaluate (lr-vector-sum (vector -1 3/4 1/4))
+        by hand. Show the major steps only. Check the evaluation with
+        DrScheme's stepper. In what order does the function add up the
+        numbers in the vector? 
+
+	#+BEGIN_SRC scheme
+	(define (lr-vector-sum v)
+          (local ((define (lr-vector-sum-aux v i)
+                    (cond
+                      ((= (vector-length v) i) 0)
+                      (else (+ (vector-ref v i)
+                               (lr-vector-sum-aux v (add1 i)))))))
+            (lr-vector-sum-aux v 0)))
+	#+END_SRC
+
+	#+BEGIN_SRC 
+	(lr-vector-sum-aux (vector -1 3/4 1/4) 0)
+	(+ -1 (lr-vector-sum-aux (vector -1 3/4 1/4) 1))
+	(+ -1 (+ 3/4 (lr-vector-sum-aux (vector -1 3/4 1/4) 2)))
+	(+ -1 (+ 3/4 (+ 1/4 (lr-vector-sum-aux (vector -1 3/4 1/4)
+        3))))
+	(+ -1 (+ 3/4 (+ 1/4 0)))
+	(+ -1 (+ 3/4 1/4))
+	(+ -1 1)
+	0
+	#+END_SRC
+
+	
+	
+      
+
+    
+
+
