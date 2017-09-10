@@ -29,6 +29,10 @@
 (define (threatened? queen piece)
   (or (is-solution? queen piece (make-posn 1 1))
       (is-solution? queen piece (make-posn -1 -1))
+      (is-solution? queen piece (make-posn 1 -1))
+      (is-solution? queen piece (make-posn -1 1))
+      (is-solution? queen piece (make-posn -1 0))
+      (is-solution? queen piece (make-posn 0 -1))
       (is-solution? queen piece (make-posn 1 0))
       (is-solution? queen piece (make-posn 0 1))))
 'threatened?
@@ -111,6 +115,60 @@
 (define (singles lox)
   (map (lambda (x) (list x)) lox))
 
+
+(define (is-lop-in? a-lop lolop)
+  (cond
+    ((empty? lolop) false)
+    (else (cond
+            ((lop-equal? a-lop (first lolop)) true)
+            (else (is-lop-in? a-lop (rest lolop)))))))
+
+(define (find-in? elem alop)
+  (cond
+    ((empty? alop) false)
+    (else (or (equal? (first alop) elem)
+              (find-in? elem (rest alop))))))
+
+(define (all-elements-in? lop1 lop2)
+  (cond
+    ((empty? lop1) true)
+    (else
+     (cond
+       ((find-in? (first lop1) lop2)
+        (all-elements-in? (rest lop1) lop2))
+       (else false)))))
+
+(define (lop-equal? lop1 lop2)
+  (and
+   (all-elements-in? lop1 lop2)
+   (all-elements-in? lop2 lop1)))
+
+
+(define (eliminate-dups lolop)
+  (cond
+    ((empty? lolop) empty)
+    (else
+     (cond
+       ((is-lop-in? (first lolop) (rest lolop))
+        (eliminate-dups (rest lolop)))
+       (else (cons (first lolop) (eliminate-dups (rest lolop))))))))
+
+
+'elminate-dups
+(equal? (eliminate-dups (list (list (make-posn 4 3) (make-posn 2 4))
+              (list (make-posn 4 3) (make-posn 2 4))))
+        (list (list (make-posn 4 3) (make-posn 2 4))))
+
+
+(or
+ (equal? (eliminate-dups (list (list (make-posn 4 3) (make-posn 2 4))
+                               (list (make-posn 2 4) (make-posn 4 3))))
+         (list (list (make-posn 2 4) (make-posn 4 3))))
+ (equal? (eliminate-dups (list (list (make-posn 4 3) (make-posn 2 4))
+                               (list (make-posn 2 4) (make-posn 4 3))))
+         (list (list (make-posn 4 3) (make-posn 2 4)))))
+
+
 ;; find-listof-placements : number posn -> (listof (listof posn))
 ;; finds a list of all possible placements for queens on a
 ;; board that is (posn-x b)x(posn-y b).
@@ -155,3 +213,5 @@
              lop
              b
              (generate-next-queenpos b queenpos)))))))
+
+(define 8x8 (find-listof-placements 8 (make-posn 8 8)))

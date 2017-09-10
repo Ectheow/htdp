@@ -1076,21 +1076,509 @@
                     (else (cons q (generate-list-of-all-placements b (generate-next-queenpos q)))))))
           (generate-list-of-all-placements b (make-posn 1 1)))) 
       #+END_SRC
+
+      There are currently differences between the way that our
+      algorithm works and the algorithm for finding a path through a
+      graph works. The graph searching algorithm adds to a single
+      path, growing the route from a small path. However, I have
+      assumed (perhaps incorrectly) that you can't do this with the
+      n-queens problem. That is, there are many possible ways to place
+      two queens on a 4x4 board, but if the function is being applied
+      recursively and the end goal is a total of four queens, there
+      are ways to place three (and therefore two) such that four can't
+      be placed on the board. So we can't take any solution to a
+      subproblem, like we can with routes. If a sub-route can be found
+      then the route can. Not so with n-queens - that is, if three can
+      be placed, it isn't necessarily so with four. So our algorithm
+      works in a way that really isn't backtracking, since it
+      generates all possible solutions for n-1, and then tries to add
+      one more to each possible solution. This will result in
+      duplicates in the way we've done it. It also results in a longer
+      computation time. What we could do instead is use a data structure:
+
+      1. Place a queen on the board on an unthreatened square.
+      2. Try to place n-1 more queens on the board. 
+      3. If this worked, OK. If not, move the queen to another
+         position and try again. 
+
+      This is a depth-first search, whereas ours is more of a
+      breadth-first. It also backtracks because it tries a possible
+      solution and if that doesn't work, tries another. We could use
+      many of our old functions.
+
+      Once again I'm going to ignore any hints except for the vague
+      direction of this time having an actual board.
+
+
+      #+BEGIN_SRC scheme
+      ;; A board is:
+      ;; 1. empty
+      ;; 2. (cons row board)
+
+      ;; A row is:
+      ;; 1. empty
+      ;; 2. (cons piece row)
+
+
+      ;; A piece is:
+      ;; 1. 'queen
+      ;; 2. 'threatened
+      ;; 3. 'empty
+      #+END_SRC
+
+      From the top level, we want to have a function place-queen,
+      which tries to place a queen on an input board square, and if it
+      can, return the board, if not, return false.
+
+      ;; place-queen : board posn -> false or board
+      ;; attempt to place queen at a-posn on board. If the queen can
+      ;; be placed there without being threatened, a new board with
+      ;; the queen placed there - and corresponding 'threatened
+      ;; squares - is returned. If she cannot - the square is already
+      ;; 'threatened or 'queen - return false.
+      (define (place-queen a-board a-posn) ...)
+
+      It becomes obvious we want threatened? and board-make
+      functions, because board-make must be used in conjunction with
+      threatened? to return the results of this function. Also,
+      board-ref therefore will be of use to us. We still want
+      generate-next-position, but other than that, all we need is the
+      main placement function. 
+
+      ;; threatened? board posn -> true or false
+      ;; returns true if a-posn on a-board is threatened.
+      (define (threatened? b p) ...)
+
+      ;; board-make (posn -> piece) number -> board
+      ;; create a board NxN by placing in the board (f (make-posn r c))
+      ;; where r and c are the current row and column.
+      (define (board-make f n) ...)
+
+      ;; board-ref posn -> piece
+      ;; return the piece at posn, where the x and y of posn stand
+      ;; for the row and column numbers on the board.
+      (define (board-ref a-posn) ...)
+
+
+      For our board, we want something that can be generated with
+      recursion and easily referenced with recursion, without knowning
+      afterwords the size of the board. If this is the case, the
+      larger indexes should be more towards the empty cell, so that
+      recursion with board-ref will work. 
+      #+BEGIN_SRC scheme
+      (equal? (board-make (lambda (x) 'Y) 1)
+              (list (list 'Y)))
+      (equal? (board-make (lambda (x) 1) 0) empty)
+      (equal? (board-make (lambda (x) 
+                           (cond
+                             ((> (+ (posn-x x) (posn-y x)) 4) 'queen)
+                             (else 'empty))) 5)
+              (list (list 'empty 'empty 'empty 'queen 'queen)
+                    (list 'empty 'empty 'queen 'queen 'queen)
+                    (list 'empty 'queen 'queen 'queen 'queen)
+                    (list 'queen 'queen 'queen 'queen 'queen)
+                    (list 'queen 'queen 'queen 'queen 'queen)))
+      (define (board-make f n) ...)
+      #+END_SRC
+
+      The template would obviously be structural and based on the
+      number parameter. However, we usually define natural numbers in
+      such a way that to decompose them we go toward some smaller
+      number. But we could define them another way:
+
+      #+BEGIN_SRC scheme
+      ;; a number <= N is:
+      1. N
+      2. (sub1 n) where n is a number <= N
+      #+END_SRC
+
+      This is convenient four our function, but it will have to be an
+      inner definition, board-make-inner, and n will be used in that
+      context.
+
+      #+BEGIN_SRC scheme
+      (define (board-make f n)
+        (local ((define (board-make-inner i)
+                  (cond
+                    ((= i n) (list 
+                              (board-row-make 
+                               (lambda (col) (f i col)) n)))
+                    (else (cons (board-row-make 
+                                 (lambda (col)
+                                   (f i col)) n)
+                                (board-make-inner (add1 i)))))))
+          (board-make-inner 1)))
+      #+END_SRC
+
+      board-row-make will look almost exactly the same except it won't
+      do anything clever with functions.
+
+      #+BEGIN_SRC scheme
+      (define (board-row-make f n)
+        (local ((define (board-row-make j)
+                  (cond
+                    ((= j n) (list (f j)))
+                    (else (cons (f j)
+                                (board-row-make (add1 j)))))))
+          (board-row-make f 1)))
+      #+END_SRC
+
+      In order to ref a board then, we need to subtract using a more
+      typical form of recursion.
+
+      #+BEGIN_SRC scheme
+
+      (equal? (board-ref (list (list 1 2)
+                               (list 3 4)) 
+                         (make-posn 2 1))
+              3)
+      (equal? (board-ref (list (list 1 2 3 4)
+                               (list 5 6 7 8)
+                               (list 9 10 11 12))
+                         (make-posn 3 2))
+               10)
+      (define (board-ref aboard aposn)
+        (board-ref-column
+         (board-ref-row aboard (posn-x aposn))
+         (posn-y aposn)))
+      (define (board-ref-row aboard row)
+        (cond
+          ((and (= row 1)
+                (cons? aboard))
+           (first aboard))
+          ((and (= row 1)
+                (empty? aboard))
+           (error 'board-ref "board too small"))
+          ((and (> row 1)
+                (empty? aboard))
+           (error 'board-ref "board too small"))
+          ((and (> row 1)
+                (cons? aboard))
+           (board-ref-row (rest aboard) (sub1 row)))))
+
+
+     (define (board-ref-column arow column)
+       (cond
+         ((and (= column 1)
+               (cons? arow))
+          (first column))
+         ((and (> column 1)
+               (empty? arow))
+          (error 'board-ref-column
+                 "board is too small"))
+         ((and (= column 1)
+               (empty? arow))
+          (error 'board-ref-column
+                 "board is too small"))
+         ((and (> column 1)
+               (cons? arow))
+          (board-ref-column
+          (rest arow) 
+          (sub1 column)))))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (place-queen b q)
+        (local ((define (place-piece aposn)
+                  (cond
+                   ((equal? aposn q)
+                    'queen)
+                   ((and (symbol=? 
+                          (board-ref b aposn)
+                          'empty)
+                         (threatens? 
+                          aposn q))
+                    'threatened)
+                   (else (board-ref b aposn)))))
+          (board-make
+           place-piece
+           (length b))))
+      (equal? (place-queen
+               (list (list 'empty 'empty 'empty)
+                     (list 'empty 'empty 'empty)
+                     (list 'empty 'empty 'empty))
+               (make-posn 1 1))
+              (list (list 'queen 'threatened 'threatened)
+                    (list 'threatened 'threatened 'empty)
+                    (list 'threatened 'empty 'threatened)))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (threatened? b q)
+        (or 
+         (symbol=? (board-ref b q) 'queen)
+         (symbol=? (board-ref b q) 'threatened)))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (placement n-queens board)
+        (local ((define placements (place-new-queen board)))
+          (cond
+            ((= 1 n-queens)
+             (cond ((empty? placements) false)
+                   (else (first placements))))
+            (else
+             (local ((define (try-placements placements)
+                              (cond 
+                                ((empty? placements) false)
+                                 (local ((define p (placement
+                                                    (sub1 n-queens)
+                                                    (first placements))))
+                                (else
+                                 (cond ((false? p) (try-placements (rest placements)))
+                                        (else p)))))))
+               (cond
+                 ((empty? placements) false)
+                 (else (try-placements placements))))))))
+
+
+      (define (place-new-queen board)
+        (local ((define (place-new-queen board posn)
+                  (cond
+                    ((last-posn? posn) empty)
+                    (else
+                     (cond ((not (threatened? posn))
+                            (cons (place-queen board posn)
+                                  (place-new-queen board 
+                                   (generate-next posn))))
+                           (else (place-new-queen board
+                                                  (generate-next posn))))))))
+           (place-new-queen board (make-posn 1 1))))
+      #+END_SRC
+
+      After much ado I got a version working in DrScheme. It's much
+      faster, since it does a DFS-type search I think, it could also
+      have to do with less math for is-threatened?, although I doubt
+      it. The 8x8 board with n=8 was solved in seconds. The other
+      algorithm - which exhaustively searches - took up 1G of ram and
+      killed the interpreter. 
+
+      I was initially worried that we may return from a recursive call
+      a configuration that wouldn't work, but this was wrong. Each
+      recursive call is adding queens to the board, so the first call
+      that takes a board and successfully adds n-1 queens worked
+      correctly; this was a worry in the first way of implementing it
+      when we tried to place a queen _after_ a recursive call.occi
+
+
+      #+BEGIN_SRC scheme
+      (define (board-ref aboard aposn)
+        (board-ref-abstract
+         (board-ref-abstract aboard (posn-x aposn))
+         (posn-y aposn)))
+      
+      (define (board-ref-abstract board/row anum)
+        (cond
+          ((and (= anum 1)
+                (cons? board/row))
+           (first board/row))
+          ((empty? board/row)
+           (error 'board-ref "Board too small"))
+          ((and (> anum 1)
+                (cons? board/row))
+           (board-ref-abstract (rest board/row)
+                               (sub1 anum)))))
+           
+
+      
+      (equal? (board-ref (list (list 1 2)
+                               (list 3 4)) 
+                         (make-posn 2 1))
+              3)
+      (equal? (board-ref (list (list 1 2 3 4)
+                               (list 5 6 7 8)
+                               (list 9 10 11 12))
+                         (make-posn 3 2))
+              10)
+      
+      (define (board-row-make f n)
+        (local ((define (board-row-make j)
+                  (cond
+                    ((= j n) (list (f j)))
+                    (else (cons (f j)
+                                (board-row-make (add1 j)))))))
+          (board-row-make 1)))
+      
+      (define (board-make f n)
+        (local ((define (board-make-inner i)
+                  (cond
+                    ((= i n) (list 
+                              (board-row-make 
+                               (lambda (col) (f (make-posn i col))) n)))
+                    (else (cons (board-row-make 
+                                 (lambda (col)
+                                   (f (make-posn i col))) n)
+                                (board-make-inner (add1 i)))))))
+          (board-make-inner 1)))
+      
+      (equal? (board-make (lambda (x) 'Y) 1)
+              (list (list 'Y)))
+      
+      (equal? (board-make (lambda (x) 
+                            (cond
+                              ((> (+ (posn-x x) (posn-y x)) 4) 'que)
+                              (else 'emp))) 5)
+              (list (list 'emp 'emp 'emp 'que 'que)
+                    (list 'emp 'emp 'que 'que 'que)
+                    (list 'emp 'que 'que 'que 'que)
+                    (list 'que 'que 'que 'que 'que)
+                    (list 'que 'que 'que 'que 'que)))
+      
+      (define (is-solution? queenpos piecepos slope)
+        (cond
+          ((= (posn-x slope) 0) (= (posn-x piecepos)
+                                   (posn-x queenpos)))
+          ((= (posn-y slope) 0) (= (posn-y piecepos)
+                                   (posn-y queenpos)))
+          (else
+           (and
+            (= (remainder (- (posn-x queenpos) (posn-x piecepos))
+                          (posn-x slope)) 0)
+            (= (remainder (- (posn-y queenpos) (posn-y piecepos))
+                          (posn-y slope)) 0)
+            (= (/ (- (posn-x queenpos) (posn-x piecepos))
+                  (posn-x slope))
+               (/ (- (posn-y queenpos) (posn-y piecepos))
+                  (posn-y slope)))))))
+      
+      (is-solution? (make-posn 1 1) (make-posn 2 1) (make-posn 1 0))
+      (is-solution? (make-posn 1 1) (make-posn 3 3) (make-posn 1 1))
+      (not (is-solution? (make-posn 1 1) (make-posn 2 1) (make-posn 0 1)))
+      (not (is-solution? (make-posn 2 3) (make-posn 5 9) (make-posn 1 1)))
+      (is-solution? (make-posn 5 5) (make-posn 1 1) (make-posn -1 -1))
+      (is-solution? (make-posn 20 20) (make-posn 4 4) (make-posn -1 -1))
+      (not (is-solution? (make-posn 3 2) (make-posn 1 1) (make-posn -1 -1)))
+      
+      (define (threatens? queen piece)
+        (or (is-solution? queen piece (make-posn 1 1))
+            (is-solution? queen piece (make-posn -1 -1))
+            (is-solution? queen piece (make-posn 1 -1))
+            (is-solution? queen piece (make-posn -1 1))
+            (is-solution? queen piece (make-posn -1 0))
+            (is-solution? queen piece (make-posn 0 -1))
+            (is-solution? queen piece (make-posn 1 0))
+            (is-solution? queen piece (make-posn 0 1))))
+      
+      (define (place-queen b q)
+        (local ((define (place-piece aposn)
+                  (cond
+                    ((equal? aposn q)
+                     'que)
+                    ((and (symbol=? 
+                           (board-ref b aposn)
+                           'emp)
+                          (threatens? q aposn))
+                     'thr)
+                    (else (board-ref b aposn)))))
+          (board-make
+           place-piece
+           (length b))))
+      
+      (equal? (place-queen
+               (list (list 'emp 'emp 'emp)
+                     (list 'emp 'emp 'emp)
+                     (list 'emp 'emp 'emp))
+               (make-posn 1 1))
+              (list (list 'que 'thr 'thr)
+                    (list 'thr 'thr 'emp)
+                    (list 'thr 'emp 'thr)))
       
       
-
-    
-
-
-
-
       
-
-
-
+      (define (is-queen-on-last-posn? a-posn)
+        (boolean? a-posn))
+      
+      ;; the current queen position is one of:
+      ;; 1. at the end of a row - the 'x', or row, is equal to the board x or nrows.
+      ;; 2. between the beginning and end of the row
+      ;; 3. false
+      (define (generate-next-queenpos board queen)
+        (cond
+          ((= (posn-y queen) (length board))
+           (cond 
+             ((= (posn-x queen) (length board)) false)
+             (else (make-posn (+ (posn-x queen) 1) 1))))
+          ((boolean? queen) queen)
+          (else (make-posn (posn-x queen) (+ 1 (posn-y queen))))))
+      
+      (define (threatened? b q)
+        (or 
+         (symbol=? (board-ref b q) 'que)
+         (symbol=? (board-ref b q) 'thr)))
       
       
+      (define (place-new-queen board)
+        (local ((define (place-new-queen board posn)
+                  (cond
+                    ((is-queen-on-last-posn? posn) empty)
+                    (else
+                     (local ((define placed
+                                     (place-new-queen board
+                                                      (generate-next-queenpos
+                                                       board posn))))
+                     (cond ((not (threatened? board posn))
+                            (cons (place-queen board posn)
+                                  placed))
+                           (else placed)))))))
+          (place-new-queen board (make-posn 1 1))))
+      
+      (define (placement n-queens board)
+        (local ((define placements (place-new-queen board)))
+          (cond
+            ((= 1 n-queens)
+             (cond ((empty? placements) false)
+                   (else (first placements))))
+            (else
+             (local ((define (try-placements placements)
+                       (cond 
+                         ((empty? placements) false)
+                         (else (local ((define p (placement
+                                                  (sub1 n-queens)
+                                                  (first placements))))
+                                 (cond ((false? p) (try-placements (rest placements)))
+                                       (else p)))))))
+               (cond
+                 ((empty? placements) false)
+                 (else (try-placements placements))))))))
+       #+END_SRC
 
+      #+BEGIN_SRC scheme
+      (define (board-row-make f n)
+        (local ((define (board-row-make j)
+                  (cond
+                    ((= j n) (list |(f j)|))
+                    (else (cons |(f j)|
+                                (board-row-make (add1 j)))))))
+          (board-row-make 1)))
       
-      
+      (define (board-make f n)
+        (local ((define (board-make-inner i)
+                  (cond
+                    ((= i n) (list 
+                              |(board-row-make 
+                               (lambda (col) (f (make-posn i col))) n)|))
+                    (else (cons |(board-row-make 
+                                 (lambda (col)
+                                   (f (make-posn i col))) n)|
+                                (board-make-inner (add1 i)))))))
+          (board-make-inner 1)))
+
+      (define (board-make-row/col n g)
+        (local ((define (board-make-row/col x)
+                  (cond 
+                   ((= x n) (list (g x)))
+                   (else (cons (g x)
+                               (board-make-row/col (add1 x)))))))
+          (board-make-row/col 1)))
+
+      (define (board-make f n)
+        (board-make-row/col
+         n 
+         (lambda (a-row) 
+           (board-make-row/col 
+            n
+            (lambda (a-col)
+             (f (make-posn a-row a-col)))))))
+      #+END_SRC
+
 
