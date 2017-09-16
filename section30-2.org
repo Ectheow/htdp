@@ -1,0 +1,202 @@
+*** A problem with Generative Recursion
+    ...
+    All we need to do at this point is exploit the accumulated
+    knowledge of the function definition. Specifically, we determine
+    whether the given orig is already an item on accu-seen. If so, the
+    problem is trivially solvable with false. Figure 87 contains the
+    definition of route-exists2?, which is the revision of
+    route-exists?. The definition refers to contains, our first
+    recursive function (see part II) which determines whether a
+    specific symbol is on a list of symbols. 
+
+    #+BEGIN_SRC scheme
+    (define (contains? s alos)
+      (cond
+        ((empty? alos) false)
+        (else (or (symbol=? s (first alos))
+                  (contains? s (rest alos))))))
+
+    ;; route-exists2? : node node simple-graph -> boolean
+    ;; to determine whether there is a route from orig to dest in sg.
+    (define (route-exists2? orig dest sg)
+      (local ((define (re-accu? orig dest sg accu-seen)
+                (cond
+                  [(symbol=? orig dest) true]
+                  [(contains? orig accu-seen) false]
+                  [else (re-accu? (neighbor orig sg) 
+                                  dest 
+                                  sg
+                                  (cons orig accu-seen))])))
+        (re-accu? orig dest sg empty)))
+    #+END_SRC
+
+    The definition of route-exists2? also eliminates the two minor
+    problems with the first revision. By localizing the definition of
+    the accumulating function, we can ensure that the first call to
+    re-accu? always uses empty as the initial value for accu-seen. And
+    route-exists2? satisfies the exact same contract and purpose
+    statement as route-exists?.
+
+    Still, there is a significant difference between route-exists2?
+    and relative-to-absolute2. Whereas the latter was equivalent to
+    the original function, route-exists2? is an improvement over the
+    route-exists? function. After all, it corrects a fundamental flaw
+    in route-exists?, which completely failed to find an answer for
+    some inputs.
+
+    - Exercise 30.2.1. Complete the definition in figure 87 and test
+      it with the running example. Use the strategy of section 17.8 to
+      formulate the tests as boolean-valued expressions.
+      
+      Check with a hand-evaluation that this function computes the
+      proper result for 'A, 'C, and SimpleG.
+
+      #+BEGIN_SRC scheme
+        (re-accu? 'A 'C '((A B) (B C) (C E) (D E) (E B) (F F)) '())
+      = (re-accu? 'B 'C '((A B) (B C) (C E) (D E) (E B) (F F)) '(A))
+      = (re-accu? 'C 'C '((A B) (B C) (C E) (D E) (E B) (F F)) '(A B))
+      = true
+      #+END_SRC
+
+    - Exercise 30.2.2. Edit the function in figure 87 so that the
+      locally defined function consumes only those arguments that
+      change during an evaluation. 
+
+      #+BEGIN_SRC scheme
+      ;; route-exists? : symbol symbol simple-graph -> true or false
+      ;; determine if a route exists between orig and dest in the
+      ;; simple graph simple-g. 
+      (define (route-exists? orig dest simple-g)
+        (local ((define (route-exists? orig accu)
+                  (cond
+                    ((symbol=? orig dest) true)
+                    ((contains? orig accu) false)
+                    (else (route-exists? (neighbor orig simple-g)
+                                         (cons orig accu))))))
+          (route-exists? orig '())))
+      #+END_SRC
+
+    - Exercise 30.2.3. Develop a vector-based representation of simple
+      graphs. Adapt the function so that it works on a vector-based
+      representation of simple graphs.
+
+      A simple graph is:
+      a vector of nodes
+
+      A node is:
+      N[>=0]
+
+      The neighbor of a given node is the node at that index in the vector.
+      #+BEGIN_SRC scheme
+
+      (define SimpleG
+        (vector
+          1
+          2
+          4
+          4
+          1
+          5))
+
+      (define (contains? s alos)
+        (cond
+          ((empty? alos) false)
+          (else (or (= s (first alos))
+                    (contains? s (rest alos))))))
+
+      (define (neighbor who g)
+        (vector-ref who g))
+         
+      ;; route-exists? : node node simple-graph -> true or false
+      ;; determine if a route exists between orig and dest in the
+      ;; simple graph simple-g. 
+      (define (route-exists? orig dest simple-g)
+        (local ((define (route-exists? orig accu)
+                  (cond
+                    ((= orig dest) true)
+                    ((contains? orig accu) false)
+                    (else (route-exists? (neighbor orig simple-g)
+                                         (cons orig accu))))))
+          (route-exists? orig '())))
+
+      (route-exists? 0 1 SimpleG)
+      (not (route-exists? 0 5 SimpleG))
+      (not (route-exists? 0 3 SimpleG))
+      (route-exists? 3 4 SimpleG)
+      (route-exists? 5 5 SimpleG)
+      (route-exists? 3 1 SimpleG)
+      (route-exists? 2 1 SimpleG)
+      (not (route-exists? 2 0 SimpleG))
+      #+END_SRC
+
+    - Exercise 30.2.4. Modify the definitions of find-route and
+      find-route/list in figure 77 so that they produce false, even if
+      they encounter the same starting point twice. 
+
+      #+BEGIN_SRC scheme
+      (define G-no-loops
+        '((A (B C D))
+          (B (C))
+          (C (E F))
+          (D (B E))
+          (E (G))
+          (F (E G))
+          (G ())))
+      (define G-loops
+        '((A (B C D I))
+          (B (C))
+          (C (E F))
+          (D (B E A))
+          (E (A G))
+          (F (E G))
+          (G ())
+          (H (H))
+          (I (J))
+          (J (D K))
+          (K ())))
+         
+      ;; find-route : node node graph -> (listof node) or false
+      ;; to create a path from origination to destination in G
+      ;; if there is no path, the function produces false
+      (define (find-route origination destination G visited)
+        (cond
+          ((symbol=? origination destination) (list destination))
+          ((contains? origination visited) false)
+          (else
+           (local ((define neighbors
+                           (find-route/list (neighbors origination G)
+                                            destination
+                                            G
+                                            (cons origination visited))))
+             (cond
+              ((empty? neighbors) false)
+              (else (cons origination (first neighbors))))))))
+
+      (define (find-route/list originations destination G visited)
+        (cond
+          ((empty? originations) empty)
+          (else (cons (find-route (first originations) destination G visited)
+                      (find-route/list (rest originations) destination G visited)))))
+
+      (equal? (find-route 'A 'B G-no-loops '())
+              '(A B))
+      (equal? (find-route 'A 'G G-no-loops '())
+              '(A B C E G))
+      (equal? (find-route 'A 'F G-no-loops '())
+              '(A B C F))
+      (equal? (find-route 'D 'A G-no-loops '())
+              false)
+      (equal? (find-route 'B 'D G-no-loops '())
+              false)
+
+      (equal? (find-route 'H 'H G-loops '()) false)
+      (equal? (find-route 'B 'H G-loops '()) false)
+      (equal? (find-route 'G 'A G-loops '()) false)
+      (equal? (find-route 'A 'G G-loops '()) '(A B C E G))
+      (equal? (find-route 'A 'F G-loops '()) '(A B C F))
+      (equal? (find-route 'A 'K G-loops '()) '(A I J K))
+      #+END_SRC
+
+      
+
+
