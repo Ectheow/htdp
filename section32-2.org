@@ -1,0 +1,3275 @@
+* Section 32 
+** More Uses of Accumulation 
+   This section presents three extended exercises that require the
+   whole range of skills: design by recipe, including generative
+   recursion, and the addition of accumulators for various purposes.
+*** 32.1 Extended Exercise: Accumulators on Trees
+
+    #+BEGIN_SRC scheme
+    (define-struct child (father mother name date eyes))
+
+    A _node in a family tree_ (short: _ftn_) is either
+    1. empty, or
+    2. (make-child f m na da ec) where f and m are ftns, na and ec are
+       symbols, and da is a number.
+
+    ;; all-blue-eyed-ancestors : ftn -> (listof symbol)
+    ;; to construct a list of all blue-eyed ancestors in a-ftree
+    (define (all-blue-eyed-ancestors a-ftree)
+      (cond
+        [(empty? a-ftree) empty]
+	[else (local ((define in-parents
+                        (append 
+                         (all-blue-eyed-ancestors (child-father a-ftree))
+                         (all-blue-eyed-ancestors (child-mother a-ftree)))))
+                (cond
+                  [(symbol=? (child-eyes a-ftree) 'blue)
+                   (cons (child-name a-ftree) in-parents)]
+		  [else in-parents]))]))
+		  
+    #+END_SRC
+
+    Figure 91 recalls the structure and data definitions of family
+    trees from section 14.1 where we developed the function
+    blue-eyed-ancestor?, which determined whether an ancestor family
+    tree contained a blue-eyed family member. In contrast,
+    all-blue-eyed-ancestors, the function in figure 91, collects the
+    names of all blue-eyed family in a given tree.
+
+    The function's structure is that of a tree-processing function. It
+    has two cases: one for the empty tree and another one for a child
+    node. The latter clause contains two self-references: one per
+    parent. These recursive applications collect the names of all
+    blue-eyed ancestors from the father's and the mother's family
+    tree; append combines the two lists into one.
+
+    The append function is a structurally recursive function. Here it
+    processes two lists and the natural recursions of
+    all-blue-eyed-ancestors produce. According to section 17.1, this
+    observation suggests that the function is a natural candidate for
+    a transformation into accumulator-style.
+
+    Let's get started.
+
+    #+BEGIN_SRC scheme
+    ;; all-blue-eyed-ancestors : ftn -> (listof symbol)
+    ;; to construct a list of all blue-eyed ancestors in a-ftree
+    (define (all-blue-eyed-ancestors a-ftree0)
+      (local (;; accumulator ...
+              (define (all-a a-ftree accumulator)
+                (cond
+                  [(empty? a-ftree) ...]
+		  [else 
+		   (local ((define in-parents
+                             (all-a ... (child-father a-ftree) ...
+			            ... accumulator ...)
+		             (all-a ... (child-mother a-ftree) ...
+			            ... accumulator ...)))
+                     (cond
+                       [(symbol=? (child-eyes a-ftree) 'blue)
+                        (cons (child-name a-ftree) in-parents)]
+		       [else in-parents]))])))
+           (all-a a-ftree0 ...)))
+    #+END_SRC
+
+    Our next goal is the formulation of an accumulator invariant. The
+    general purpose of the accumulator is to remember knowledge about
+    a-ftree0 that all-a loses as it traverses the tree. A look at the
+    definition in figure 91 shows two recursive applications. The
+    first one processes the (child-father a-ftree), which means this
+    application of all-blue-eyed-ancestors loses knowledge about the
+    mother of a-ftree. Conversely, the second recursive application
+    has no knowledge of the father of a-ftree as it processes the
+    mother's family tree. 
+
+    At this point, we have two choices:
+
+    1. The accumulator could represent all blue-eyed-ancestors
+       encountered so far, including those in the mother's family
+       tree, as it descends into the father's family tree.
+    2. The alternative is to have the accumulator stand for the lost
+       items in the tree. That is, as all-a processes the father's
+       family tree, it remembers the mother's tree in the accumulator
+       (and everything else it hasn't seen before).
+
+    Let's explore both possibilities, starting with the first.
+
+    Initially, all-a has not seen any of the nodes in the family tree,
+    so accumulator is empty. As all-a is about to traverse the
+    father's family tree, we must create a list that represents all
+    blue-eyed ancestors in the tree that we are about to forget, which
+    is the mother's tree. This suggests the following accumulator
+    invariant formulation:
+
+    #+BEGIN_SRC scheme
+    ;; accumulator is the list of blue-eyed ancestors 
+    ;; encountered on the mother-side trees of the path in 
+    ;; a-ftree0 to a-ftree
+    #+END_SRC
+
+    To maintain the invariant for the natural recursion, we must
+    collect the ancestors on the mother's side of the three. Since the
+    purpose of all-a is to collect those ancestors, we use the
+    expression
+
+    #+BEGIN_SRC scheme
+    (all-a (child-mother a-ftree) accumulator)
+    #+END_SRC
+
+    to compute the new accumulator for the application of all-a to
+    (child-father a-ftree). Putting everything together for the second
+    cond-clause yields this:
+
+    #+BEGIN_SRC scheme
+    (local ((define in-parents
+             (all-a (child-father a-ftree)
+              (all-a (child-mother a-ftree)
+               accumulator))))
+      (cond
+       [(symbol=? (child-eyes a-ftree) 'blue)
+        (cons (child-name a-ftree) in-parents)]
+       [else in-parents]))
+    #+END_SRC
+
+    This leaves us with the answer in the first cond-clause. Since
+    accumulator represents all blue-eyed ancestors encountered so far,
+    it is the result. 
+
+    Figure 92 contains the complete definition.
+
+    #+BEGIN_SRC scheme
+    ;; all-blue-eyed-ancestors : ftn -> (listof symbol)
+    ;; to construct a list of all blue-eyed ancestors in a-ftree
+    (define (all-blue-eyed-ancestors a-ftree)
+      (local (;; accumulator is the list of blue-eyed ancestors 
+              ;; encountered on the mother-side trees of the path in
+	      ;; a-ftree0 to a-ftree
+	      (define (all-a a-ftree accumulator)
+	        (cond
+		  [(empty? a-ftree) accumulator]
+		  [else
+		   (local ((define in-parents
+		            (all-a (child-father a-ftree)
+			           (all-a 
+                                    (child-mother a-ftree)  
+                                    accumulator))))
+                      (cond
+		        [(symbol=? (child-eyes a-ftree) 'blue)
+			 (cons (child-name a-ftree) in-parents)]
+			[else in-parents]))])))
+	(all-a a-ftree empty)))
+    #+END_SRC
+
+    For the second version, we want the accumulator to represent a
+    list of all of the family trees that haven't been processed
+    yet. Because of the different intention, let us call the
+    accumulator parameter todo:
+
+    ;; todo is the list of family trees
+    ;; encountered but not processed
+
+    Like the accumulator-style invert, all-a initializes todo to
+    empty. It updates it by extending the list for the natural
+    recursion:
+
+    #+BEGIN_SRC scheme
+    (local ((define in-parents
+             (all-a (child-father a-ftree)
+	      (cons (child-mother a-ftree) todo))))
+      (cond
+       [(symbol=? (child-eyes a-ftree) 'blue)
+        (cons (child-name a-ftree) in-parents)]
+       [else in-parents]))
+    #+END_SRC
+
+    The problem now is that when all-a is applied to the empty tree,
+    todo does not represent the result but what is left to do for
+    all-a. To visit all those family trees, all-a must be applied to
+    them, one at a time. Of course, if todo is empty, there is nothing
+    left to do; the result is empty. If todo is a list, we pick the
+    first tree on the list as the next one to be processed:
+
+    #+BEGIN_SRC scheme
+    (cond
+      [(empty? todo) empty]
+      [else (all-a (first todo) (rest todo))])
+    #+END_SRC
+
+    The rest of the list is what is now left to do.
+
+    #+BEGIN_SRC scheme
+    ;; all-blue-eyed-ancestors : ftn -> (listof symbol)
+    ;; to construct a list of all blue-eyed ancestors in a-ftree
+    (define (all-blue-eyed-ancestors a-ftree0)
+      (local (;; todo is the list of family trees encountered but not  processed
+              (define (all-a a-ftree todo)
+	        (cond
+		  [(empty? a-ftree)
+		   (cond
+		     [(empty? todo) empty]
+		     [else (all-a (first todo) (rest todo))])]
+                  [else
+                   (local ((define in-parents
+                            (all-a (child-father a-ftree)
+			           (cons 
+                                    (child-mother a-ftree)  todo))))
+		     (cond
+		       [(symbol=? (child-eyes a-ftree) 'blue)
+		        (cons (child-name a-ftree) in-parents)]
+		       [else in-parents]))])))
+         (all-a a-ftree0 empty)))
+    #+END_SRC
+
+    Hand eval
+
+    We'll denote an ftn just by the mother, father, eye color and
+    name.
+
+    #+BEGIN_SRC scheme
+    (all-a (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))) empty)
+    = (cond
+        [(empty? (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+         (cond
+           [(empty? empty) empty]
+           [else (all-a (first empty) (rest empty))])]
+        [else
+         (local ((define in-parents
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty))))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents)]
+             [else in-parents]))]) 
+
+    = (cond
+        [false
+         (cond
+           [(empty? empty) empty]
+           [else (all-a (first empty) (rest empty))])]
+        [else
+         (local ((define in-parents
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty))))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents)]
+             [else in-parents]))])
+
+    = (cond
+        [else
+         (local ((define in-parents
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty))))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents)]
+             [else in-parents]))]) 
+    = (local ((define in-parents
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty))))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents)]
+             [else in-parents]))
+    = (local ((define in-parents_0
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty))))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0]))
+    = (define in-parents_0
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty)))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0]))
+    = (define in-parents_0
+                   (all-a (child-father 
+                           (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty)))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                   (all-a (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))
+                          (cons
+                           (child-mother 
+                            (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))))
+                           empty)))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                   (all-a (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))
+                          (cons
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                           empty)))
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                   (all-a (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty))
+                          (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty)))))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                   (all-a (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))
+                          (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty)))))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+    = (define in-parents_0
+              (cond
+                [(empty? (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty)))
+                 (cond
+                   [(empty? (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+                    empty]
+                   [else (all-a (first (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+                                (rest (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty)))))])]
+                [else 
+                 (local ((define in-parents 
+                                 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty)))))))
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents)]
+                    [else in-parents]))]))
+             (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+              (cond
+                [false
+                 (cond
+                   [(empty? (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+                    empty]
+                   [else (all-a (first (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+                                (rest (list
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty)))))])]
+                [else 
+                 (local ((define in-parents 
+                                 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty)))))))
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents)]
+                    [else in-parents]))]))
+
+             (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                 (cond
+                  [else 
+                   (local ((define in-parents 
+                                 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty)))))))
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents)]
+                    [else in-parents]))]))
+
+             (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_0
+                   (local ((define in-parents 
+                                 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty)))))))
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents)]
+                    [else in-parents])))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+    = (define in-parents_0
+                   (local ((define in-parents_1
+                                 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty)))))))
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1])))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 (all-a (child-father (ftn 'jack 'blue 
+                                                       (ftn 'greta 'brown empty empty)
+                                                       (ftn 'henry 'blue empty empty)))
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 (all-a (ftn 'henry 'blue empty empty)
+                                        (cons (child-mother (ftn 'jack 'blue 
+                                                             (ftn 'greta 'brown empty empty)
+                                                             (ftn 'henry 'blue empty empty)))
+                                              (list
+                                               (ftn 'jean 'green 
+                                                (ftn 'mary 'blue empty empty)
+                                                (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+
+    = (define in-parents_1 (all-a (ftn 'henry 'blue empty empty)
+                                        (cons  (ftn 'greta 'brown empty empty)
+                                               (list
+                                                (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+
+    = (define in-parents_1 
+              (cond
+               [(empty? (ftn 'henry 'blue empty empty))
+                (cond
+                  [(empty? (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty)))) empty]
+                  [else (all-a (first (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty))))
+                               (rest (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty)))))])]
+               [else 
+                (local ((define in-parents
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty))))))))
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents)]
+                     [else in-parents]))]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 
+              (cond
+               [false
+                (cond
+                  [(empty? (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty)))) empty]
+                  [else (all-a (first (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty))))
+                               (rest (list (ftn 'greta 'brown empty empty)
+                                            (ftn 'jean 'green 
+                                                 (ftn 'mary 'blue empty empty)
+                                                 (ftn 'john 'brown empty empty)))))])]
+               [else 
+                (local ((define in-parents
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty))))))))
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents)]
+                     [else in-parents]))]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 
+              (cond
+               [else 
+                (local ((define in-parents
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty))))))))
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents)]
+                     [else in-parents]))]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 
+                (local ((define in-parents
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty))))))))
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents)]
+                     [else in-parents])))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_1 
+                (local ((define in-parents_2
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty))))))))
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2])))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+                         (all-a (child-father (ftn 'henry 'blue empty empty))
+                                              (cons
+                                               (child-mother (ftn 'henry 'blue empty empty)
+                                                (list (ftn 'greta 'brown empty empty)
+                                                 (ftn 'jean 'green 
+                                                  (ftn 'mary 'blue empty empty)
+                                                  (ftn 'john 'brown empty empty)))))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+                         (all-a empty
+                                (cons
+                                 (child-mother (ftn 'henry 'blue empty empty)
+                                  (list (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+                         (all-a empty
+                                (cons
+                                 empty
+                                  (list (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+                         (all-a empty
+                                (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+        (cond 
+          [(empty? empty)
+           (cond
+            [(empty? (list empty
+                           (ftn 'greta 'brown empty empty)
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+             empty]
+            [else (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))])]
+          [else
+           (local ((define in-parents
+                     (all-a (child-father empty)
+                            (cons (child-mother empty)
+                                  (list
+                                   empty
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))))
+               (cond
+                 [(symbol=? (child-eyes empty) 'blue)
+                  (cons (child-name empty) in-parents)]
+                 [else in-parents]))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+        (cond 
+          [true
+           (cond
+            [(empty? (list empty
+                           (ftn 'greta 'brown empty empty)
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+             empty]
+            [else (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))])]
+          [else
+           (local ((define in-parents
+                     (all-a (child-father empty)
+                            (cons (child-mother empty)
+                                  (list
+                                   empty
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))))
+               (cond
+                 [(symbol=? (child-eyes empty) 'blue)
+                  (cons (child-name empty) in-parents)]
+                 [else in-parents]))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+           (cond
+            [(empty? (list empty
+                           (ftn 'greta 'brown empty empty)
+                             (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))))
+             empty]
+            [else (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+           (cond
+            [false  empty]
+            [else (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2
+           (cond
+            [else (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty)))))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  (all-a (first (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))
+                         (rest (list
+                                 empty
+                                 (ftn 'greta 'brown empty empty)
+                                   (ftn 'jean 'green 
+                                    (ftn 'mary 'blue empty empty)
+                                    (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  (all-a empty
+                                  (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (cond
+           [(empty? empty)
+            (cond
+              [(empty? (list
+                             (ftn 'greta 'brown empty empty)
+                               (ftn 'jean 'green 
+                                (ftn 'mary 'blue empty empty)
+                                (ftn 'john 'brown empty empty))))
+               empty]
+             [else (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))])]
+           [else 
+            (local ((define in-parents
+                     (all-a (child-father empty)
+                            (cons (child-mother empty)
+                                  (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))))
+              (cond
+                [(symbol=? (child-eyes empty) 'blue)
+                 (cons (child-name empty) in-parents)]
+                [else in-parents]))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (cond
+           [true
+            (cond
+              [(empty? (list
+                             (ftn 'greta 'brown empty empty)
+                               (ftn 'jean 'green 
+                                (ftn 'mary 'blue empty empty)
+                                (ftn 'john 'brown empty empty))))
+               empty]
+             [else (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))])]
+           [else 
+            (local ((define in-parents
+                     (all-a (child-father empty)
+                            (cons (child-mother empty)
+                                  (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))))
+              (cond
+                [(symbol=? (child-eyes empty) 'blue)
+                 (cons (child-name empty) in-parents)]
+                [else in-parents]))]))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+            (cond
+              [(empty? (list
+                             (ftn 'greta 'brown empty empty)
+                               (ftn 'jean 'green 
+                                (ftn 'mary 'blue empty empty)
+                                (ftn 'john 'brown empty empty))))
+               empty]
+             [else (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))])
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+            (cond
+              [false
+               empty]
+             [else (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))])
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+            (cond
+             [else (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty)))))])
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (all-a (first (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))
+                          (rest (list
+                                   (ftn 'greta 'brown empty empty)
+                                     (ftn 'jean 'green 
+                                      (ftn 'mary 'blue empty empty)
+                                      (ftn 'john 'brown empty empty))))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (all-a   (ftn 'greta 'brown empty empty)
+                 (list (ftn 'jean 'green 
+                        (ftn 'mary 'blue empty empty)
+                        (ftn 'john 'brown empty empty)))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (all-a (ftn 'greta 'brown empty empty)
+               (list (ftn 'jean 'green 
+                      (ftn 'mary 'blue empty empty)
+                      (ftn 'john 'brown empty empty)))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+
+    = (define in-parents_2  
+        (all-a (ftn 'greta 'brown empty empty)
+               (list (ftn 'jean 'green 
+                      (ftn 'mary 'blue empty empty)
+                      (ftn 'john 'brown empty empty)))))
+
+      (define in-parents_1 
+                   (cond
+                     [(symbol=? (child-eyes (ftn 'henry 'blue empty empty)) 'blue)
+                      (cons (child-name (ftn 'henry 'blue empty empty)) in-parents_2)]
+                     [else in-parents_2]))
+
+      (define in-parents_0
+                  (cond
+                    [(symbol=? (child-eyes (ftn 'jack 'blue 
+                                            (ftn 'greta 'brown empty empty)
+                                            (ftn 'henry 'blue empty empty))) 'blue)
+                     (cons (child-name (ftn 'jack 'blue 
+                           (ftn 'greta 'brown empty empty)
+                           (ftn 'henry 'blue empty empty))) in-parents_1)]
+                    [else in-parents_1]))
+
+           (cond
+             [(symbol=? (child-eyes (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) 'blue)
+              (cons (child-name (ftn 'jacob 'blue (ftn 'jean 'green 
+                              (ftn 'mary 'blue empty empty)
+                              (ftn 'john 'brown empty empty))
+                             (ftn 'jack 'blue 
+                              (ftn 'greta 'brown empty empty)
+                              (ftn 'henry 'blue empty empty)))) in-parents_0)]
+             [else in-parents_0])
+    #+END_SRC
+
+    The auxiliary function definition is the must unusual recursive
+    function definition we have seen. It contains a recursive
+    application of all-a in both the first and the second
+    cond-clause. That is, the function definition does not match the
+    data definition for family trees, the primary inputs. While a
+    function like that can be the result of a careful chain of
+    development steps, starting from a working function developed with
+    a design recipe, it should never be a starting point.
+
+    The use of accumulators is also fairly common in programs that
+    process representations of programs. We encountered these forms of
+    data in section 14.4, and like family trees, they have complicated
+    data definitions. In intermezzo 3, we also discussed some concepts
+    concerning variables and their mutual association, though without
+    processing these concepts. The following exercises introduce
+    simple functions that work with the scope of parameters, binding
+    occurrences of variables, and other notions.
+
+    - Exercise 32.1.1. Develop a data representation for the following
+      tiny subset of Scheme expressions:
+
+      #+BEGIN_SRC scheme
+      <exp> = <var>|(lambda (<var>) <exp>)|(<exp><exp>)
+      #+END_SRC
+      
+      The subset contains only three kinds of expressions: variables,
+      functions of one argument, and function applications.
+
+      Examples:
+      #+BEGIN_SRC scheme
+      1. (lambda (x) y)
+      2. ((lambda (x) x)
+	  (lambda (x) x))
+      3. (((lambda (y)
+              (lambda (x)
+	           y))
+             (lambda (z) z))
+           (lambda (w) w))
+      #+END_SRC
+      
+      #+BEGIN_SRC scheme
+      A Lam/expression is:
+      1. a variable
+      2. a lambda
+      3. an application
+   
+      A variable is:
+      1. a symbol
+
+      A lambda is:
+      (cons 'lambda 
+            (cons (cons variable empty) Lam))
+      where 'lambda is the literal symbol 'lambda, variable is a variable, and Lam is a Lam.
+
+      An application is:
+      (cons exp (cons exp empty))
+      where exp1 and exp2 are Lam/expressions.
+      #+END_SRC
+      Represent variables as symbols. Call the class of data Lam.
+
+      Recall that lambda-expressions are functions without names. Thus
+      they bind their parameter in the body. In other words, the scope
+      of a lambda-expression's parameter is the body. Explain the
+      scope of each binding occurrence in the above examples. Draw
+      arrows from all bound occurrences to the binding occurrences.
+
+      If a variable occurs in an expression but has no corresponding
+      binding occurrence, the occurrence is said to be free. Make up
+      an expression in which x occurs both free and bound.
+
+      #+BEGIN_SRC scheme
+      (lambda (x) y) 
+      ;; x is a binding occurrence, y is a free variable with no corresponding binding occurrence.  
+
+                   |--V
+       ((lambda (x) x)
+               ;;^ x above the carat is a binding occurrence, the only reference to which
+               ;; is the bound occurrence of x immediately following, pointed to by V.
+                 |--V 
+        (lambda (x) x))
+              ;; same story, here we bind x again (this isn't a shadowing or a re-bind, since the binding
+              ;; occurrence of x above ended at the end of the lambda. It has a single reference in th efollowing
+              ;; expression, pointed to by V.
+
+                |----------------V
+     (((lambda (y)  (lambda (x)  y)) ;; binding and bound occurence of y.
+     ;; X gets bound  here   ^  but is never referenced. 
+ 
+                 |--V            |--V
+        (lambda (z) z)) (lambda (w) w))
+      ;; z is bound and referenced according to | being the binding occurrence 
+      ;; and V being the bound one. Likewise with w.
+      #+END_SRC
+      Answer to (2):
+      
+      #+BEGIN_SRC scheme
+      ((lambda (y) 
+        (lambda (w) x))
+       (lambda (j) 
+        (lambda (x) x)))
+      #+END_SRC
+
+      The first occurrence of x is unbound, the second is a binding
+      occurrence of x, and the third is the bound occurrence of x,
+      which is bound to the second.
+
+    - Exercise 32.1.2. Develop the function
+
+      #+BEGIN_SRC scheme
+      ;; free-or-bound : Lam -> Lam
+      ;; to replace each non-binding occurrence of a variable in a-lam
+      ;; with 'free or 'bound, depending on whether the occurrence 
+      ;; is bound or not.
+      (define (free-or-bound a-lam) ...)
+      #+END_SRC
+
+      where Lam is the class of expression representations from
+      exercise 32.1.1.
+
+      #+BEGIN_SRC scheme
+      (equal? (free-or-bound 'x) 'free)
+      (equal? (free-or-bound '(x y)) '(free free))
+      (equal? (free-or-bound '(lambda (x) x)) '(lambda (x) bound))
+      (equal? (free-or-bound
+               '((lambda (x) (lambda (w) y)) 
+                 (lambda (y) y)))
+              '((lambda (x) (lambda (w) free))
+                (lambda (y) bound)))
+      (equal? (free-or-bound
+               '(((lambda (x)
+                  (lambda (y)
+                    (x y))) 
+                  a) b))
+              '(((lambda (x) (lambda (y) (bound bound))) free) free))
+      #+END_SRC
+
+      We'll start structural and use an accumulator as needed.
+
+      Template:
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (cond
+          ((variable? a-lam) ...)
+          ((lambda? a-lam) 
+           ... (free-or-bound (first (rest (rest a-lam)))) ...
+           ... (first (first (rest a-lam))) ...)
+          ((application? a-lam) 
+           ... (free-or-bound (first a-lam)) ...
+           ... (free-or-bound (first (rest a-lam))) ...)))
+      #+END_SRC
+
+      We need to define our predicates:
+
+      #+BEGIN_SRC scheme
+      (define (variable? a-lam) (symbol? a-lam))
+
+      (define (lambda? a-lam)
+        (and (cons? a-lam)
+             (symbol=? (first a-lam) 'lambda)))
+
+      (define (application? a-lam)
+        (and (cons? a-lam)
+             (not (lambda? a-lam))))
+      #+END_SRC
+
+      Next, given our examples we can try to fill out variable? but
+      have a problem, which problem being that we absolutely *must*
+      know which variables were bound in order to know if the variable
+      in question is free or bound. So, we can't do this function at
+      all without some context information. We already though, have
+      our accumulator invariant defined for us: THe accumulator is a
+      list of variables already bound.
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (local (; accumulator : a list of variables that have been   bound.
+                (define (free-or-bound-a a-lam accumulator)
+                  (cond
+                    [(variable? a-lam) 
+                     ...]
+                    [(lambda? a-lam) ...
+                     ... (free-or-bound (first (rest (rest a-lam)))
+                                         ... accumulator) ...
+                     ... (first (first (rest a-lam))) ...]
+                    [(application? a-lam)
+                     ... (free-or-bound (first (a-lam))
+                                         ... accumulator) ...
+                     ... (free-or-bound (first (rest a-lam))
+                                         ... accumulator) ...])))
+         (free-or-bound-a a-lam ...)))
+      #+END_SRC 
+    
+      The rest isn't so hard. If it is a variable, and the accumulator
+      contains a-lam, then the answer is 'bound, otherwise 'free. In a
+      lambda, the (first (first (rest a-lam))) is a binding occurrence
+      of the variable, which we should add to the accumulator but
+      otherwise do nothing with. We should then process the actual
+      expression portion of the lambda. Finally, if it is an
+      application, we just dissect the application structurally, and
+      apply free-or-bound to both sides. But we've forgotten an
+      important bit: We need to peice it back together and not just
+      emit 'free or 'bound symbols -- so, each cond-clause should have
+      a reconstruction of it's constituent component's processed
+      structure. The application is just a two-element list, so we can
+      just cons it back together. A lambda we must put back together
+      by re-using the bound variable, which requires a local
+      statement. And finally, the accumulator should be empty
+      initially. 
+      
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (local (; accumulator : a list of variables that have been   bound.
+                (define (free-or-bound-a a-lam accumulator)
+                  (cond
+                    [(variable? a-lam) 
+                     (cond ((contains? accumulator a-lam) 'bound)
+                           (else 'free))]
+                    [(lambda? a-lam) 
+                     (local ((define bound-var (first (first (rest a-lam))))
+                             (define body (first (rest (rest a-lam)))))
+                       (cons 'lambda 
+                             (cons 
+                              (cons bound-var empty)
+                              (cons (free-or-bound
+                                     body 
+                                     (cons bound-var accumulator))))))]
+                    [(application? a-lam)
+                     (list (free-or-bound (first a-lam) accumulator)
+                           (free-or-bound (first (rest a-lam)) accumulator))])))
+         (free-or-bound-a a-lam empty)))
+      #+END_SRC
+
+      One thing I didn't realize is that we _can_ actually do this
+      without an accumulator, what we have to do is design several
+      auxiliary functions. Here again is our template:
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (cond
+          ((variable? a-lam) ...)
+          ((lambda? a-lam) 
+           ... (free-or-bound (first (rest (rest a-lam)))) ...
+           ... (first (first (rest a-lam))) ...)
+          ((application? a-lam) 
+           ... (free-or-bound (first a-lam)) ...
+           ... (free-or-bound (first (rest a-lam))) ...)))
+      #+END_SRC
+
+      What we need is an auxiliary function for lambdas that goes and
+      binds a variable ahead of time. We need a function that goes and
+      substitutes 'bound for every occurrence of a specific variable
+      in a function.
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (cond
+          ((variable? a-lam)
+           (cond ((equal? a-lam 'bound) a-lam)
+                 (else 'free)))
+          ((lambda? a-lam) 
+            (list 'lambda 
+                   (list (first (first (rest a-lam))))
+                   (free-or-bound
+                    (substitute-bound-for 
+                     (first (first (rest a-lam)))
+                     (first (rest (rest a-lam)))))))
+          ((application? a-lam) 
+           (list
+            (free-or-bound (first a-lam))
+            (free-or-bound (first (rest a-lam)))))))
+      #+END_SRC
+
+
+      #+BEGIN_SRC
+      ;; substitute-bound-for : variable exp -> exp
+      ;; substitutes the symbol 'bound for variable avar.
+      (define (substitute-bound-for avar a-lam) ...)
+      
+      (equal? (substitute-bound-for 'x '(x b)) '(bound b))
+      (equal? (substitute-bound-for 'x 
+                                     '(lambda (x) x)) 
+              '(lambda (x) bound))
+      #+END_SRC
+
+      The interesting thing is that even if we re-bind a variable,
+      substitute-bound-for doesn't need to know since that variable
+      will only be bound again. It will have the exact same template.
+
+      #+BEGIN_SRC scheme
+      (define (substitute-bound-for avar a-lam)
+        (cond
+          ((variable? a-lam)
+           (cond ((equal? a-lam avar) 'bound)
+                 (else a-lam)))
+          ((lambda? a-lam)
+           (list 'lambda 
+                 (list (first (first (rest a-lam))))
+                 (substitute-bound-for 
+                  avar
+                  (first (rest (rest a-lam))))))
+          ((application? a-lam) 
+           (list
+            (substitute-bound-for avar (first a-lam))
+            (substitute-bound-for avar (first (rest a-lam)))))))
+      #+END_SRC
+
+      This function works. It obviously is slower, but it does
+      work. If we go back and try to develop an accumulator, we'd need
+      to ask what knowledge we're losing during recursion; what
+      context is going away. The context would be possibly different
+      starting from this model: The context could be which variables
+      we've already seen and bound. This isn't quite the same as the
+      previous context. Now, what we'd do is add each variable seen as
+      a binding occurrence of a lambda to the accumulator and skip
+      doing a substitution if and when we see said variable. 
+
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (local (; accumulator: the variables we've already seen.
+          (define (free-or-bound-a a-lam accumulator)
+             (cond
+               ((variable? a-lam)
+                (cond ((equal? a-lam 'bound) a-lam)
+                      (else 'free)))
+               ((lambda? a-lam) 
+                (local ((define param (first (first (rest a-lam))))
+                        (define body (first (rest (rest a-lam)))))
+                  (cond ((contains? accumulator param)
+                         (list 'lambda 
+                               (list param)
+                               (free-or-bound body accumulator)))
+                        (else                              
+                         (list 'lambda (list param)
+                          (free-or-bound
+                           (substitute-bound-for 
+                            param
+                            body
+                            (cons param accumulator))))))))
+               ((application? a-lam) 
+                (list
+                 (free-or-bound (first a-lam) accumulator)
+                 (free-or-bound (first (rest a-lam)) accumulator))))))
+            (free-or-bound-a a-lam empty)))
+      #+END_SRC
+
+      but we can do yet another thing with this accumulator which is
+      the same as the thing we've already done. With the same
+      knowledge, we could look at the variable when we get to a
+      variable clause and see if it is contained in the bound
+      variables list. If it is, substitute 'bound. This one is the best
+      performance-wise, since we never traverse the same data twice,
+      which we do in the other two versions of free-or-bound.
+      
+    - Exercise 32.1.3. Develop the function
+      
+      #+BEGIN_SRC scheme
+      ;; unique-binding : Lam -> Lam
+      ;; to replace variable's names of binding occurrences and their bound
+      ;; counterparts so that no name is used twice in a binding occurrence.
+      (define (unique-binding a-lam) ...)
+      #+END_SRC
+
+      Where Lam is the class of expression representations from
+      exercise 32.1.1. 
+
+      This will obviously need context so we'll start out with our
+      previously defined accumulator traversal function:
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+        (local (; accumulator : 
+                (define (free-or-bound-a a-lam accumulator)
+                  (cond
+                    [(variable? a-lam) 
+                     ...]
+                    [(lambda? a-lam) ...
+                     ... (free-or-bound (first (rest (rest a-lam)))
+                                         ... accumulator) ...
+                     ... (first (first (rest a-lam))) ...]
+                    [(application? a-lam)
+                     ... (free-or-bound (first (a-lam))
+                                         ... accumulator) ...
+                     ... (free-or-bound (first (rest a-lam))
+                                         ... accumulator) ...])))
+         (free-or-bound-a a-lam ...)))
+      #+END_SRC 
+
+      Now, if we encounter a binding variable, we need to replace it
+      with a uniquely generated symbol. Obviously, this symbol can be
+      generated only when we become aware of a binding occurrence,
+      which will happen in the lambda clause. We can do the same thing
+      as before, using the same type of auxiliary function except we
+      modify it to take a parameter of which substitution to make.
+
+      (non-literal) examples:
+      #+BEGIN_SRC scheme
+      (equal? (unique-binding '(x y)) '(x y))
+      (equal? (unique-binding 'x) 'x)
+      (equal? (unique-binding '(lambda (x) x)) '(lambda (x_0) x_0))
+      (equal? (unique-binding '((lambda (y) 
+                                (lambda (x)
+                                 (x y))) (lambda (w) w)))
+                               '((lambda (y_0)
+                                  (lambda (x_0)
+                                   (x_0 y_0))) (lambda (w_0) w_0)))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+         (cond
+           [(variable? a-lam) 
+            ...]
+           [(lambda? a-lam) ...
+            ... (free-or-bound (first (rest (rest a-lam)))
+                                ... accumulator) ...
+            ... (first (first (rest a-lam))) ...]
+           [(application? a-lam)
+            ... (free-or-bound (first (a-lam))
+                                ... accumulator) ...
+            ... (free-or-bound (first (rest a-lam))
+                                ... accumulator) ...]))
+      #+END_SRC 
+
+      So if we look at variable? The answer seems to be based on the
+      examples we should just give back the variable. We don't know if
+      it has been bound or not, and we have no context. We must rely
+      on other calls to re-bind it, as it were. If it's a lambda, then
+      we need to first get a new symbol by using gensym, and next
+      substitute that symbol for the binding and bound
+      occurrences. This will require an auxiliary function. Finally,
+      in an application there is nothing to do directly, so we just
+      recurse into the two sub-expressions.
+
+      #+BEGIN_SRC scheme
+      (define (free-or-bound a-lam)
+         (cond
+           [(variable? a-lam)  a-lam]
+           [(lambda? a-lam)
+            (local ((define binding (first (first (rest a-lam))))
+                    (define body (first (rest (rest a-lam))))
+                    (define to-subst (gensym)))
+              (list 'lambda
+                    (list to-subst)
+                    (substitute-binding
+                     binding
+                     to-subst
+                     (free-or-bound body))))]
+           [(application? a-lam)
+            (list (free-or-bound (first a-lam))
+                  (free-or-bound (first (rest a-lam))))]))
+      #+END_SRC
+
+      Now we need to define our auxiliary function,
+      substitute-binding. We will specify that it should leave inner
+      bindings of the same variable alone, although we could possibly
+      deal with it not doing so as long as it did it in a consistent
+      manner.
+
+      #+BEGIN_SRC scheme
+      ;; substitute-binding : symbol symbol a-lam -> a-lam
+      ;; substitute g for s in the current Lam, skipping any 
+      ;; inner binding occurrences of s (i.e. not going into 
+      ;; other lambdas binding s).
+      (define (substitute-binding s g a-lam) ...)
+ 
+      (equal? (substitute-binding 'x 'y '(x y)) '(y y))
+      (equal? (substitute-binding 'x 'y 'x) 'y)
+      (equal? (substitute-binding 'a 'g '(lambda (v) a)) 
+              '(lambda (v) g))
+      (equal? (substitute-binding 'm 'n '(x (lambda (y) m)))
+              '(x (lambda (y) n)))
+      (equal? (substitute-binding 'a 'b '(lambda (a) a)) 
+              '(lambda (a) a))
+      (equal? (substitute-binding 'a 'b '(a (lambda (a) a)))
+              '(b (lambda (a) a)))
+      #+END_SRC
+
+      From the examples, we see that a variable clause should simply
+      compare the variable to s and if it's equal, return g. Other
+      than that, the lambda should check if the binding is the same as
+      s, and if so, simply return the lambda as is. Otherwise, it
+      should recurse into the lambda, leaving the binding as it
+      is. Finally, as usual, the application clause just recurses into
+      the two halves.
+
+      #+BEGIN_SRC scheme
+      (define (substitute-binding s g a-lam)
+        (cond
+         ((variable? a-lam)
+          (cond ((equal? a-lam s) g)
+                (else a-lam)))
+         ((lambda? a-lam)
+          (local ((define binding (first (first (rest a-lam))))
+                  (define body (first (rest (rest a-lam)))))
+            (cond ((equal? binding s) a-lam)
+                  (else
+                   (list 'lambda 
+                          (list binding)
+                          (substitute-binding s g body))))))
+         ((application? a-lam)
+          (list (substitute-binding s g (first a-lam))
+                (substitute-binding s g (first (rest a-lam)))))))
+      #+END_SRC
+
+      Now, for an accumulator, what we need to do is remember what
+      bindings we've made. This is the knowledge we've been
+      losing. How we can use it, we have a vague suspicion but no
+      more. This requires, actually, a data definition:
+      
+      (define-struct binding-record (original generated))
+      A binding-record is:
+      (make-binding-record s g) where s and g are structures.
+      
+      It could be less sophisticated and use a cons but this is
+      clearer. Now, here is a template, complete with the accumulator
+      invariant:
+
+      #+BEGIN_SRC scheme
+      (define (substitute-binding s g a-lam)
+        (local (; accumulator : holds all past variable bindings, for the current expression.
+          (define (substitute-binding-a s g a-lam accumulator)
+            (cond
+              ((variable? a-lam)
+                ...)
+              ((lambda? a-lam)
+               (local ((define binding (first (first (rest a-lam))))
+                       (define body (first (rest (rest a-lam))))
+                       (define rebind (gensym binding)))
+                 (list 'lambda (list rebind)
+                 ... (substitute-binding-a
+                      body
+                      (cons (make-binding-record binding rebind)
+            (unique-binding '((lambda (y) 
+                                (lambda (x)
+                                 (x y))) (lambda (w) w)))                 accumulator)))
+              ((application? a-lam)
+               (list (substitute-binding s g (first a-lam) ...accumulator)
+                     (substitute-binding s g (first (rest a-lam)) ...accumulator))))))
+            (substitute-binding-a s g a-lam ...)))
+      #+END_SRC
+
+      For the variable clause, if it's a variable and we've taken no
+      steps to replace it, but the accumulator holds the contexts of
+      which variables have been bound, we should look up what the
+      binding is (if any) for the current variable and output the
+      binding if it exists, otherwise just output the variable. This
+      should go into an auxiliary function:
+
+      ;; lookup-binding : symbol binding-list -> symbol or false
+      ;; look up the binding for s in the binding-list 
+      ;; and return it if it exists, otherwise return 
+      ;; false.
+      
+      The lambda clause should behave as it did, except to maintain
+      the invariant, we should add the current binding. If other
+      bindings exist in the list, we don't need to remove them, we
+      just specify that lookup-binding must return the first binding
+      it finds. The application clause is simple, the accumulator
+      needs no work since neither side of an expression is processed
+      as a variable. 
+
+      #+BEGIN_SRC scheme
+      (define (unique-binding  a-lam)
+        (local (; accumulator : holds all past variable bindings, for the current expression.
+          (define (unique-binding-a a-lam accumulator)
+            (cond
+              ((variable? a-lam)
+               (local ((define looked-up 
+                         (lookup-binding a-lam accumulator)))
+                 (cond ((false? looked-up) a-lam)
+                       (else (binding-generated a-lam)))))
+              ((lambda? a-lam)
+               (local ((define binding (first (first (rest a-lam))))
+                       (define body (first (rest (rest a-lam))))
+                       (define rebind (gensym binding)))
+                 (list 'lambda 
+                       (list rebind)
+                       (unique-binding-a
+                        body
+                        (cons (make-binding-record 
+                               binding rebind)
+                               accumulator)))))
+              ((application? a-lam)
+               (list (unique-binding-a (first a-lam) accumulator)
+                     (unique-binding-a (first (rest a-lam)) accumulator))))))
+            (unique-binding-a a-lam empty)))
+      #+END_SRC
+
+      The lookup-binding function is a simple structural function.
+
+      #+BEGIN_SRC scheme
+      ;; lookup-binding : symbol (listof binding) -> symbol or false
+      ;; lookup a rebinding for s in a-lob.
+      (define (lookup-binding s a-lob) ...)
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (lookup-binding s a-lob) (cond ((empty? a-lob) false)
+        (else (cond ((symbol=? s (binding-original (first a-lob)))
+        (binding-generated (first a-lob))) (else (lookup-binding s
+        (rest a-lob)))))))
+      #+END_SRC
+      
+*** 32.2 Extended Exercise: Missionaries and Cannibals
+    
+    On occasion, accumulators are a part of a piece of compound data
+    because a function manages many pieces of data (in the same class)
+    at the same time. The following story poses just such a problem:
+
+    Once upon a time, three cannibals were guiding three missionaries
+    through a jungle. They were on their way to the nearest mission
+    station. After some time, they arrived at a wide river, filled
+    with deadly snakes and fish. There was no way to cross the river
+    without a boat. Fortunately, they found a row boat with two oars
+    after a short search. Unfortunately, the boat was too small to
+    carry all of them. It could barely carry two people at a
+    time. Worse, because of the river's width there was no way to
+    bring the boat back other than to row it back. 
+
+    Since the missionaries could not trust the cannibals they had to
+    figure out a plan to get all six of them safely across the
+    river. The problem was that these cannibals would kill and eat
+    missionaries as soon as there were more cannibals than
+    missionaries at some place. Thus our missionary-programmer had to
+    devise a plan that guaranteed that there were never any
+    missionaries in the minority at either side of the river. The
+    cannibals, however, can be trusted to cooperate
+    otherwise. Specifically, they won't abandon any potential food,
+    just as the missionaries won't abandon any potential converts.
+
+    Luckily one of the missionaries had taken a Scheme course and knew
+    how to solve this problem.
+
+    While we can solve the problem by hand, solving it with a Scheme
+    function is more fun and more general. If the same story comes up
+    again with different numbers of cannibals and missionaries or
+    different boat sizes, we can use the same function to solve the
+    problem again.
+
+    As with every problem, we begin by laying out how to represent the
+    problem in our data language and then study how to represent
+    certain actions in the real world in our programming
+    language. Here are two basic constants concerning the data
+    representation:
+
+    #+BEGIN_SRC scheme
+    (define MC 3)
+    (define BOAT-CAPACITY 2)
+    #+END_SRC
+
+    Formulate the function in terms of these constants.
+
+    - Exercise 32.2.1. Provide a data representation for the states of
+      a river crossing. A state should record the number of
+      missionaries and cannibals on each side of the river and the
+      location of the boat. here is a graphical representation of the
+      states:
+
+      | X O |*  | O X |
+      |     |   | O X | 
+
+      The two middle likes represent the river, the X's and O's
+      represent missionaries and cannibals respectively, and the
+      asterisk the boat. Determine the initial and final state of the
+      game.
+
+      A river-crossing-state (rcs) is:
+      (make-river-crossing-state left-bank boat-bank right-bank)
+
+      where left-bank is a bank-state, a boat-bank is a boat-side, and
+      right-bank is a bank-state.
+
+      A bank-state is:
+      (make-bank-state nm nc)
+      where nm is a number N[>=0] and nc is also a number N[>=0].
+
+      A boat-bank is:
+      1. 'right
+      2. 'left
+
+      (make-river-crossing-state 
+      (make-bank-state 1 1)
+      'left
+      (make-bank-state 2 2))
+
+      (define-struct rcs left-bank boat-bank right-bank)
+
+      The initial state is:
+
+      (make-rcs
+      (make-bank-state 3 3)
+      'left
+      (make-bank-state 0 0))
+
+      The final state is:
+      (make-rcs
+      (make-bank-state 0 0)
+      'right
+      (make-bank-state 3 3))
+
+    - Exercise 32.2.2. Develop a data representation for boat
+      loads. Define BOAT-LOADS, the list of all possible boat loads. 
+
+      Develop the function make-BOAT-LOADS, which consumes the boat's
+      maximal capacity and constructs the list of possible boat loads.
+
+      A boat load is the same basic idea as a bank state:
+
+      A boat-load is: 
+      (make-boat-load nm nc) 
+      
+      where nm and nc are both integer numbers N[>=0], and less or
+      equal to than BOAT-CAPACITY. nm (or nmissionaries) stands for
+      the number of missionaries, and ncannibals or nc stands for the
+      number of cannibals in a boat.
+      
+      (define-struct boat-load (nmissionaries ncannibals))
+      
+      possible boat loads:
+
+      (define BOAT-LOADS (list (make-boat-load 1 1)
+                               (make-boat-load 1 0)
+                               (make-boat-load 0 1)
+                               (make-boat-load 2 0)
+                               (make-boat-load 0 2)))
+
+      make-BOAT-LOADS should satisfy some constraints:
+      1. the total number of people adds up to no more than BOAT-CAPACITY.
+      2. the boat load does not have more cannibals than missionaries.
+
+      Basically what we want to do is iterate over all integers
+      possible and see if they satisfy these constraints. We can do
+      this structurally with an auxiliary function.
+
+      #+BEGIN_SRC scheme
+      ;; make-BOAT-LOADS : N[>=2] -> (listof boat-load)
+      ;; construct a list of all possible (legal) boat loads for the given
+      ;; boat capacity. 
+      (define (make-BOAT-LOADS capacity) ...)
+      (equal? (make-BOAT-LOADS 2)
+              (list (make-boat-load 1 1)
+                    (make-boat-load 1 0)
+                    (make-boat-load 0 1)
+                    (make-boat-load 2 0)
+                    (make-boat-load 0 2)))
+      #+END_SRC
+              
+      Our data definition is interesting because during actual
+      function execution we're interested in N[>=0], not N[>=2]. >=2
+      is a constraint on initial input values to make sure they're not
+      unusable. If you only had a capacity of one you'd never get
+      anything done, a capacity of 0 has no states. So we can, in order
+      to be super correct, then define make-boat-loads-aux, which does
+      the calculation:
+
+      #+BEGIN_SRC scheme
+      (define (make-BOAT-LOADS capacity)
+        (make-boat-loads-aux capacity))
+      ;; make-boat-loads-aux : N[>=0] -> (listof boat-load)
+      (define (make-boat-loads-aux cap) ...)
+      (equal? (make-boat-loads-aux 0) empty)
+      (equal? (make-boat-loads-aux 1) (list (make-boat-load 0 1)
+                                            (make-boat-load 1 0)))
+      #+END_SRC
+
+      This makes it much easier to think about.
+      
+      #+BEGIN_SRC scheme
+      (define (make-boat-loads-aux cap)
+        (cond
+          [(= 0 cap) ...]
+          [else ... (make-boat-loads-aux (sub1 cap)) ...]))      
+      #+END_SRC
+
+      From our example, we know 0 cap should be empty. Next, we need
+      to ensure that if make-boat-loads-aux returned a totally correct
+      list of boat loads for a capacity of one less than the current
+      capacity, we add all the correct boat loads for this
+      capacity. This means adding all boat loads that add up to
+      exactly capacity. 
+
+      These look like:
+
+      2 0
+      1 1
+      0 2
+
+      3 0
+      2 1
+      1 2
+      0 3
+
+      This needs an auxiliary function to generate a list of pairs of
+      numbers which add up to exactly some other given number, boat-loads-equal-to-n.
+
+      #+BEGIN_SRC scheme
+      (define (make-boat-loads-aux cap)
+        (cond
+          [(= 0 cap) empty]
+          [else (append
+                 (boat-loads-equal-to-n cap)
+                 (make-boat-loads-aux (sub1 cap))])))
+      #+END_SRC      
+
+      #+BEGIN_SRC scheme
+      ;; boat-loads-equal-to-n : N[>=1] -> (listof boat-load)
+      ;; construct a list of boat loads whose total occupants are all
+      ;; equal exactly to n.
+      (define (boat-loads-equal-to-n n) ...)
+      (equal? (boat-loads-equal-to-n 1)
+              (list (make-boat-load 0 1)
+                    (make-boat-load 1 0)))
+      (equal? (boat-loads-equal-to-n 2)
+              (list (make-boat-load 2 0)
+                    (make-boat-load 1 1)
+                    (make-boat-load 0 2)))
+      (equal? (boat-loads-equal-to-n 3)
+              (list (make-boat-load 3 0)
+                    (make-boat-load 2 1)
+                    (make-boat-load 1 2)
+                    (make-boat-load 0 3)))
+      #+END_SRC
+
+      There are a billion ways to get this done. We could try a
+      bare-bones, structurally-recursive definition.
+
+      #+BEGIN_SRC scheme
+      (define (boat-loads-equal-to-n n)
+        (cond
+          [(= n 1) ...]
+          [else ... (boat-loads-equal-to-n (sub1 n)) ...]))
+      #+END_SRC
+
+      If we want to stick to not using an accumulator, we see that the
+      base-case answer is (list (make-boat-load 0 1) (make-boat-load 1
+      0)). Then, to create a list whose elements all add up to n, when
+      the smaller list's elements all add up to n-1, we see that we
+      need to somehow add one to either side, and remove
+      duplicates. That is, each element on the list should have one
+      added to the missionaries and cannibals side, generating an
+      extra two elements. But this will generate some duplicates, and
+      these have to be removed.  
+
+      #+BEGIN_SRC scheme
+      (define (boat-loads-equal-to-n n)
+        (cond
+          [(= n 1) (list (make-boat-load 0 1) (make-boat-load 1 0))]
+          [else (unique (add-one-to-each-side
+                         (boat-loads-equal-to-n (sub1 n))))]))
+      #+END_SRC      
+
+      #+BEGIN_SRC scheme
+      ;; unique : (listof boat-load) -> (listof boat-load)
+      ;; return a-lob without any duplicates.
+      (define (unique a-lob) ...)
+     
+      (equal? (unique (list 1 2 1)) (list 1 2))
+      (equal? (unique (list 1 1 1)) (list 1))
+      (equal? (unique empty) empty)
+
+      ;; add-one-to-each-side : (listof boat-load) -> (listof boat-load)
+      ;; return a list of boat loads where each element
+      ;; of the input list re-appears as two, with one added to 
+      ;; each possible side.
+      (define (add-one-to-each-side a-lob) ...)
+
+      (equal? (add-one-to-each-side (list (make-boat-load 0 0)))
+              (list (make-boat-load 1 0) (make-boat-load 0 1)))
+      (equal? (add-one-to-each-side empty) empty)
+      (equal? (add-one-to-each-side (list (make-boat-load 0 1)
+                                          (make-boat-load 1 0)))
+              (list (make-boat-load 0 2) (make-boat-load 1 1)
+                    (make-boat-load 2 0) (make-boat-load 1 1)))
+      #+END_SRC
+      
+      #+BEGIN_SRC scheme
+      (define (unique alob) 
+        (cond
+          ((empty? alob) ...)
+          (else 
+           ... (unique (rest alob)) ...)))
+      #+END_SRC
+
+      If alob is empty, according to the examples, we return
+      empty. Otherwise, if unique works for the rest of the list, we
+      need to make sure that (first alob) is not in the result of
+      (unique (rest alob)). If not, we should cons it on and return
+      the result. Otherwise, we should just return (unique (rest
+      alob)), which already contains (first alob). So we need an
+      auxiliary function, contains?
+
+      ;; contains? boat-load (listof boat-load) -> true or false
+      ;; returns true if alob contains bl.
+      (define (contains? bl a-lob) ...)
+
+      #+BEGIN_SRC scheme
+      (define (unique alob) 
+        (cond
+          ((empty? alob) empty)
+          (else 
+           (local ((define unique-rest (unique (rest alob))))
+             (cond
+               [(contains? (first alob) unique-rest)
+                unique-rest]
+               [else (cons (first alob) unique-rest)])))))
+      #+END_SRC
+
+      Contains is a simple structural function:
+
+      #+BEGIN_SRC scheme
+      (define (contains? bl a-lob)
+        (cond ((empty? a-lob) false)
+              (else (or (equal? bl (first a-lob))
+                        (contains? bl (rest a-lob))))))
+      #+END_SRC
+
+      Now we need to define add-one-to-each-side.
+
+      #+BEGIN_SRC scheme
+      (define (add-one-to-each-side alob)
+        (cond
+         ((empty? alob) ...)
+         (else ... (add-one-to-each-side (rest alob)) ...)))
+      #+END_SRC
+
+      if the list is empty, return empty. Otherwise, to maintain our
+      contract, assuming the rest of the function works, we need to
+      take the first element of alob, and return the list returned by
+      add-one-to-each-side on the rest with two extra items, one with
+      1 added to the cannibal side, another with 1 added to the
+      missionary side.
+
+      #+BEGIN_SRC scheme
+      (define (add-one-to-each-side alob)
+        (cond
+         ((empty? alob) empty)
+         (else 
+          (local ((define bl (first alob))
+                  (define bl-add1-mside 
+                    (make-boat-load (+ 1 (boat-load-nmissionaries bl))
+                                    (boat-load-ncannibals bl)))
+                  (define bl-add1-cside
+                    (make-boat-load
+                     (boat-load-nmissionionaries bl)
+                     (+ 1 (boat-load-ncannibals bl)))))
+           (cons bl-add1-mside
+                 (cons bl-add1-cside
+                       (add-one-to-each-side (rest alob))))))))
+      #+END_SRC
+
+      These work, but we discover a mistake according to our
+      specifications, which is that boat loads with more cannibals
+      than missionaries are included. The simplest way to elminate
+      these is to use filter, in the make-BOAT-LOADS function after
+      the make-boat-loads-aux.
+
+      
+    One way to deal with search problems in a systematic manner is to
+    generate all possible successor states for the states we have
+    reached so far, to filter out the interesting ones, and to start
+    the search over from those. A successor state is reached by using
+    a feasible transition, for example, an enabled move in a game, a
+    boat trip, etc.
+
+    Here is a graphical illustration of the situation for our problem
+
+    | X O |   |   |
+    | X O |L  |   |
+    | X O |   |   |
+      
+     1.                  2.                    3.               4.              5.            
+    | X O | R | O |   | X O | R | O |   | X O | R | O X |   | X O | R | X |   | X O | R | X |
+    | X   |   | O |   | X O |   |   |   | X O |   |     |   | X O |   |   |   | O   |   | X |
+    | X   |   |   |   | X   |   |   |   |     |   |     |   | O   |   |   |   | O   |   |   |
+
+    For 3.
+    | X O | L |   |   | X O | L | O |   | X O | L | X |
+    | X O |   |   |   | X O |   |   |   | X O |   |   |
+    | X O |   |   |   | X   |   |   |   | O   |   |   | 
+
+    The initial state in the top row has five possible successor
+    states, one per feasible boat load. They are shown in the second
+    row. Two of these successor states are illegal, because one side
+    contains more cannibals than missionaries. One of the legal ones
+    is the state in which one missionary and cannibal reached the
+    right side of the river; it has three successor states in
+    turn. The following exercises deal with generating the successor
+    states and filtering out the interesting ones.
+
+    *testing*: Formulate all tests as boolean-valued expressions that
+    produce true if the expected value is the computed one, and false
+    if not.
+
+    - Exercise 32.2.3. Develop a function that consumes a state and
+      returns a list of all possible successor states, that is, all
+      those states that are reachable with one boat trip from one side
+      of the river to the other.
+
+      First, we clearly need a way to test values in lists and not
+      order, otherwise we'll be too prescriptive about algorithm
+      implementation.
+
+      ;; list-values-equal? : (listof X) (listof X) -> true or false
+      ;; list-values-equal? returns true if alox1 has all the same
+      ;; values as alox2 and also the same length.
+      (define (list-values-equal? alox1 alox2) ...)
+
+      (list-values-equal? (list 1 2) (list 2 1))
+      (list-values-equal? (list 1 2 3) (list 3 2 1))
+      (not (list-values-equal? (list 1 2 3) (list 1 1 2 3)))
+      (list-values-equal? (list 1 1 1) (list 1 1 1))
+      (not (list-values-equal? (list 1 1 1 1) (list 1 1)))
+
+      If we think about this before blindly diving in, we see that
+      alox1 and alox2 will satisfy the condition when:
+      1. the lengths are the same
+      2. all values in alox1 are present in alox2
+      3. all values in alox2 are present in alox1.
+
+      #+BEGIN_SRC scheme
+      (define (list-values-equal? alox1 alox2)
+        (and (= (length alox1) (length alox2))
+             (all-values-present? alox1 alox2)
+             (all-values-present? alox2 alox1)))
+      #+END_SRC
+ 
+      ;; all-values-present? : (listof X) (listof X) -> true or false
+      ;; true if all values in alox1 are contained in alox2.
+      (all-values-present? (list 1) (list 2 2 1))
+      (all-values-present? (list 1 2) (list 2 1))
+      (all-values-present? empty (list 1 2 3))
+      (not (all-values-present? (list 1 2) empty))
+      (not (all-values-present? (list 1 2 3 4 5) (list 1 2 3 4)))
+
+      Now we need to define all-values-present?. We already have a
+      contains? function (defined for boatloads, but we can just use
+      it for X by redefining the contract), so we only need to define
+      the structurally recursive all-values-present.
+
+      #+BEGIN_SRC scheme
+      (define (all-values-present? alox1 alox2)
+        (cond
+          [(empty? alox1) true]
+          [else (and (contains? (first alox1) alox2)
+                     (all-values-present? (rest alox1) alox2))]))
+      #+END_SRC
+
+      ;; contains? X (listof X) -> true or false
+      ;; returns true if x compares equal? to an element in alox.
+      (define (contains? x alox) ...)
+
+      (contains? 'x '(a b c d e f g x))
+      (not (contains? 'y '(a b c d e f g x)))
+
+      #+BEGIN_SRC scheme
+      (define (contains? x alox)
+        (cond ((empty? alox) false)
+              (else (or (equal? x (first alox)) (contains? x (rest alox))))))
+      #+END_SRC
+
+      Now, we can write tests for our states. 
+
+      We defined a state as a structure:
+
+      (make-rcs (make-rss nm nc) bs (make-rss nm nc))
+      
+      So, a state generation function should consume this structure,
+      and produce a list of structures. This is a generative problem,
+      since it is governed by outside rules besides just how the data
+      is structured. Specifically, we need to construct states which
+      involve moving a single boatload of missionaries/cannibals
+      across the river from the side the boat is at. So our first
+      function should be next-state-after-boatload. 
+
+      ;; next-state-after-boatload : rcs boatload -> rcs
+      ;; move the boat to the other side of the river with
+      ;; the boatload bl, return that state.
+      (define (next-state-after-boatload arcs abl) ...)
+
+      (equal? (next-state-after-boatload (make-rcs 
+                                          (make-rss 3 3) 
+                                          'left
+                                          (make-rss 0 0))
+                                         (make-boatload 1 1))
+              (make-rcs (make-rss 2 2) 'right (make-rss 1 1)))
+      (equal? (next-state-after-boatload 
+               (make-rcs
+                (make-rss 3 2)
+                'right
+                (make-rss 0 1))
+               (make-boatload 0 1))
+               (make-rcs (make-rss 3 3) 'left (make-rss 0 0)))
+      (equal? (next-state-after-boatload
+               (make-rcs
+                (make-rss 1 1)
+                'left
+                (make-rss 2 2)))
+              (make-rcs (make-rss 0 0) 'right (make-rss 3 3)))
+
+      Given these examples, it becomes quite easy. We can use a
+      general structure decomposition template:
+
+      #+BEGIN_SRC scheme
+      (define (next-state-after-boatload arcs abl)
+        ... (rcs-lhs arcs) ...
+        ... (rcs-rhs arcs) ...
+        ... (rcs-boatside arcs) ...
+        ... (boat-load-nmissionaries arcs) ...
+        ... (boat-load-ncannibals arcs) ...)
+      #+END_SRC
+
+      We want to see if the boat is on the left, or right hand
+      side. If it's on the left, we subtract move the boat left,
+      otherwise right.
+
+      #+BEGIN_SRC scheme
+      (define (next-state-after-boatload arcs abl)
+        (cond 
+         ((symbol=? (rcs-boatside arcs) 'right)
+          (move-boat-left arcs abl))
+         (else (move-boat-right arcs abl))))
+      #+END_SRC
+               
+      If we move the boat right, we should subtract from the right
+      hand side and add on the left:
+
+      #+BEGIN_SRC scheme
+      (define (move-boat-right arcs abl)
+        ... (rcs-lhs arcs) ...
+        ... (rcs-rhs arcs) ...
+        ... (boat-load-nmissionaries arcs) ...
+        ... (boat-load-ncannibals arcs) ...)
+      #+END_SRC
+
+      We actually need to further decompose the rcs structure, but the
+      definition is easy:
+      
+      #+BEGIN_SRC scheme
+      (define (move-boat-right arcs abl)
+        (make-rcs
+         (make-rss
+          (- (rss-nmissionaries (rcs-lhs arcs))
+             (boat-load-nmissionaries abl))
+          (- (rss-ncannibals (rcs-lhs arcs))
+             (boat-load-cannibals abl)))
+         'right
+        (make-rss
+         (+ (rss-nmissionaries (rcs-rhs arcs))
+            (boat-load-nmissionaries abl))
+         (+ (rss-ncannibals (rcs-rhs arcs))
+            (boat-load-ncannibals abl)))))
+      #+END_SRC
+
+      The definition for moving right is the same, more or less:
+
+      #+BEGIN_SRC scheme
+      (define (move-boat-left arcs abl)
+        (make-rcs
+         (make-rss
+          (+ (rss-nmissionaries (rcs-lhs arcs))
+             (boat-load-nmissionaries abl))
+          (+ (rss-ncannibals (rcs-lhs arcs))
+             (boat-load-cannibals abl)))
+         'left
+        (make-rss
+         (- (rss-nmissionaries (rcs-rhs arcs))
+            (boat-load-nmissionaries abl))
+         (- (rss-ncannibals (rcs-rhs arcs))
+            (boat-load-ncannibals abl)))))
+      #+END_SRC
+
+      We should abstract the functions. The differences are the
+      operators and the symbol involved, so we pass those as
+      parameters:
+
+      #+BEGIN_SRC scheme
+      (define (move-boat-abstract arcs abl newside lhs-oper rhs-oper)
+        (make-rcs
+         (make-rss
+          (lhs-oper (rss-nmissionaries (rcs-lhs arcs))
+                    (boat-load-nmissionaries abl))
+          (lhs-oper (rss-ncannibals (rcs-lhs arcs))
+                    (boat-load-ncannibals abl)))
+         newside
+         (make-rss
+          (rhs-oper (rss-nmissionaries (rcs-rhs arcs))
+                    (boat-load-nmissionaries abl))
+          (lhs-oper (rss-nmisionaries (rcs-rhs arcs))
+                    (boat-load-ncannibals abl)))))
+      (define (move-boat-right arcs abl)
+        (move-boat-abstract arcs abl 'right - +))
+      (defne (move-boat-left arcs abl)
+        (move-boat-abstract arcs abl 'left + -))
+      #+END_SRC
+
+      okay. Now, all we need to do do generate a list of successor
+      states for any given state is generate a state for each boatload
+      that doesn't give us a negative number on either side. We should
+      have a predicate:
+
+      boat-load-possible?
+
+      which indicates that a boat load can happen without leaving a
+      negative number on either bank. 
