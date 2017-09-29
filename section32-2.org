@@ -3090,9 +3090,9 @@
 
       #+BEGIN_SRC scheme
       (define (list-values-equal? alox1 alox2)
-        (and (= (length alox1) (length alox2))
-             (all-values-present? alox1 alox2)
-             (all-values-present? alox2 alox1)))
+      (and (= (length alox1) (length alox2))
+      (all-values-present? alox1 alox2)
+      (all-values-present? alox2 alox1)))
       #+END_SRC
  
       ;; all-values-present? : (listof X) (listof X) -> true or false
@@ -3110,10 +3110,10 @@
 
       #+BEGIN_SRC scheme
       (define (all-values-present? alox1 alox2)
-        (cond
-          [(empty? alox1) true]
-          [else (and (contains? (first alox1) alox2)
-                     (all-values-present? (rest alox1) alox2))]))
+      (cond
+      [(empty? alox1) true]
+      [else (and (contains? (first alox1) alox2)
+      (all-values-present? (rest alox1) alox2))]))
       #+END_SRC
 
       ;; contains? X (listof X) -> true or false
@@ -3125,8 +3125,8 @@
 
       #+BEGIN_SRC scheme
       (define (contains? x alox)
-        (cond ((empty? alox) false)
-              (else (or (equal? x (first alox)) (contains? x (rest alox))))))
+      (cond ((empty? alox) false)
+      (else (or (equal? x (first alox)) (contains? x (rest alox))))))
       #+END_SRC
 
       Now, we can write tests for our states. 
@@ -3149,35 +3149,35 @@
       (define (next-state-after-boatload arcs abl) ...)
 
       (equal? (next-state-after-boatload (make-rcs 
-                                          (make-rss 3 3) 
-                                          'left
-                                          (make-rss 0 0))
-                                         (make-boatload 1 1))
-              (make-rcs (make-rss 2 2) 'right (make-rss 1 1)))
+      (make-rss 3 3) 
+      'left
+      (make-rss 0 0))
+      (make-boatload 1 1))
+      (make-rcs (make-rss 2 2) 'right (make-rss 1 1)))
       (equal? (next-state-after-boatload 
-               (make-rcs
-                (make-rss 3 2)
-                'right
-                (make-rss 0 1))
-               (make-boatload 0 1))
-               (make-rcs (make-rss 3 3) 'left (make-rss 0 0)))
+      (make-rcs
+      (make-rss 3 2)
+      'right
+      (make-rss 0 1))
+      (make-boatload 0 1))
+      (make-rcs (make-rss 3 3) 'left (make-rss 0 0)))
       (equal? (next-state-after-boatload
-               (make-rcs
-                (make-rss 1 1)
-                'left
-                (make-rss 2 2)))
-              (make-rcs (make-rss 0 0) 'right (make-rss 3 3)))
+      (make-rcs
+      (make-rss 1 1)
+      'left
+      (make-rss 2 2)))
+      (make-rcs (make-rss 0 0) 'right (make-rss 3 3)))
 
       Given these examples, it becomes quite easy. We can use a
       general structure decomposition template:
 
       #+BEGIN_SRC scheme
       (define (next-state-after-boatload arcs abl)
-        ... (rcs-lhs arcs) ...
-        ... (rcs-rhs arcs) ...
-        ... (rcs-boatside arcs) ...
-        ... (boat-load-nmissionaries arcs) ...
-        ... (boat-load-ncannibals arcs) ...)
+      ... (rcs-lhs arcs) ...
+      ... (rcs-rhs arcs) ...
+      ... (rcs-boatside arcs) ...
+      ... (boat-load-nmissionaries arcs) ...
+      ... (boat-load-ncannibals arcs) ...)
       #+END_SRC
 
       We want to see if the boat is on the left, or right hand
@@ -3186,10 +3186,10 @@
 
       #+BEGIN_SRC scheme
       (define (next-state-after-boatload arcs abl)
-        (cond 
-         ((symbol=? (rcs-boatside arcs) 'right)
-          (move-boat-left arcs abl))
-         (else (move-boat-right arcs abl))))
+      (cond 
+      ((symbol=? (rcs-boatside arcs) 'right)
+      (move-boat-left arcs abl))
+      (else (move-boat-right arcs abl))))
       #+END_SRC
                
       If we move the boat right, we should subtract from the right
@@ -3197,10 +3197,10 @@
 
       #+BEGIN_SRC scheme
       (define (move-boat-right arcs abl)
-        ... (rcs-lhs arcs) ...
-        ... (rcs-rhs arcs) ...
-        ... (boat-load-nmissionaries arcs) ...
-        ... (boat-load-ncannibals arcs) ...)
+      ... (rcs-lhs arcs) ...
+      ... (rcs-rhs arcs) ...
+      ... (boat-load-nmissionaries arcs) ...
+      ... (boat-load-ncannibals arcs) ...)
       #+END_SRC
 
       We actually need to further decompose the rcs structure, but the
@@ -3208,36 +3208,36 @@
       
       #+BEGIN_SRC scheme
       (define (move-boat-right arcs abl)
-        (make-rcs
-         (make-rss
-          (- (rss-nmissionaries (rcs-lhs arcs))
-             (boat-load-nmissionaries abl))
-          (- (rss-ncannibals (rcs-lhs arcs))
-             (boat-load-cannibals abl)))
-         'right
-        (make-rss
-         (+ (rss-nmissionaries (rcs-rhs arcs))
-            (boat-load-nmissionaries abl))
-         (+ (rss-ncannibals (rcs-rhs arcs))
-            (boat-load-ncannibals abl)))))
+      (make-rcs
+      (make-rss
+      (- (rss-nmissionaries (rcs-lhs arcs))
+      (boat-load-nmissionaries abl))
+      (- (rss-ncannibals (rcs-lhs arcs))
+      (boat-load-cannibals abl)))
+      'right
+      (make-rss
+      (+ (rss-nmissionaries (rcs-rhs arcs))
+      (boat-load-nmissionaries abl))
+      (+ (rss-ncannibals (rcs-rhs arcs))
+      (boat-load-ncannibals abl)))))
       #+END_SRC
 
       The definition for moving right is the same, more or less:
 
       #+BEGIN_SRC scheme
       (define (move-boat-left arcs abl)
-        (make-rcs
-         (make-rss
-          (+ (rss-nmissionaries (rcs-lhs arcs))
-             (boat-load-nmissionaries abl))
-          (+ (rss-ncannibals (rcs-lhs arcs))
-             (boat-load-cannibals abl)))
-         'left
-        (make-rss
-         (- (rss-nmissionaries (rcs-rhs arcs))
-            (boat-load-nmissionaries abl))
-         (- (rss-ncannibals (rcs-rhs arcs))
-            (boat-load-ncannibals abl)))))
+      (make-rcs
+      (make-rss
+      (+ (rss-nmissionaries (rcs-lhs arcs))
+      (boat-load-nmissionaries abl))
+      (+ (rss-ncannibals (rcs-lhs arcs))
+      (boat-load-cannibals abl)))
+      'left
+      (make-rss
+      (- (rss-nmissionaries (rcs-rhs arcs))
+      (boat-load-nmissionaries abl))
+      (- (rss-ncannibals (rcs-rhs arcs))
+      (boat-load-ncannibals abl)))))
       #+END_SRC
 
       We should abstract the functions. The differences are the
@@ -3246,22 +3246,22 @@
 
       #+BEGIN_SRC scheme
       (define (move-boat-abstract arcs abl newside lhs-oper rhs-oper)
-        (make-rcs
-         (make-rss
-          (lhs-oper (rss-nmissionaries (rcs-lhs arcs))
-                    (boat-load-nmissionaries abl))
-          (lhs-oper (rss-ncannibals (rcs-lhs arcs))
-                    (boat-load-ncannibals abl)))
-         newside
-         (make-rss
-          (rhs-oper (rss-nmissionaries (rcs-rhs arcs))
-                    (boat-load-nmissionaries abl))
-          (lhs-oper (rss-nmisionaries (rcs-rhs arcs))
-                    (boat-load-ncannibals abl)))))
+      (make-rcs
+      (make-rss
+      (lhs-oper (rss-nmissionaries (rcs-lhs arcs))
+      (boat-load-nmissionaries abl))
+      (lhs-oper (rss-ncannibals (rcs-lhs arcs))
+      (boat-load-ncannibals abl)))
+      newside
+      (make-rss
+      (rhs-oper (rss-nmissionaries (rcs-rhs arcs))
+      (boat-load-nmissionaries abl))
+      (lhs-oper (rss-nmisionaries (rcs-rhs arcs))
+      (boat-load-ncannibals abl)))))
       (define (move-boat-right arcs abl)
-        (move-boat-abstract arcs abl 'right - +))
+      (move-boat-abstract arcs abl 'right - +))
       (defne (move-boat-left arcs abl)
-        (move-boat-abstract arcs abl 'left + -))
+      (move-boat-abstract arcs abl 'left + -))
       #+END_SRC
 
       okay. Now, all we need to do do generate a list of successor
@@ -3273,3 +3273,224 @@
 
       which indicates that a boat load can happen without leaving a
       negative number on either bank. 
+
+      #+BEGIN_SRC scheme
+      ;; boat-load-possible? river-crossing-state boat-load -> true or  false
+      ;; returns true if it is possible to take boat-load a-bl across
+      ;; the river in state a-rcs.
+      (define (boat-load-possible? a-rcs a-bl) ...)
+
+      (boat-load-possible?
+      (make-rcs (make-rss 1 1) 'left (make-rss 1 1))
+      (make-boat-load 1 1))
+      (not (boat-load-possible?
+      (make-rcs (make-rss 1 0) 'left (make-rss 1 2))
+      (make-boat-load 1 1)))
+      (define (boat-load-possible? a-rcs a-bl)
+      (no-negatives? (next-state-after-boatload a-rcs a-bl)))
+
+      ;; no-negatives? river-crossing-state -> true or false
+      ;; true if none of the values are less than zero for the crossing state, 
+      ;; i.e. there are not a negative number of missionaries or cannibals.
+      (define (no-negatives? a-rcs)
+      (local ((define lhs (rcs-lhs a-rcs))
+      (define rhs (rcs-rhs a-rcs)))
+      (and (>= (rss-ncannibals lhs) 0)
+      (>= (rss-nmissionaries lhs) 0)
+      (>= (rss-ncannibals rhs) 0)
+      (>= (rss-nmissionaries rhs) 0))))
+      #+END_SRC
+
+      Now we can define possible-states, which consumes only a
+      river-crossing-state, and returns a list of possible states, the
+      BOAT-CAPACITY will be a program-wide parameter we make use
+      of. We will want the boat loads though as a list, so we'll
+      define an auxiliary function to do the real work.
+
+      #+BEGIN_SRC scheme
+      (define (possible-states a-rcs)
+      (possible-states-aux a-rcs (make-BOAT-LOADS BOAT-CAPACITY)))
+      #+END_SRC
+
+      But really, we'll just be doing a kind of filter-map. First
+      we'll filter the possible boatloads, and then map next-state
+      onto these.
+
+      Tests:
+      #+BEGIN_SRC scheme
+      ;; possible-states : river-crossing-state -> (listof river-crossing-state)
+      ;; give a list of states possible with a single boat load from the current
+      ;; state, a-rcs.
+      (define rcs1 (make-rcs (make-rss 1 1) 'left (make-rss 1 1)))
+      (define rcs-next1 
+      (list (make-rcs (make-rss 0 0) 'right (make-rss 2 2))
+      (make-rcs (make-rss 1 0) 'right (make-rss 1 2))
+      (make-rcs (make-rss 0 1) 'right (make-rss 2 1))))
+      (define rcs2 (make-rcs (make-rss 2 2) 'left (make-rss 0 0)))
+      (define rcs-next2
+      (list (make-rcs (make-rss 0 2) 'right (make-rss 2 0))
+      (make-rcs (make-rss 2 1) 'right (make-rss 0 1))
+      (make-rcs (make-rss 1 2) 'right (make-rss 1 0))
+      (make-rcs (make-rss 1 1) 'right (make-rss 1 1))))
+      (values-equal? 
+      (possible-states rcs1) rcs-next1)
+      (values-equal?
+      (possible-states rcs2) rcs-next2)
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (possible-states a-rcs)
+      (map (lambda (boatload)
+      (next-state-after-boatload a-rcs boatload))
+      (filter (lambda (boatload)
+      (boat-load-possible? a-rcs boatload))
+      (make-BOAT-LOADS BOAT-CAPACITY))))
+      #+END_SRC
+      
+      Now, to determine if a state is legal there must be at least the
+      same number of missionaries as of cannibals on either side (or 0
+      missionaries and any number of cannibals), and the number of
+      missionaries and cannibals has to add up to the initial number
+      for each. This is just a calculation.
+
+      #+BEGIN_SRC scheme
+      ;; state-legal? : river-crossing-state -> true or false
+      ;; returns true if the state is a legal state, 
+      ;; e.g. the cannibals will not eat the missionaries.
+      (define (state-legal? a-rcs) ...)
+
+      (state-legal? (make-rcs (make-rss 2 2) 'left (make-rss 0 0)))
+      (state-legal? (make-rcs (make-rss 1 1) 'right (make-rss 1 1)))
+      (not (state-legal? (make-rcs (make-rss 1 2) 'right (make-rss 1 0))))
+      (not (state-legal? (make-rcs (make-rss 1 0) 'right (make-rss 2 1))))
+      #+END_SRC
+
+      #+BEGIN_SRC scheme
+      (define (state-legal? a-rcs)
+      (local ((define lhs-nc (rss-ncannibals (rcs-lhs a-rcs)))
+      (define lhs-nm (rss-nmissionaries (rcs-lhs a-rcs)))
+      (define rhs-nc (rss-ncannibals (rcs-rhs a-rcs)))
+      (define rhs-nm (rss-nmissionaries (rcs-rhs a-rcs))))
+      (and (or (>= lhs-nm lhs-nc) (= lhs-nm 0))
+      (or (>= rhs-nm rhs-nc) (= rhs-nm 0))
+      (>= 0 rhs-nm)
+      (>= 0 lhs-nm)
+      (>= 0 rhs-nc)
+      (>= 0 lhs-nc))))
+      #+END_SRC
+
+      Now we need a function that determines if the sate is final.
+
+      ;; final-state? river-crossing-state -> true or false
+      ;; returns true if the rcs is in the final state,
+      ;; which we defined as everyone having crossed the river.
+      (define (final-state? a-rcs) ...)
+
+      (final-state? (make-rcs (make-rss 0 0) 'right (make-rss 3 3)))
+      (not (final-state? (make-rcs (make-rss 1 1) 'right (make-rss 2
+      2))))
+      (not (final-state? (make-rcs (make-rss 3 3) 'right (make-rss 0
+      0))))
+      
+      #+BEGIN_SRC scheme
+      (define (final-state? a-rcs)
+      (local ((define lhs-nc (rss-ncannibals (rcs-lhs a-rcs)))
+      (define rhs-nc (rss-ncannibals (rcs-rhs a-rcs)))
+      (define lhs-nm (rss-nmissionaries (rcs-lhs a-rcs)))
+      (define rhs-nm (rss-nmissionaries (rcs-rhs a-rcs))))
+      (and (= rhs-nm rhs-nc MC)
+      (= lhs-nm lhs-nc 0)
+      (symbol=? (rcs-boatside a-rcs) 'right))))
+      #+END_SRC
+
+    - Exercise 32.2.6. Develop mc-solvable?, which consumes a list of
+      states and generates the list of all successor states until it
+      has found a final state. The function should simply produce true
+      when it finds a final state.
+
+      #+BEGIN_SRC scheme
+      ;; mc-solvable? (listof river-crossing-state) -> true or false
+      ;; determine if a list of states has any successor states
+      ;; that are a solution to the problem.
+      
+      (mc-solvable? (list (make-rcs (make-rss 1 1) 'left (make-rss 2 2))))
+      (mc-solvable? (list (make-rcs (make-rss 0 1) 'left (make-rss 3 2))))
+      (mc-solvable? (list (make-rcs (make-rss 0 0) 'right (make-rss 3 3))))
+      (not (mc-solvable? (list (make-rcs (make-rss 2 2) 'left (make-rss 1 1)))))
+      #+END_SRC
+
+      We know we've solved a state when a generated successor state is
+      true. It is a generatively recursive problem.
+
+      1. trivial solution - when a member of the list of states is a final-solution?
+      2. Return value - true
+      3. Smaller problem - states closer to the goal
+      4. generation - generate the sates using possible-states on each
+         state in the list, appending them. 
+      5. combination - use or to tell if any of the possible
+         successor-states was a solvable state.
+      6. Termination - it may not terminate, really. We aren't in any
+         guaranteed way making the problem smaller.
+
+      #+BEGIN_SRC scheme
+      (define (mc-solvable? lorcs)
+        (cond
+          [(any-final? lorcs) ...]
+          [else
+           ... (mc-solvable? subproblem-1) ...]))
+           ... (mc-solvable? subproblem-n) ...]))
+      #+END_SRC
+
+      any-final? just does an ormap over the solutions and returns
+      true if one is solvable?.
+
+      #+BEGIN_SRC scheme
+      (define (any-final? lorcs)
+        (ormap final-state? lorcs))
+      #+END_SRC
+      
+      To generate the subproblems, we can ormap mc-solvable onto each
+      generated subproblem, which would be generated by using
+      possible-states filtered with state-legal?.
+
+      #+BEGIN_SRC scheme
+      (define (mc-solvable? lorcs)
+        (cond
+          [(any-final? lorcs) true]
+          [else (local ((define (mc-solvable-nextstates lorcs)
+                          (cond 
+                            [(empty? lorcs) false]
+                            [else (or (mc-solvable? 
+                                       (filter state-legal?
+                                               (possible-states (first lorcs))))
+                                      (mc-solvable-nextstates (rest lorcs)))])))
+                  (mc-solvable-nextstates lorcs))]))
+      #+END_SRC
+
+      The algorithm doesn't terminate for all tests. This is because
+      it's re-visiting some states after not finding a solution. 
+
+      We need a way to know if we've visited a state before, which is
+      where an accumulator will come in handy. 
+
+      #+BEGIN_SRC scheme
+      (define (mc-solvable? lorcs0)
+        (local (; accumulator: all states that have been seen by a
+                ; recursive call. 
+                (define (mc-solvable-a? lorcs accumulator)
+                  (cond
+                    [(any-final? lorcs) true]
+                    [else (local ((define (mc-solvable-nextstates lorcs)
+                                    (cond 
+                                      [(empty? lorcs) false]
+                                      [(contains? (first lorcs) accumulator)
+                                       (mc-solvable-nextstates (rest lorcs))]
+                                      [else (or (mc-solvable? 
+                                                 (filter state-legal?
+                                                         (possible-states
+                                                          (first lorcs)))
+                                                  (cons (first lorcs) accumulator))
+                                                (mc-solvable-nextstates (rest lorcs)))])))
+                            (mc-solvable-nextstates lorcs))])))
+             (mc-solvable-a? lorcs0 empty)))
+      #+END_SRC
